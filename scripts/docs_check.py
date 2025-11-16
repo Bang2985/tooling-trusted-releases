@@ -39,6 +39,13 @@ class Heading(NamedTuple):
     anchor: str
 
 
+class RefLink(NamedTuple):
+    source_file: str
+    line_number: int
+    text: str
+    target: str
+
+
 # TODO: Should think more about whether scripts should use the _ convention or not
 # The rationale for using it is that then we can port to non-script code more easily
 # But for scripts *per se*, it does not make sense
@@ -46,6 +53,7 @@ class Heading(NamedTuple):
 
 _LINK_PATTERN: Final = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
 _HEADING_PATTERN: Final = re.compile(r"^#+\s+(.+)$")
+_REF_LINK_PATTERN: Final = re.compile(r"\[([^\]]+)\]\(/ref/([^)]+)\)")
 
 
 def _extract_links(file_path: pathlib.Path) -> list[Link]:
@@ -86,6 +94,24 @@ def _extract_headings(file_path: pathlib.Path) -> list[Heading]:
             headings.append(Heading(text, anchor))
 
     return headings
+
+
+def _extract_ref_links(file_path: pathlib.Path) -> list[RefLink]:
+    content = file_path.read_text(encoding="utf-8")
+    lines = content.splitlines()
+    links = []
+
+    for line_number, line in enumerate(lines, start=1):
+        for match in _REF_LINK_PATTERN.finditer(line):
+            text = match.group(1)
+            target = match.group(2)
+
+            if ":" in target:
+                target = target.split(":", 1)[0]
+
+            links.append(RefLink(file_path.name, line_number, text, target))
+
+    return links
 
 
 def _validate_links(docs_dir: pathlib.Path, all_links: list[Link]) -> list[str]:
@@ -130,6 +156,17 @@ def _validate_links(docs_dir: pathlib.Path, all_links: list[Link]) -> list[str]:
     return errors
 
 
+def _validate_ref_links(project_root: pathlib.Path, all_ref_links: list[RefLink]) -> list[str]:
+    errors = []
+
+    for link in all_ref_links:
+        file_path = project_root / link.target
+        if not file_path.exists():
+            errors.append(f"{link.source_file}:{link.line_number}: Ref link to non-existent file '/ref/{link.target}'")
+
+    return errors
+
+
 def main() -> None:
     docs_dir = pathlib.Path("atr/docs")
 
@@ -137,12 +174,18 @@ def main() -> None:
         print(f"Error: {docs_dir} not found", file=sys.stderr)
         sys.exit(1)
 
+    project_root = docs_dir.parent.parent
+
     all_links = []
+    all_ref_links = []
     for md_file in docs_dir.glob("*.md"):
         links = _extract_links(md_file)
         all_links.extend(links)
+        ref_links = _extract_ref_links(md_file)
+        all_ref_links.extend(ref_links)
 
     errors = _validate_links(docs_dir, all_links)
+    errors.extend(_validate_ref_links(project_root, all_ref_links))
 
     if errors:
         print("Documentation link validation errors:\n", file=sys.stderr)
@@ -152,6 +195,7 @@ def main() -> None:
         sys.exit(1)
 
     print(f"Validated {len(all_links)} links across {len(list(docs_dir.glob('*.md')))} files")
+    print(f"Validated {len(all_ref_links)} ref links")
     print("All links are valid")
 
 

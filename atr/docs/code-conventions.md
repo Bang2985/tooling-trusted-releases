@@ -311,7 +311,7 @@ a or b and c == d or not e or f
 (a or b) and (c == d) or (not e) or f
 ```
 
-Because `f` is not a complex expression, it does not get parenthesised. Also because this rule is about subexpressions only, we do not put parethenses around the top level.
+Because `f` is not a complex expression, it does not get parenthesised. Also because this rule is about subexpressions only, we do not put parentheses around the top level.
 
 ```python
 # Avoid
