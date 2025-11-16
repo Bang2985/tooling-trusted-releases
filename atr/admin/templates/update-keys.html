@@ -85,11 +85,7 @@
 
   <div id="status"></div>
 
-  <form action="javascript:submitForm().then(_ => { return false; })">
-    {{ empty_form.hidden_tag() }}
-
-    <button type="submit" id="submitButton">Update keys</button>
-  </form>
+  {{ empty_form }}
 
   {% if previous_output %}
     <h2>Previous output</h2>
@@ -97,40 +93,46 @@
   {% endif %}
 
   <script>
-    const submitForm = async () => {
-      const button = document.getElementById("submitButton");
-      button.disabled = true;
-      document.body.style.cursor = "wait";
+    document.addEventListener('DOMContentLoaded', () => {
+      const form = document.querySelector('form');
+      const button = form.querySelector('button[type="submit"]');
 
-      const statusElement = document.getElementById("status");
-      while (statusElement.firstChild) {
-        statusElement.firstChild.remove();
-      }
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
 
-      const csrfToken = document.querySelector("input[name='csrf_token']").value;
+        button.disabled = true;
+        document.body.style.cursor = "wait";
 
-      try {
-          const response = await fetch(window.location.href, {
-              method: "POST",
-              headers: {
-                  "X-CSRFToken": csrfToken
-              }
-          });
+        const statusElement = document.getElementById("status");
+        while (statusElement.firstChild) {
+          statusElement.firstChild.remove();
+        }
 
-          if (!response.ok) {
-              addStatusMessage(statusElement, "Could not make network request", "error");
-              return
-          }
+        const csrfToken = document.querySelector("input[name='csrf_token']").value;
 
-          const data = await response.json();
-          addStatusMessage(statusElement, data.message, data.category)
-      } catch (error) {
-          addStatusMessage(statusElement, error, "error")
-      } finally {
-        button.disabled = false;
-        document.body.style.cursor = "default";
-      }
-    };
+        try {
+            const response = await fetch(window.location.href, {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": csrfToken
+                }
+            });
+
+            if (!response.ok) {
+                addStatusMessage(statusElement, "Could not make network request", "error");
+                return
+            }
+
+            const data = await response.json();
+            addStatusMessage(statusElement, data.message, data.category)
+        } catch (error) {
+            addStatusMessage(statusElement, error, "error")
+        } finally {
+          button.disabled = false;
+          document.body.style.cursor = "default";
+        }
+      });
+    });
 
     function addStatusMessage(parentElement, message, category) {
       const divElement = document.createElement("div");

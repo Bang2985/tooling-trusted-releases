@@ -38,6 +38,7 @@ import atr.config as config
 import atr.datasources.apache as apache
 import atr.db as db
 import atr.db.interaction as interaction
+import atr.form as form
 import atr.forms as forms
 import atr.get as get
 import atr.ldap as ldap
@@ -57,15 +58,8 @@ import atr.web as web
 ROUTES_MODULE: Final[Literal[True]] = True
 
 
-class BrowseAsUserForm(forms.Typed):
-    """Form for browsing as another user."""
-
-    uid = forms.string("ASF UID", placeholder="Enter the ASF UID to browse as")
-    submit = forms.submit("Browse as this user")
-
-
-class CheckKeysForm(forms.Typed):
-    submit = forms.submit("Check public signing key details")
+class BrowseAsUserForm(form.Form):
+    uid: str = form.label("ASF UID", "Enter the ASF UID to browse as.")
 
 
 class DeleteCommitteeKeysForm(forms.Typed):
@@ -90,18 +84,10 @@ class DeleteReleaseForm(forms.Typed):
     submit = forms.submit("Delete selected releases permanently")
 
 
-class DeleteTestKeysForm(forms.Typed):
-    submit = forms.submit("Delete all OpenPGP keys for test user")
-
-
 class LdapLookupForm(forms.Typed):
     uid = forms.optional("ASF UID (optional)", placeholder="Enter ASF UID, e.g. johnsmith, or * for all")
     email = forms.optional("Email address (optional)", placeholder="Enter email address, e.g. user@example.org")
     submit = forms.submit("Lookup")
-
-
-class RegenerateKeysForm(forms.Typed):
-    submit = forms.submit("Regenerate all KEYS files")
 
 
 @admin.get("/all-releases")
@@ -114,24 +100,22 @@ async def all_releases(session: web.Committer) -> str:
 
 @admin.get("/browse-as")
 async def browse_as_get(session: web.Committer) -> str | web.WerkzeugResponse:
-    return await _browse_as(session)
+    """Allows an admin to browse as another user."""
+    rendered_form = form.render(
+        model_cls=BrowseAsUserForm,
+        submit_label="Browse as this user",
+    )
+    return await template.render("browse-as.html", form=rendered_form)
 
 
 @admin.post("/browse-as")
-async def browse_as_post(session: web.Committer) -> str | web.WerkzeugResponse:
-    return await _browse_as(session)
-
-
-async def _browse_as(session: web.Committer) -> str | web.WerkzeugResponse:
+@admin.form(BrowseAsUserForm)
+async def browse_as_post(session: web.Committer, browse_form: BrowseAsUserForm) -> str | web.WerkzeugResponse:
     """Allows an admin to browse as another user."""
     # TODO: Enable this in debugging mode only?
     import atr.get.root as root
 
-    form = await BrowseAsUserForm.create_form()
-    if not (await form.validate_on_submit()):
-        return await template.render("browse-as.html", form=form)
-
-    new_uid = str(util.unwrap(form.uid.data))
+    new_uid = browse_form.uid
     if not (current_session := await asfquart.session.read()):
         raise base.ASFQuartException("Not authenticated", 401)
 
@@ -299,29 +283,40 @@ async def _data(session: web.Committer, model: str = "Committee") -> str:
 
 @admin.get("/delete-test-openpgp-keys")
 async def delete_test_openpgp_keys_get(session: web.Committer) -> web.Response:
+    """Display form to delete test user OpenPGP keys."""
     if not config.get().ALLOW_TESTS:
         raise base.ASFQuartException("Test operations are disabled in this environment", errorcode=403)
 
-    delete_form = await DeleteTestKeysForm.create_form()
-    rendered_form = forms.render_simple(delete_form, action="")
+    rendered_form = form.render(
+        model_cls=form.Empty,
+        submit_label="Delete all OpenPGP keys for test user",
+        empty=True,
+    )
     return web.ElementResponse(rendered_form)
 
 
 @admin.post("/delete-test-openpgp-keys")
+@admin.empty()
 async def delete_test_openpgp_keys_post(session: web.Committer) -> web.Response:
     """Delete all test user OpenPGP keys and their links."""
     if not config.get().ALLOW_TESTS:
         raise base.ASFQuartException("Test operations are disabled in this environment", errorcode=403)
 
     test_uid = "test"
-    delete_form = await DeleteTestKeysForm.create_form()
-    if not await delete_form.validate_on_submit():
-        raise base.ASFQuartException("Invalid form submission. Please check your input and try again.", errorcode=400)
+    try:
+        async with storage.write() as write:
+            wafc = write.as_foundation_committer()
+            delete_outcome = await wafc.keys.test_user_delete_all(test_uid)
+            deleted_count = delete_outcome.result_or_raise()
 
-    async with storage.write() as write:
-        wafc = write.as_foundation_committer()
-        outcome = await wafc.keys.test_user_delete_all(test_uid)
-        outcome.result_or_raise()
+        suffix = "s" if deleted_count != 1 else ""
+        await quart.flash(
+            f"Successfully deleted {deleted_count} OpenPGP key{suffix} and their associated links for test user.",
+            "success",
+        )
+    except Exception as e:
+        log.exception("Error deleting test user keys:")
+        await quart.flash(f"Error deleting test user keys: {e!s}", "error")
 
     return await session.redirect(get.keys.keys)
 
@@ -437,21 +432,18 @@ async def env(session: web.Committer) -> web.QuartResponse:
 
 @admin.get("/keys/check")
 async def keys_check_get(session: web.Committer) -> web.QuartResponse:
-    return await _keys_check(session)
+    """Check public signing key details."""
+    rendered_form = form.render(
+        model_cls=form.Empty,
+        submit_label="Check public signing key details",
+        empty=True,
+    )
+    return web.ElementResponse(rendered_form)
 
 
 @admin.post("/keys/check")
 async def keys_check_post(session: web.Committer) -> web.QuartResponse:
-    return await _keys_check(session)
-
-
-async def _keys_check(session: web.Committer) -> web.QuartResponse:
     """Check public signing key details."""
-    if quart.request.method != "POST":
-        check_form = await CheckKeysForm.create_form()
-        rendered_form = forms.render_simple(check_form, action="")
-        return web.ElementResponse(rendered_form)
-
     try:
         result = await _check_keys()
         return web.TextResponse(result)
@@ -462,21 +454,18 @@ async def _keys_check(session: web.Committer) -> web.QuartResponse:
 
 @admin.get("/keys/regenerate-all")
 async def keys_regenerate_all_get(session: web.Committer) -> web.QuartResponse:
-    return await _keys_regenerate_all(session)
+    """Display form to regenerate KEYS files."""
+    rendered_form = form.render(
+        model_cls=form.Empty,
+        submit_label="Regenerate all KEYS files",
+        empty=True,
+    )
+    return web.ElementResponse(rendered_form)
 
 
 @admin.post("/keys/regenerate-all")
 async def keys_regenerate_all_post(session: web.Committer) -> web.QuartResponse:
-    return await _keys_regenerate_all(session)
-
-
-async def _keys_regenerate_all(session: web.Committer) -> web.QuartResponse:
     """Regenerate the KEYS file for all committees."""
-    if quart.request.method != "POST":
-        regenerate_form = await RegenerateKeysForm.create_form()
-        rendered_form = forms.render_simple(regenerate_form, action="")
-        return web.ElementResponse(rendered_form)
-
     async with db.session() as data:
         committee_names = [c.name for c in await data.committee().all()]
 
@@ -500,27 +489,25 @@ async def _keys_regenerate_all(session: web.Committer) -> web.QuartResponse:
 
 @admin.get("/keys/update")
 async def keys_update_get(session: web.Committer) -> str | web.WerkzeugResponse | tuple[Mapping[str, Any], int]:
-    return await _keys_update(session)
+    """Update keys from remote data."""
+    rendered_form = form.render(
+        model_cls=form.Empty,
+        submit_label="Update keys",
+        empty=True,
+        form_classes="",
+    )
+    log_path = pathlib.Path("keys_import.log")
+    if not await aiofiles.os.path.exists(log_path):
+        previous_output = None
+    else:
+        async with aiofiles.open(log_path) as f:
+            previous_output = await f.read()
+    return await template.render("update-keys.html", empty_form=rendered_form, previous_output=previous_output)
 
 
 @admin.post("/keys/update")
 async def keys_update_post(session: web.Committer) -> str | web.WerkzeugResponse | tuple[Mapping[str, Any], int]:
-    return await _keys_update(session)
-
-
-async def _keys_update(session: web.Committer) -> str | web.WerkzeugResponse | tuple[Mapping[str, Any], int]:
     """Update keys from remote data."""
-    if quart.request.method != "POST":
-        empty_form = await forms.Empty.create_form()
-        # Get the previous output from the log file
-        log_path = pathlib.Path("keys_import.log")
-        if not await aiofiles.os.path.exists(log_path):
-            previous_output = None
-        else:
-            async with aiofiles.open(log_path) as f:
-                previous_output = await f.read()
-        return await template.render("update-keys.html", empty_form=empty_form, previous_output=previous_output)
-
     try:
         pid = await _update_keys(session.asf_uid)
         return {
@@ -702,33 +689,31 @@ async def performance(session: web.Committer) -> str:
 
 @admin.get("/projects/update")
 async def projects_update_get(session: web.Committer) -> str | web.WerkzeugResponse | tuple[Mapping[str, Any], int]:
-    return await _projects_update(session)
+    """Update projects from remote data."""
+    rendered_form = form.render(
+        model_cls=form.Empty,
+        submit_label="Update projects",
+        empty=True,
+        form_classes="",
+    )
+    return await template.render("update-projects.html", empty_form=rendered_form)
 
 
 @admin.post("/projects/update")
 async def projects_update_post(session: web.Committer) -> str | web.WerkzeugResponse | tuple[Mapping[str, Any], int]:
-    return await _projects_update(session)
-
-
-async def _projects_update(session: web.Committer) -> str | web.WerkzeugResponse | tuple[Mapping[str, Any], int]:
     """Update projects from remote data."""
-    if quart.request.method == "POST":
-        try:
-            task = await tasks.metadata_update(session.asf_uid)
-            return {
-                "message": f"Metadata update task has been queued with ID {task.id}.",
-                "category": "success",
-            }, 200
-        except Exception as e:
-            log.exception("Failed to queue metadata update task")
-            return {
-                "message": f"Failed to queue metadata update: {e!s}",
-                "category": "error",
-            }, 200
-
-    # For GET requests, show the update form
-    empty_form = await forms.Empty.create_form()
-    return await template.render("update-projects.html", empty_form=empty_form)
+    try:
+        task = await tasks.metadata_update(session.asf_uid)
+        return {
+            "message": f"Metadata update task has been queued with ID {task.id}.",
+            "category": "success",
+        }, 200
+    except Exception as e:
+        log.exception("Failed to queue metadata update task")
+        return {
+            "message": f"Failed to queue metadata update: {e!s}",
+            "category": "error",
+        }, 200
 
 
 @admin.get("/tasks")
@@ -790,14 +775,19 @@ async def test(session: web.Committer) -> web.QuartResponse:
 @admin.get("/toggle-view")
 async def toggle_view_get(session: web.Committer) -> str:
     """Display the page with a button to toggle between admin and user views."""
-    empty_form = await forms.Empty.create_form()
-    return await template.render("toggle-admin-view.html", empty_form=empty_form)
+    rendered_form = form.render(
+        model_cls=form.Empty,
+        submit_label="Toggle view",
+        empty=True,
+        form_classes=".mb-4",
+    )
+    return await template.render("toggle-admin-view.html", empty_form=rendered_form)
 
 
 @admin.post("/toggle-view")
+@admin.empty()
 async def toggle_view_post(session: web.Committer) -> web.WerkzeugResponse:
-    await util.validate_empty_form()
-
+    """Toggle between admin and user views."""
     app = asfquart.APP
     if not hasattr(app, "app_id") or not isinstance(app.app_id, str):
         raise TypeError("Internal error: APP has no valid app_id")

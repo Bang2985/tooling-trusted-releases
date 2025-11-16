@@ -184,10 +184,14 @@ class FoundationCommitter(GeneralPublic):
             return outcome.Error(storage.AccessError("Test key deletion not enabled"))
 
         try:
-            test_user_keys = await self.__data.public_signing_key(apache_uid=test_uid).all()
+            test_user_keys = await self.__data.public_signing_key(apache_uid=test_uid, _committees=True).all()
 
             deleted_count = 0
             for key in test_user_keys:
+                # We must do this here otherwise SQLAlchemy does not know about the deletions
+                key.committees.clear()
+                await self.__data.flush()
+
                 keylinks_query = sqlmodel.select(sql.KeyLink).where(sql.KeyLink.key_fingerprint == key.fingerprint)
                 keylinks_result = await self.__data.execute(keylinks_query)
                 keylinks = keylinks_result.all()

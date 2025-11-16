@@ -15,14 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from collections.abc import Callable
+import json
+from collections.abc import Awaitable, Callable
 from types import ModuleType
 from typing import Any
 
 import asfquart.base as base
 import asfquart.session
+import pydantic
 import quart
 
+import atr.form
 import atr.user as user
 import atr.web as web
 
@@ -42,11 +45,64 @@ async def _check_admin_access() -> None:
     quart.g.session = web.Committer(web_session)
 
 
-def register(app: base.QuartApp) -> tuple[ModuleType, list[str]]:
-    import atr.admin as admin
+def empty() -> Callable[[Callable[..., Awaitable[Any]]], Callable[..., Awaitable[Any]]]:
+    def decorator(func: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
+        async def wrapper(session: web.Committer, *args: Any, **kwargs: Any) -> Any:
+            form_data = await quart.request.form
+            try:
+                context = {
+                    "args": args,
+                    "kwargs": kwargs,
+                    "session": session,
+                }
+                atr.form.validate(atr.form.Empty, dict(form_data), context=context)
+                return await func(session, *args, **kwargs)
+            except pydantic.ValidationError:
+                msg = "Sorry, there was an empty form validation error. Please try again."
+                await quart.flash(msg, "error")
+                return quart.redirect(quart.request.path)
 
-    app.register_blueprint(_BLUEPRINT)
-    return admin, []
+        wrapper.__annotations__ = func.__annotations__.copy()
+        wrapper.__doc__ = func.__doc__
+        wrapper.__module__ = func.__module__
+        wrapper.__name__ = func.__name__
+        return wrapper
+
+    return decorator
+
+
+def form(
+    form_cls: Any,
+) -> Callable[[Callable[..., Awaitable[Any]]], Callable[..., Awaitable[Any]]]:
+    def decorator(func: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
+        async def wrapper(session: web.Committer, *args: Any, **kwargs: Any) -> Any:
+            form_data = await quart.request.form
+            try:
+                context = {
+                    "args": args,
+                    "kwargs": kwargs,
+                    "session": session,
+                }
+                validated_form = atr.form.validate(form_cls, dict(form_data), context=context)
+                return await func(session, validated_form, *args, **kwargs)
+            except pydantic.ValidationError as e:
+                errors = e.errors()
+                if len(errors) == 0:
+                    raise RuntimeError("Validation failed, but no errors were reported")
+                flash_data = atr.form.flash_error_data(form_cls, errors, dict(form_data))
+                summary = atr.form.flash_error_summary(errors, flash_data)
+
+                await quart.flash(summary, category="error")
+                await quart.flash(json.dumps(flash_data), category="form-error-data")
+                return quart.redirect(quart.request.path)
+
+        wrapper.__annotations__ = func.__annotations__.copy()
+        wrapper.__doc__ = func.__doc__
+        wrapper.__module__ = func.__module__
+        wrapper.__name__ = func.__name__
+        return wrapper
+
+    return decorator
 
 
 def get(path: str) -> Callable[[web.CommitterRouteFunction[Any]], web.RouteFunction[Any]]:
@@ -81,3 +137,10 @@ def post(path: str) -> Callable[[web.CommitterRouteFunction[Any]], web.RouteFunc
         return wrapper
 
     return decorator
+
+
+def register(app: base.QuartApp) -> tuple[ModuleType, list[str]]:
+    import atr.admin as admin
+
+    app.register_blueprint(_BLUEPRINT)
+    return admin, []

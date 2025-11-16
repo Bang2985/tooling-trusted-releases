@@ -15,17 +15,7 @@
   </p>
 
   {% if current_user and is_admin_fn(current_user.uid) %}
-    <form action="{{ as_url(admin.toggle_view_post) }}" method="post" class="mb-4">
-      {{ empty_form.hidden_tag() }}
-
-      <button type="submit" class="btn btn-primary">
-        {% if not is_viewing_as_admin_fn(current_user.uid) %}
-          <i class="fa-solid fa-user-shield"></i> Switch to admin view
-        {% else %}
-          <i class="fa-solid fa-user-ninja"></i> Switch to user view
-        {% endif %}
-      </button>
-    </form>
+    {{ empty_form }}
 
     <div class="alert alert-info" role="alert">
       Current view mode:
