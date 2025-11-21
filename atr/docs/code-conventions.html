@@ -165,6 +165,8 @@ if a or b:
 <p>We do not use <code>assert</code>. If you need to guard against invalid states or inputs, use standard <code>if</code> checks and raise appropriate exceptions. If you need to help type checkers understand the type of a variable within a specific code block, in other words if you need to narrow a type, then use <code>if isinstance(...)</code> or <code>if not isinstance(...)</code> as appropriate.</p>
 <code></code><h3 id="never-use-case-when-pattern-matching-exhaustive-types">Never use case _ when pattern matching exhaustive types</h3>
 <p>Using <code>case _</code> breaks type checking in such situations.</p>
+<h3 id="use-f-string-interpolation-instead-of-printf-style-formatting">Use f-string interpolation instead of printf style formatting</h3>
+<p>This should be adhered to even in contexts where printf style is usually expected, such as in <code>log.info</code> calls, unless there is a reason not to, such as when there are specific printf style flags which have no f-string equivalent.</p>
 <h2 id="html">HTML</h2>
 <h3 id="use-sentence-case-for-headings-form-labels-and-submission-buttons">Use sentence case for headings, form labels, and submission buttons</h3>
 <p>We write headings, form labels, and submission buttons in the form "This is some text", and not "This is Some Text" or "This Is Some Text". This follows the <a href="https://en.wikipedia.org/wiki/Wikipedia:Manual_of_Style#Section_headings">Wikipedia style for headings</a>.</p>

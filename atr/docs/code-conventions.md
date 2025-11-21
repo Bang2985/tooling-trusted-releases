@@ -247,6 +247,10 @@ We do not use `assert`. If you need to guard against invalid states or inputs, u
 
 Using `case _` breaks type checking in such situations.
 
+### Use f-string interpolation instead of printf style formatting
+
+This should be adhered to even in contexts where printf style is usually expected, such as in `log.info` calls, unless there is a reason not to, such as when there are specific printf style flags which have no f-string equivalent.
+
 ## HTML
 
 ### Use sentence case for headings, form labels, and submission buttons
