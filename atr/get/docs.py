@@ -59,7 +59,7 @@ async def page(session: web.Committer | None, page: str) -> str:
 
 
 async def _serve_docs_page(page: str) -> str:
-    docs_dir = pathlib.Path(config.get().PROJECT_ROOT) / "atr" / "docs"
+    docs_dir = pathlib.Path(config.get().PROJECT_ROOT) / "docs"
 
     if not page.endswith(".html"):
         page = f"{page}.html"

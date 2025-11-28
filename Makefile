@@ -48,14 +48,12 @@ commit:
 	git push
 
 docs:
+	mkdir -p docs
 	uv run python3 scripts/docs_check.py
-	rm -f atr/docs/*.html
+	rm -f docs/*.html
 	uv run python3 scripts/docs_build.py
-	for fn in atr/docs/*.md; \
-	do \
-	  cmark "$$fn" > "$${fn%.md}.html"; \
-	done
-	uv run python3 scripts/docs_post_process.py atr/docs/*.html
+	for fn in atr/docs/*.md; do out=$${fn#atr/}; cmark "$$fn" > "$${out%.md}.html"; done
+	uv run python3 scripts/docs_post_process.py docs/*.html
 	uv run python3 scripts/docs_check.py
 
 generate-version:

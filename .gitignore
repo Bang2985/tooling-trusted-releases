@@ -13,6 +13,7 @@ apptoken.txt
 atr/_version.py
 bootstrap/build/
 dev/
+docs/
 node_modules/
 package-lock.json
 state/

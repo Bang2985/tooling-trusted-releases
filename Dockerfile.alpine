@@ -8,6 +8,7 @@ ENV PIP_DEFAULT_TIMEOUT=100 \
 
 RUN apk update && \
     apk add --no-cache \
+      cmark \
       git \
       make \
       patch
@@ -25,6 +26,7 @@ RUN make sync
 
 # generate a version.py module from git information
 RUN make generate-version
+RUN make docs
 
 WORKDIR /opt/atr/.venv/lib/python3.13/site-packages
 RUN patch -p2 < /opt/atr/patches/generics.py.patch
@@ -59,6 +61,7 @@ WORKDIR /opt/atr
 # copy app and wheels from builder
 COPY --from=builder /opt/atr/.venv ./.venv
 COPY --from=builder /opt/atr/atr ./atr
+COPY --from=builder /opt/atr/docs ./docs
 COPY --from=builder /opt/atr/migrations ./migrations
 COPY --from=builder /opt/atr/patches ./patches
 COPY --from=builder /opt/atr/scripts ./scripts
