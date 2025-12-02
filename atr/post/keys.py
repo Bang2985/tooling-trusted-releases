@@ -78,21 +78,6 @@ async def add(session: web.Committer, add_openpgp_key_form: shared.keys.AddOpenP
     return await session.redirect(get.keys.keys)
 
 
-@post.committer("/keys")
-@post.form(shared.keys.KeysForm)
-async def keys(session: web.Committer, keys_form: shared.keys.KeysForm) -> web.WerkzeugResponse:
-    """Handle forms on the keys management page."""
-    match keys_form:
-        case shared.keys.DeleteOpenPGPKeyForm() as delete_openpgp_form:
-            return await _delete_openpgp_key(session, delete_openpgp_form)
-
-        case shared.keys.DeleteSSHKeyForm() as delete_ssh_form:
-            return await _delete_ssh_key(session, delete_ssh_form)
-
-        case shared.keys.UpdateCommitteeKeysForm() as update_committee_form:
-            return await _update_committee_keys(session, update_committee_form)
-
-
 @post.committer("/keys/details/<fingerprint>")
 @post.form(shared.keys.UpdateKeyCommitteesForm)
 async def details(
@@ -155,6 +140,21 @@ async def import_selected_revision(
         project_name=project_name,
         version_name=version_name,
     )
+
+
+@post.committer("/keys")
+@post.form(shared.keys.KeysForm)
+async def keys(session: web.Committer, keys_form: shared.keys.KeysForm) -> web.WerkzeugResponse:
+    """Handle forms on the keys management page."""
+    match keys_form:
+        case shared.keys.DeleteOpenPGPKeyForm() as delete_openpgp_form:
+            return await _delete_openpgp_key(session, delete_openpgp_form)
+
+        case shared.keys.DeleteSSHKeyForm() as delete_ssh_form:
+            return await _delete_ssh_key(session, delete_ssh_form)
+
+        case shared.keys.UpdateCommitteeKeysForm() as update_committee_form:
+            return await _update_committee_keys(session, update_committee_form)
 
 
 @post.committer("/keys/ssh/add")
@@ -247,6 +247,19 @@ async def _delete_ssh_key(session: web.Committer, delete_form: shared.keys.Delet
     return await session.redirect(get.keys.keys, success="SSH key deleted successfully")
 
 
+async def _fetch_keys_from_url(keys_url: str) -> str:
+    """Fetch KEYS file content from a URL."""
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(keys_url, allow_redirects=True) as response:
+                response.raise_for_status()
+                return await response.text()
+    except aiohttp.ClientResponseError as e:
+        raise base.ASFQuartException(f"Unable to fetch keys from remote server: {e.status} {e.message}", errorcode=502)
+    except aiohttp.ClientError as e:
+        raise base.ASFQuartException(f"Network error while fetching keys: {e}", errorcode=503)
+
+
 async def _update_committee_keys(
     session: web.Committer, update_form: shared.keys.UpdateCommitteeKeysForm
 ) -> web.WerkzeugResponse:
@@ -264,16 +277,3 @@ async def _update_committee_keys(
                 await quart.flash(f"Error regenerating the KEYS file for the {committee_name} committee.", "error")
 
     return await session.redirect(get.keys.keys)
-
-
-async def _fetch_keys_from_url(keys_url: str) -> str:
-    """Fetch KEYS file content from a URL."""
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(keys_url, allow_redirects=True) as response:
-                response.raise_for_status()
-                return await response.text()
-    except aiohttp.ClientResponseError as e:
-        raise base.ASFQuartException(f"Unable to fetch keys from remote server: {e.status} {e.message}", errorcode=502)
-    except aiohttp.ClientError as e:
-        raise base.ASFQuartException(f"Network error while fetching keys: {e}", errorcode=503)
