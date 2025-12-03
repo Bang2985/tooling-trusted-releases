@@ -17,4 +17,7 @@
   {% if javascripts %}
     {% for js in javascripts %}<script src="{{- js -}}"></script>{% endfor %}
   {% endif %}
+  {% if init_js %}<script>
+    init();
+</script>{% endif %}
 {% endblock javascripts %}

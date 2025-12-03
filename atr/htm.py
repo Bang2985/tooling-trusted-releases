@@ -273,7 +273,7 @@ class Block:
 
     @property
     def tr(self) -> BlockElementCallable:
-        self.__check_parent("tr", {"tbody", "table"})
+        self.__check_parent("tr", {"tbody", "thead", "table"})
         return BlockElementCallable(self, tr)
 
     @property

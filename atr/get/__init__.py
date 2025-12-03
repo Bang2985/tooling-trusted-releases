@@ -21,6 +21,7 @@ from typing import Final, Literal
 
 import atr.get.announce as announce
 import atr.get.candidate as candidate
+import atr.get.checks as checks
 import atr.get.committees as committees
 import atr.get.compose as compose
 import atr.get.distribution as distribution
@@ -55,6 +56,7 @@ ROUTES_MODULE: Final[Literal[True]] = True
 __all__ = [
     "announce",
     "candidate",
+    "checks",
     "committees",
     "compose",
     "distribution",

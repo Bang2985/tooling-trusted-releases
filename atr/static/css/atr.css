@@ -523,6 +523,17 @@ aside.sidebar nav a:hover {
     white-space: pre-wrap;
 }
 
+.atr-steps {
+    padding-left: 1.6rem;
+    font-size: 1.4rem;
+    font-weight: 500;
+    line-height: 1.6;
+}
+
+.atr-step-link {
+    font-weight: 500;
+}
+
 .atr-nowrap {
     white-space: nowrap;
 }

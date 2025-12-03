@@ -102,7 +102,7 @@ async def selected(session: web.Committer, project_name: str, version_name: str)
 
         files_card.div(".card-body")[
             htm.div(".table-responsive")[
-                htm.table(".table.table-striped.table-hover")[
+                htm.table(".table.table-striped")[
                     htm.thead[
                         htm.tr[
                             htm.th["Permissions"],

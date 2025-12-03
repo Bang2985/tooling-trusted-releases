@@ -1,6 +1,6 @@
 <div class="table-responsive">
   {# This table uses pairs of rows, so it must be manually striped #}
-  <table class="table table-hover align-middle table-sm mb-0 border">
+  <table class="table align-middle table-sm mb-0 border">
     <tbody>
       {% for path in paths %}
         {% set has_errors = info and (info.errors[path]|length > 0) %}

@@ -28,8 +28,10 @@ import atr.htm as htm
 render_async = quart.render_template
 
 
-async def blank(title: str, content: str | htm.Element, description: str | None = None) -> str:
-    return await render_sync("blank.html", title=title, description=description or title, content=content)
+async def blank(title: str, content: str | htm.Element, description: str | None = None, init_js: bool = False) -> str:
+    return await render_sync(
+        "blank.html", title=title, description=description or title, content=content, init_js=init_js
+    )
 
 
 async def render_sync(

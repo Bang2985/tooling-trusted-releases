@@ -237,13 +237,13 @@ async def previews(project: sql.Project) -> list[sql.Release]:
     return await releases_by_phase(project, sql.ReleasePhase.RELEASE_PREVIEW)
 
 
-async def release_latest_vote_task(release: sql.Release) -> sql.Task | None:
+async def release_latest_vote_task(release: sql.Release, caller_data: db.Session | None = None) -> sql.Task | None:
     """Find the most recent VOTE_INITIATE task for this release."""
     disallowed_statuses = [sql.TaskStatus.QUEUED, sql.TaskStatus.ACTIVE]
     if util.is_dev_environment():
         disallowed_statuses = []
     via = sql.validate_instrumented_attribute
-    async with db.session() as data:
+    async with db.ensure_session(caller_data) as data:
         query = (
             sqlmodel.select(sql.Task)
             .where(sql.Task.project_name == release.project_name)

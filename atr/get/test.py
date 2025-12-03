@@ -22,7 +22,9 @@ import atr.blueprints.get as get
 import atr.config as config
 import atr.form as form
 import atr.get.root as root
+import atr.get.vote as vote
 import atr.htm as htm
+import atr.models.sql as sql
 import atr.shared as shared
 import atr.template as template
 import atr.web as web
@@ -115,3 +117,34 @@ async def test_single(session: web.Committer | None) -> str:
     ]
 
     return await template.blank(title="Test single form", content=forms_html)
+
+
+@get.public("/test/vote/<category>/<project_name>/<version_name>")
+async def test_vote(session: web.Committer | None, category: str, project_name: str, version_name: str) -> str:
+    if not config.get().ALLOW_TESTS:
+        raise base.ASFQuartException("Test routes not enabled", errorcode=404)
+
+    category_map = {
+        "unauthenticated": vote.UserCategory.UNAUTHENTICATED,
+        "committer": vote.UserCategory.COMMITTER,
+        "committer_rm": vote.UserCategory.COMMITTER_RM,
+        "pmc_member": vote.UserCategory.PMC_MEMBER,
+        "pmc_member_rm": vote.UserCategory.PMC_MEMBER_RM,
+    }
+
+    user_category = category_map.get(category.lower())
+    if user_category is None:
+        raise base.ASFQuartException(
+            f"Invalid category: {category}. Valid options: {', '.join(category_map.keys())}",
+            errorcode=400,
+        )
+
+    if (user_category != vote.UserCategory.UNAUTHENTICATED) and (session is None):
+        raise base.ASFQuartException("You must be logged in to preview authenticated views", errorcode=401)
+
+    _, release, latest_vote_task = await vote.category_and_release(session, project_name, version_name)
+
+    if release.phase != sql.ReleasePhase.RELEASE_CANDIDATE:
+        raise base.ASFQuartException("Release is not a candidate", errorcode=404)
+
+    return await vote.render_options_page(session, release, user_category, latest_vote_task)

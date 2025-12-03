@@ -312,7 +312,7 @@ def _committee_keys(page: htm.Block, user_committees_with_keys: list[sql.Committ
                     tbody.append(row.collect())
 
                 page.div(".table-responsive.mb-2")[
-                    htm.table(".table.border.table-striped.table-hover.table-sm")[thead, tbody.collect()]
+                    htm.table(".table.border.table-striped.table-sm")[thead, tbody.collect()]
                 ]
                 page.p(".text-muted")[
                     "The ",
@@ -399,9 +399,7 @@ def _openpgp_keys(page: htm.Block, user_keys: list[sql.PublicSigningKey]) -> Non
                 )
             tbody.append(row.collect())
 
-        page.div(".table-responsive.mb-5")[
-            htm.table(".table.border.table-striped.table-hover.table-sm")[thead, tbody.collect()]
-        ]
+        page.div(".table-responsive.mb-5")[htm.table(".table.border.table-striped.table-sm")[thead, tbody.collect()]]
     else:
         page.p[htm.strong["You haven't added any personal OpenPGP keys yet."]]
 
