@@ -46,7 +46,7 @@ Once you have identified something to work on, the process of contributing is as
 
 6. **Push your branch.** Push your branch to your fork on GitHub.
 
-7. **Create a pull request (PR).** The PR should be from your branch to the `main` branch of the ATR repository. In the PR description, explain what your changes do and why they are needed. If your PR addresses an existing issue, reference that issue by number.
+7. **Create a pull request (PR).** The PR should be from your branch to the `main` branch of the ATR repository. In the PR description, explain what your changes do and why they are needed. If your PR addresses an existing issue, reference that issue by number. Use the rebase strategy, not merge, to keep your PR up to date as you work on it.
 
 8. **Participate in code review.** A member of the Tooling team will review your PR and may request changes. _We strongly recommend enabling the option to allow maintainers to edit your PR when you create it._ Even if you allow us to make changes, we may still ask you to make the changes yourself. Also, because of the stringent security and usability requirements for ATR, we accept only [high quality contributions](#special-considerations-for-atr).
 
