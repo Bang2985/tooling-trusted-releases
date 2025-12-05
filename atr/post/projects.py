@@ -217,6 +217,7 @@ async def _process_compose_form(
         min_hours=project.policy_min_hours,
         pause_for_rm=project.policy_pause_for_rm,
         release_checklist=project.policy_release_checklist or "",
+        vote_comment_template=project.policy_vote_comment_template or "",
         start_vote_template=project.policy_start_vote_template or "",
         github_finish_workflow_path=project.policy_github_finish_workflow_path,
         announce_release_template=project.policy_announce_release_template or "",
@@ -273,6 +274,7 @@ async def _process_finish_form(
         min_hours=project.policy_min_hours,
         pause_for_rm=project.policy_pause_for_rm,
         release_checklist=project.policy_release_checklist or "",
+        vote_comment_template=project.policy_vote_comment_template or "",
         start_vote_template=project.policy_start_vote_template or "",
         github_finish_workflow_path=[
             p.strip() for p in finish_form.github_finish_workflow_path.split("\n") if p.strip()
@@ -360,6 +362,7 @@ async def _process_vote_form(session: web.Committer, vote_form: shared.projects.
         min_hours=vote_form.min_hours,
         pause_for_rm=vote_form.pause_for_rm,
         release_checklist=vote_form.release_checklist or "",
+        vote_comment_template=vote_form.vote_comment_template or "",
         start_vote_template=vote_form.start_vote_template or "",
         github_finish_workflow_path=project.policy_github_finish_workflow_path,
         announce_release_template=project.policy_announce_release_template or "",

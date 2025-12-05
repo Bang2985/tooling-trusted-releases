@@ -113,6 +113,7 @@ class CommitteeMember(CommitteeParticipant):
             self.__set_default_min_hours(policy_data, project, release_policy)
             release_policy.pause_for_rm = policy_data.pause_for_rm
             release_policy.release_checklist = policy_data.release_checklist
+            release_policy.vote_comment_template = policy_data.vote_comment_template
             self.__set_default_start_vote_template(policy_data, project, release_policy)
         elif project.committee and project.committee.is_podling:
             # The caller ensures that project.committee is not None

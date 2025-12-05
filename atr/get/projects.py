@@ -527,6 +527,7 @@ def _render_vote_form(project: sql.Project) -> htm.Element:
         "min_hours": project.policy_min_hours,
         "pause_for_rm": project.policy_pause_for_rm,
         "release_checklist": project.policy_release_checklist or "",
+        "vote_comment_template": project.policy_vote_comment_template or "",
         "start_vote_template": project.policy_start_vote_template or "",
     }
 

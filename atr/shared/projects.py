@@ -180,6 +180,11 @@ class VotePolicyForm(form.Form):
         "Release checklist",
         widget=form.Widget.CUSTOM,
     )
+    vote_comment_template: str = form.label(
+        "Vote comment template",
+        "Plain text template for vote comments. Voters can edit before submitting.",
+        widget=form.Widget.TEXTAREA,
+    )
     start_vote_template: str = form.label(
         "Start vote template",
         "Email template for messages to start a vote on a release.",

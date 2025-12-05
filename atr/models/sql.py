@@ -627,6 +627,12 @@ Thanks,
         return policy.release_checklist
 
     @property
+    def policy_vote_comment_template(self) -> str:
+        if ((policy := self.release_policy) is None) or (policy.vote_comment_template == ""):
+            return ""
+        return policy.vote_comment_template
+
+    @property
     def policy_start_vote_template(self) -> str:
         if ((policy := self.release_policy) is None) or (policy.start_vote_template == ""):
             return self.policy_start_vote_default
@@ -980,6 +986,7 @@ class ReleasePolicy(sqlmodel.SQLModel, table=True):
     manual_vote: bool = sqlmodel.Field(default=False)
     min_hours: int | None = sqlmodel.Field(default=None)
     release_checklist: str = sqlmodel.Field(default="")
+    vote_comment_template: str = sqlmodel.Field(default="")
     pause_for_rm: bool = sqlmodel.Field(default=False)
     start_vote_template: str = sqlmodel.Field(default="")
     announce_release_template: str = sqlmodel.Field(default="")

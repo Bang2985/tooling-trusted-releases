@@ -44,6 +44,7 @@ class ReleasePolicyData(schema.Lax):
     min_hours: int = 72
     pause_for_rm: bool = False
     release_checklist: str = ""
+    vote_comment_template: str = ""
     default_start_vote_template_hash: str = ""
     start_vote_template: str = ""
     github_vote_workflow_path: list[str] = pydantic.Field(default_factory=list)
@@ -86,6 +87,7 @@ class ReleasePolicyData(schema.Lax):
     @pydantic.field_validator(
         "github_repository_name",
         "release_checklist",
+        "vote_comment_template",
         "start_vote_template",
         "announce_release_template",
         mode="before",
