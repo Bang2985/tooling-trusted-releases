@@ -229,6 +229,10 @@
                {% if request.endpoint == 'atr_admin_tasks_' %}class="active"{% endif %}>Background tasks</a>
           </li>
           <li>
+            <i class="bi bi-clock-history"></i>
+            <a href="{{ as_url(admin.tasks_recent, minutes=5) }}">Recent tasks</a>
+          </li>
+          <li>
             <i class="bi bi-person-badge"></i>
             <a href="{{ as_url(admin.toggle_view_get) }}"
                {% if request.endpoint == 'atr_admin_toggle_view_get' %}class="active"{% endif %}>Toggle admin view</a>

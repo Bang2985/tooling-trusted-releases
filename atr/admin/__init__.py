@@ -17,6 +17,7 @@
 
 import asyncio
 import collections
+import datetime
 import os
 import pathlib
 import statistics
@@ -34,6 +35,7 @@ import htpy
 import pydantic
 import quart
 import sqlalchemy.orm as orm
+import sqlmodel
 
 import atr.blueprints.admin as admin
 import atr.config as config
@@ -739,6 +741,66 @@ async def projects_update_post(session: web.Committer) -> str | web.WerkzeugResp
 @admin.get("/tasks")
 async def tasks_(session: web.Committer) -> str:
     return await template.render("tasks.html")
+
+
+@admin.get("/tasks/recent/<int:minutes>")
+async def tasks_recent(session: web.Committer, minutes: int) -> str:
+    """Display tasks from the last N minutes."""
+    if minutes < 1:
+        minutes = 1
+    if minutes > 1440:
+        minutes = 1440
+
+    via = sql.validate_instrumented_attribute
+    cutoff = datetime.datetime.now(datetime.UTC) - datetime.timedelta(minutes=minutes)
+
+    async with db.session() as data:
+        statement = sqlmodel.select(sql.Task).where(via(sql.Task.added) >= cutoff).order_by(via(sql.Task.added).desc())
+        recent_tasks = (await data.execute(statement)).scalars().all()
+
+    page = htm.Block()
+    minute_word = "minute" if (minutes == 1) else "minutes"
+    page.h1[f"Tasks from the last {minutes} {minute_word}"]
+    task_word = "task" if (len(recent_tasks) == 1) else "tasks"
+    page.p[f"Found {len(recent_tasks)} {task_word}"]
+
+    if recent_tasks:
+        table = htm.Block(htpy.table, classes=".table.table-sm")
+        table.thead(".table-dark")[
+            htpy.tr[
+                htpy.th["ID"],
+                htpy.th["Type"],
+                htpy.th["Status"],
+                htpy.th["Added"],
+                htpy.th["Project"],
+                htpy.th["Version"],
+                htpy.th["Error"],
+            ]
+        ]
+        tbody = htm.Block(htpy.tbody)
+        for task in recent_tasks:
+            error_text = task.error[:50] + "..." if (task.error and (len(task.error) > 50)) else (task.error or "")
+            status_class = {
+                sql.TaskStatus.QUEUED: ".table-secondary",
+                sql.TaskStatus.ACTIVE: ".table-info",
+                sql.TaskStatus.COMPLETED: ".table-success",
+                sql.TaskStatus.FAILED: ".table-danger",
+            }.get(task.status, "")
+            tbody.append(
+                htpy.tr(class_=status_class.lstrip(".") if status_class else None)[
+                    htpy.td[str(task.id)],
+                    htpy.td[task.task_type.value],
+                    htpy.td[task.status.value],
+                    htpy.td[task.added.strftime("%H:%M:%S") if task.added else ""],
+                    htpy.td[task.project_name or ""],
+                    htpy.td[task.version_name or ""],
+                    htpy.td[error_text],
+                ]
+            )
+        table.append(tbody.collect())
+        page.append(table.collect())
+
+    return await template.blank(f"Recent Tasks ({minutes}m)", content=page.collect())
 
 
 @admin.get("/task-times/<project_name>/<version_name>/<revision_number>")
