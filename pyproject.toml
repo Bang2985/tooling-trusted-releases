@@ -59,6 +59,7 @@ test = [
   "netifaces>=0.11.0",
   "playwright>=1.51.0",
   "pytest-asyncio>=0.24",
+  "pytest-playwright>=0.7.2",
   "pytest>=8.0",
 ]
 

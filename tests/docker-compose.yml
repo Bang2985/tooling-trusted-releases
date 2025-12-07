@@ -31,6 +31,19 @@ services:
     environment:
       - ATR_BASE_URL=https://atr:8080
 
+  e2e:
+    build:
+      context: ..
+      dockerfile: tests/Dockerfile.e2e
+    depends_on:
+      atr:
+        condition: service_healthy
+    networks:
+      - test-network
+    command: pytest e2e/ -v
+    environment:
+      - ATR_BASE_URL=https://atr:8080
+
 networks:
   test-network:
     driver: bridge

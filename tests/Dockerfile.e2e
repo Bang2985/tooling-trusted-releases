@@ -1,0 +1,6 @@
+FROM mcr.microsoft.com/playwright/python:v1.51.0-noble
+
+RUN pip3 install --no-cache-dir --break-system-packages pytest pytest-playwright
+
+COPY tests/e2e /run/tests/e2e
+WORKDIR /run/tests
