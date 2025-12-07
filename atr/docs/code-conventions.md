@@ -274,3 +274,23 @@ Do not use `*` for emphasis or `__` for strong emphasis.
 ### Do not use JavaScript unless necessary
 
 It is often possible to avoid using JavaScript without significant loss of functionality, but it may require a little more thought. JavaScript is not, however, something to avoid by rote. User experiences can be significantly improved with thoughtful application of JavaScript. Therefore, default to not using JavaScript, but consider how it could be used concisely and with care to improve UX.
+
+## Shell
+
+### Use POSIX sh only
+
+Do not use bash or other idioms, only POSIX sh. Ensure that all commands called from the shell script are available in the POSIX standard, using only POSIX flags and arguments.
+
+### Use two spaces for indentation
+
+In some cases it may make more sense to indent at other levels, e.g. in `case` blocks.
+
+### Do not use hanging keywords
+
+Avoid the use of `; then`. Always put keywords on their own line.
+
+## OCI container files ("dockerfiles")
+
+### Be FHS compliant
+
+Don't create directories which are not defined in the most recent [Filesystem Hierarchy Standard](https://refspecs.linuxfoundation.org/FHS_3.0/fhs/index.html). If adding a directory whose role in the FHS is unclear, try to copy practices from established Linux distributions.
