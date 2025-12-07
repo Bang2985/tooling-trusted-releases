@@ -418,10 +418,18 @@ class CommitteeMember(CommitteeParticipant):
         email_recipient = latest_vote_task.task_args["email_to"]
         email_sender = f"{asf_uid}@apache.org"
         subject = f"[VOTE] [RESULT] Release {release.project.display_name} {release.version} {resolution.upper()}"
-        signature = f"-- \n{asf_fullname} ({asf_uid})"
-        if asf_fullname == asf_uid:
-            signature = f"-- \n{asf_fullname}"
-        body = f"{body}\n\n{signature}"
+        # TODO: This duplicates atr/tabulate.py code
+        # There are arguments for using this code instead:
+        # - It enforces a consistent style
+        # - It can't be edited by the user
+        # - It could be made conditional based on user input
+        # But users might not know whether to use a signature or not
+        # And they may not use a standard format that can be detected
+        # Therefore we don't add a signature here
+        # signature = f"-- \n{asf_fullname} ({asf_uid})"
+        # if asf_fullname == asf_uid:
+        #     signature = f"-- \n{asf_fullname}"
+        # body = f"{body}\n\n{signature}"
         in_reply_to = vote_thread_mid
 
         task = sql.Task(
