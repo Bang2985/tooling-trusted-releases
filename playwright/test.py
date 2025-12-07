@@ -32,8 +32,8 @@ from collections.abc import Callable
 from typing import Any, Final
 
 import netifaces
-import playwright.sync_api as sync_api
 import rich.logging
+from playwright.sync_api import BrowserContext, Dialog, Page, Request, Response, expect, sync_playwright
 
 ATR_BASE_URL: Final[str] = os.environ.get("ATR_BASE_URL", "https://localhost.apache.org:8080")
 OPENPGP_TEST_UID: Final[str] = "<apache-tooling@example.invalid>"
@@ -51,7 +51,7 @@ class Credentials:
 # If we did this then we'd have to call e.g. test.page, which is verbose
 # @dataclasses.dataclass
 # class TestArguments:
-#     page: sync_api.Page
+#     page: Page
 #     credentials: Credentials
 
 
@@ -93,13 +93,13 @@ def get_default_gateway_ip() -> str | None:
             return None
 
 
-def go_to_path(page: sync_api.Page, path: str, wait: bool = True) -> None:
+def go_to_path(page: Page, path: str, wait: bool = True) -> None:
     page.goto(f"{ATR_BASE_URL}{path}")
     if wait:
         wait_for_path(page, path)
 
 
-def lifecycle_01_add_draft(page: sync_api.Page, credentials: Credentials, version_name: str) -> None:
+def lifecycle_01_add_draft(page: Page, credentials: Credentials, version_name: str) -> None:
     logging.info("Following link to start a new release")
     go_to_path(page, f"/start/{TEST_PROJECT}")
 
@@ -107,7 +107,7 @@ def lifecycle_01_add_draft(page: sync_api.Page, credentials: Credentials, versio
     version_name_locator = page.locator("input#version_name")
     if not version_name_locator.is_visible(timeout=1000):
         logging.error(f"Version name input not found. Page content:\n{page.content()}")
-    sync_api.expect(version_name_locator).to_be_visible()
+    expect(version_name_locator).to_be_visible()
     logging.info("Start new release page loaded")
 
     logging.info(f"Filling version '{version_name}'")
@@ -115,7 +115,7 @@ def lifecycle_01_add_draft(page: sync_api.Page, credentials: Credentials, versio
 
     logging.info("Submitting the start new release form")
     submit_button_locator = page.get_by_role("button", name="Start new release")
-    sync_api.expect(submit_button_locator).to_be_enabled()
+    expect(submit_button_locator).to_be_enabled()
     submit_button_locator.click()
 
     logging.info(f"Waiting for navigation to /compose/{TEST_PROJECT}/{version_name} after adding draft")
@@ -123,31 +123,31 @@ def lifecycle_01_add_draft(page: sync_api.Page, credentials: Credentials, versio
     logging.info("Add draft actions completed successfully")
 
 
-def lifecycle_02_check_draft_added(page: sync_api.Page, credentials: Credentials, version_name: str) -> None:
+def lifecycle_02_check_draft_added(page: Page, credentials: Credentials, version_name: str) -> None:
     logging.info(f"Checking for draft '{TEST_PROJECT} {version_name}'")
     go_to_path(page, f"/compose/{TEST_PROJECT}/{version_name}")
     h1_strong_locator = page.locator("h1 strong:has-text('Test')")
-    sync_api.expect(h1_strong_locator).to_be_visible()
+    expect(h1_strong_locator).to_be_visible()
     h1_em_locator = page.locator(f"h1 em:has-text('{esc_id(version_name)}')")
-    sync_api.expect(h1_em_locator).to_be_visible()
+    expect(h1_em_locator).to_be_visible()
     logging.info(f"Draft '{TEST_PROJECT} {version_name}' found successfully")
 
 
-def lifecycle_03_add_file(page: sync_api.Page, credentials: Credentials, version_name: str) -> None:
+def lifecycle_03_add_file(page: Page, credentials: Credentials, version_name: str) -> None:
     logging.info(f"Navigating to the upload file page for {TEST_PROJECT} {version_name}")
     go_to_path(page, f"/upload/{TEST_PROJECT}/{version_name}")
     logging.info("Upload file page loaded")
 
     logging.info("Locating the file input")
     file_input_locator = page.locator('input[name="file_data"]')
-    sync_api.expect(file_input_locator).to_be_visible()
+    expect(file_input_locator).to_be_visible()
 
     logging.info("Setting the input file to /run/tests/example.txt")
     file_input_locator.set_input_files("/run/tests/example.txt")
 
     logging.info("Locating and activating the add files button")
     submit_button_locator = page.get_by_role("button", name="Add files")
-    sync_api.expect(submit_button_locator).to_be_enabled()
+    expect(submit_button_locator).to_be_enabled()
     submit_button_locator.click()
 
     logging.info(f"Waiting for navigation to /compose/{TEST_PROJECT}/{version_name} after adding file")
@@ -159,7 +159,7 @@ def lifecycle_03_add_file(page: sync_api.Page, credentials: Credentials, version
 
     logging.info("Extracting latest revision from compose page")
     revision_link_locator = page.locator(f'a[href^="/revisions/{TEST_PROJECT}/{version_name}#"]')
-    sync_api.expect(revision_link_locator).to_be_visible()
+    expect(revision_link_locator).to_be_visible()
     revision_href = revision_link_locator.get_attribute("href")
     if not revision_href:
         raise RuntimeError("Could not find revision link href")
@@ -172,14 +172,14 @@ def lifecycle_03_add_file(page: sync_api.Page, credentials: Credentials, version
     logging.info(f"Navigation back to /compose/{TEST_PROJECT}/{version_name} completed successfully")
 
 
-def lifecycle_04_start_vote(page: sync_api.Page, credentials: Credentials, version_name: str) -> None:
+def lifecycle_04_start_vote(page: Page, credentials: Credentials, version_name: str) -> None:
     logging.info(f"Navigating to the compose/{TEST_PROJECT} page for {TEST_PROJECT} {version_name}")
     go_to_path(page, f"/compose/{TEST_PROJECT}/{version_name}")
     logging.info(f"Compose/{TEST_PROJECT} page loaded successfully")
 
     logging.info(f"Locating start vote link for {TEST_PROJECT} {version_name}")
     start_vote_link_locator = page.locator('a[title="Start a vote on this draft"]')
-    sync_api.expect(start_vote_link_locator).to_be_visible()
+    expect(start_vote_link_locator).to_be_visible()
 
     logging.info("Follow the start vote link")
     start_vote_link_locator.click()
@@ -191,7 +191,7 @@ def lifecycle_04_start_vote(page: sync_api.Page, credentials: Credentials, versi
 
     logging.info("Locating and activating the button to prepare the vote email")
     submit_button_locator = page.get_by_role("button", name="Send vote email")
-    sync_api.expect(submit_button_locator).to_be_enabled()
+    expect(submit_button_locator).to_be_enabled()
     submit_button_locator.click()
 
     logging.info(f"Waiting for navigation to /vote/{TEST_PROJECT}/{version_name} after submitting vote email")
@@ -200,7 +200,7 @@ def lifecycle_04_start_vote(page: sync_api.Page, credentials: Credentials, versi
     logging.info("Vote initiation actions completed successfully")
 
 
-def lifecycle_05_resolve_vote(page: sync_api.Page, credentials: Credentials, version_name: str) -> None:
+def lifecycle_05_resolve_vote(page: Page, credentials: Credentials, version_name: str) -> None:
     logging.info(f"Navigating to the vote page for {TEST_PROJECT} {version_name}")
     go_to_path(page, f"/vote/{TEST_PROJECT}/{version_name}")
     logging.info("Vote page loaded successfully")
@@ -224,10 +224,10 @@ def lifecycle_05_resolve_vote(page: sync_api.Page, credentials: Credentials, ver
 
     logging.info("Locating the 'Resolve vote' button")
     tabulate_form_locator = page.locator(f'form[action="/resolve/{TEST_PROJECT}/{version_name}"]')
-    sync_api.expect(tabulate_form_locator).to_be_visible()
+    expect(tabulate_form_locator).to_be_visible()
 
     tabulate_button_locator = tabulate_form_locator.get_by_role("button", name="Resolve vote")
-    sync_api.expect(tabulate_button_locator).to_be_enabled()
+    expect(tabulate_button_locator).to_be_enabled()
     logging.info("Clicking 'Tabulate votes' button")
     tabulate_button_locator.click()
 
@@ -236,16 +236,16 @@ def lifecycle_05_resolve_vote(page: sync_api.Page, credentials: Credentials, ver
 
     logging.info("Locating the resolve vote form on the tabulated votes page")
     resolve_form_locator = page.locator(f'form[action="/resolve/{TEST_PROJECT}/{version_name}"]')
-    sync_api.expect(resolve_form_locator).to_be_visible()
+    expect(resolve_form_locator).to_be_visible()
 
     logging.info("Selecting 'Passed' radio button in resolve form")
     passed_radio_locator = resolve_form_locator.locator('input[name="vote_result"][value="Passed"]')
-    sync_api.expect(passed_radio_locator).to_be_enabled()
+    expect(passed_radio_locator).to_be_enabled()
     passed_radio_locator.check()
 
     logging.info("Submitting resolve vote form")
     resolve_submit_locator = page.get_by_role("button", name="Resolve vote")
-    sync_api.expect(resolve_submit_locator).to_be_enabled()
+    expect(resolve_submit_locator).to_be_enabled()
     resolve_submit_locator.click()
 
     logging.info(f"Waiting for navigation to /finish/{TEST_PROJECT}/{version_name} after resolving the vote")
@@ -253,13 +253,13 @@ def lifecycle_05_resolve_vote(page: sync_api.Page, credentials: Credentials, ver
     logging.info("Vote resolution actions completed successfully")
 
 
-def lifecycle_06_announce_preview(page: sync_api.Page, credentials: Credentials, version_name: str) -> None:
+def lifecycle_06_announce_preview(page: Page, credentials: Credentials, version_name: str) -> None:
     go_to_path(page, f"/finish/{TEST_PROJECT}/{version_name}")
     logging.info("Finish page loaded successfully")
 
     logging.info(f"Locating the announce link for {TEST_PROJECT} {version_name}")
     announce_link_locator = page.locator(f'a[href="/announce/{TEST_PROJECT}/{esc_id(version_name)}"]')
-    sync_api.expect(announce_link_locator).to_be_visible()
+    expect(announce_link_locator).to_be_visible()
     announce_link_locator.click()
 
     logging.info(f"Waiting for navigation to /announce/{TEST_PROJECT}/{version_name} after announcing preview")
@@ -267,18 +267,18 @@ def lifecycle_06_announce_preview(page: sync_api.Page, credentials: Credentials,
 
     logging.info(f"Locating the announcement form for {TEST_PROJECT} {version_name}")
     form_locator = page.locator(f'form[action="/announce/{TEST_PROJECT}/{esc_id(version_name)}"]')
-    sync_api.expect(form_locator).to_be_visible()
+    expect(form_locator).to_be_visible()
 
     logging.info("Locating the confirmation checkbox within the form")
     checkbox_locator = form_locator.locator('input[name="confirm_announce"]')
-    sync_api.expect(checkbox_locator).to_be_visible()
+    expect(checkbox_locator).to_be_visible()
 
     logging.info("Checking the confirmation checkbox")
     checkbox_locator.check()
 
     logging.info("Locating and activating the announce button within the form")
     submit_button_locator = form_locator.get_by_role("button", name="Send announcement email")
-    sync_api.expect(submit_button_locator).to_be_enabled()
+    expect(submit_button_locator).to_be_enabled()
     submit_button_locator.click()
 
     logging.info("Waiting for navigation to /releases after submitting announcement")
@@ -286,13 +286,13 @@ def lifecycle_06_announce_preview(page: sync_api.Page, credentials: Credentials,
     logging.info("Preview announcement actions completed successfully")
 
 
-def lifecycle_07_release_exists(page: sync_api.Page, credentials: Credentials, version_name: str) -> None:
+def lifecycle_07_release_exists(page: Page, credentials: Credentials, version_name: str) -> None:
     logging.info(f"Checking for release {TEST_PROJECT} {version_name} on /releases/finished/{TEST_PROJECT}")
     go_to_path(page, f"/releases/finished/{TEST_PROJECT}")
     logging.info("Releases finished page loaded successfully")
 
     release_card_locator = page.locator(f'div.card:has(strong.card-title:has-text("{version_name}"))')
-    sync_api.expect(release_card_locator).to_be_visible()
+    expect(release_card_locator).to_be_visible()
     logging.info(f"Found card for {TEST_PROJECT} {version_name} release")
     logging.info(f"Release {TEST_PROJECT} {version_name} confirmed exists on /releases/finished/{TEST_PROJECT}")
 
@@ -341,7 +341,7 @@ def main() -> None:
     run_tests(args.skip_slow, args.tidy)
 
 
-def poll_for_tasks_completion(page: sync_api.Page, project_name: str, version_name: str, revision: str) -> None:
+def poll_for_tasks_completion(page: Page, project_name: str, version_name: str, revision: str) -> None:
     rev_path = f"{project_name}/{version_name}/{revision}"
     polling_url = f"{ATR_BASE_URL}/admin/ongoing-tasks/{rev_path}"
     logging.info(f"Polling URL: {polling_url}")
@@ -379,7 +379,7 @@ def poll_for_tasks_completion(page: sync_api.Page, project_name: str, version_na
     raise TimeoutError(f"Tasks did not complete within {max_wait_seconds} seconds")
 
 
-def ensure_success_results_are_visible(page: sync_api.Page, result_type: str) -> None:
+def ensure_success_results_are_visible(page: Page, result_type: str) -> None:
     button_id = f"#btn-toggle-{result_type}-success"
     show_success_btn = page.locator(button_id)
 
@@ -387,13 +387,13 @@ def ensure_success_results_are_visible(page: sync_api.Page, result_type: str) ->
         raw_button_text = show_success_btn.text_content() or ""
         if "Show Success" in " ".join(raw_button_text.split()):
             show_success_btn.click()
-            sync_api.expect(show_success_btn).to_contain_text("Hide Success", timeout=2000)
+            expect(show_success_btn).to_contain_text("Hide Success", timeout=2000)
             first_success_row = page.locator(f".atr-result-{result_type}.atr-result-status-success").first
             if first_success_row.is_visible(timeout=500):
-                sync_api.expect(first_success_row).not_to_have_class("atr-hide", timeout=1000)
+                expect(first_success_row).not_to_have_class("atr-hide", timeout=1000)
 
 
-def release_remove(page: sync_api.Page, release_name: str) -> None:
+def release_remove(page: Page, release_name: str) -> None:
     logging.info(f"Checking whether the {release_name} release exists")
     release_checkbox_locator = page.locator(f'input[name="releases_to_delete"][value="{release_name}"]')
 
@@ -407,7 +407,7 @@ def release_remove(page: sync_api.Page, release_name: str) -> None:
 
         logging.info(f"Submitting deletion form for {release_name}")
         submit_button_locator = page.get_by_role("button", name="Delete selected releases permanently")
-        sync_api.expect(submit_button_locator).to_be_enabled()
+        expect(submit_button_locator).to_be_enabled()
         submit_button_locator.click()
 
         logging.info(f"Waiting for page load after deletion submission for {release_name}")
@@ -416,8 +416,8 @@ def release_remove(page: sync_api.Page, release_name: str) -> None:
 
         logging.info(f"Checking for success flash message for {release_name}")
         flash_message_locator = page.locator("div.flash-success")
-        sync_api.expect(flash_message_locator).to_be_visible()
-        sync_api.expect(flash_message_locator).to_contain_text("Successfully deleted 1 release")
+        expect(flash_message_locator).to_be_visible()
+        expect(flash_message_locator).to_contain_text("Successfully deleted 1 release")
         logging.info(f"Deletion successful for {release_name}")
     else:
         logging.info(f"Could not find the {release_name} release, no deletion needed")
@@ -428,7 +428,7 @@ def run_tests(skip_slow: bool, tidy_after: bool) -> None:
         logging.error("Cannot run tests: no credentials provided")
         sys.exit(1)
 
-    with sync_api.sync_playwright() as p:
+    with sync_playwright() as p:
         browser = None
         context = None
         try:
@@ -446,9 +446,7 @@ def run_tests(skip_slow: bool, tidy_after: bool) -> None:
                 browser.close()
 
 
-def run_tests_in_context(
-    context: sync_api.BrowserContext, credentials: Credentials, skip_slow: bool, tidy_after: bool
-) -> None:
+def run_tests_in_context(context: BrowserContext, credentials: Credentials, skip_slow: bool, tidy_after: bool) -> None:
     ssh_keys_generate()
     page = context.new_page()
     test_all(page, credentials, skip_slow)
@@ -461,7 +459,7 @@ def run_tests_in_context(
 
 
 def run_tests_skipping_slow(
-    tests: list[Callable[..., Any]], page: sync_api.Page, credentials: Credentials, skip_slow: bool
+    tests: list[Callable[..., Any]], page: Page, credentials: Credentials, skip_slow: bool
 ) -> None:
     for test in tests:
         if skip_slow and ("slow" in test.__annotations__):
@@ -514,7 +512,7 @@ def ssh_keys_generate() -> None:
         raise RuntimeError("SSH key generation failed") from e
 
 
-def test_all(page: sync_api.Page, credentials: Credentials, skip_slow: bool) -> None:
+def test_all(page: Page, credentials: Credentials, skip_slow: bool) -> None:
     start = time.perf_counter()
     test_login(page, credentials)
     test_tidy_up(page)
@@ -561,7 +559,7 @@ def test_all(page: sync_api.Page, credentials: Credentials, skip_slow: bool) -> 
     logging.info(f"Tests took {round(finish - start, 3)} seconds")
 
 
-def test_checks_01_hashing_sha512(page: sync_api.Page, credentials: Credentials) -> None:
+def test_checks_01_hashing_sha512(page: Page, credentials: Credentials) -> None:
     project_name = TEST_PROJECT
     version_name = "0.2"
     filename_sha512 = f"apache-{project_name}-{version_name}.tar.gz.sha512"
@@ -577,7 +575,7 @@ def test_checks_01_hashing_sha512(page: sync_api.Page, credentials: Credentials)
     row_locator = page.locator(f"tr:has(:text('{filename_sha512}'))")
     evaluate_link_title = f"Show report for {filename_sha512}"
     evaluate_link_locator = row_locator.locator(f'a[title="{evaluate_link_title}"]')
-    sync_api.expect(evaluate_link_locator).to_be_visible()
+    expect(evaluate_link_locator).to_be_visible()
 
     logging.info(f"Clicking 'Show report' link for {filename_sha512}")
     evaluate_link_locator.click()
@@ -590,15 +588,15 @@ def test_checks_01_hashing_sha512(page: sync_api.Page, credentials: Credentials)
 
     logging.info("Verifying Hashing Check status")
     check_row_locator = page.locator("tr.atr-result-primary:has(th:has-text('Hashing Check'))")
-    sync_api.expect(check_row_locator).to_be_visible()
+    expect(check_row_locator).to_be_visible()
     logging.info("Located Hashing Check row")
 
     success_badge_locator = check_row_locator.locator("td span.badge.bg-success:text-is('Success')")
-    sync_api.expect(success_badge_locator).to_be_visible()
+    expect(success_badge_locator).to_be_visible()
     logging.info("Hashing Check status verified as Success")
 
 
-def test_checks_02_license_files(page: sync_api.Page, credentials: Credentials) -> None:
+def test_checks_02_license_files(page: Page, credentials: Credentials) -> None:
     project_name = TEST_PROJECT
     version_name = "0.2"
     filename_targz = f"apache-{project_name}-{version_name}.tar.gz"
@@ -614,7 +612,7 @@ def test_checks_02_license_files(page: sync_api.Page, credentials: Credentials) 
     row_locator = page.locator(f"tr:has(:text('{filename_targz}'))")
     evaluate_link_title = f"Show report for {filename_targz}"
     evaluate_link_locator = row_locator.locator(f'a[title="{evaluate_link_title}"]')
-    sync_api.expect(evaluate_link_locator).to_be_visible()
+    expect(evaluate_link_locator).to_be_visible()
 
     logging.info(f"Clicking 'Show report' link for {filename_targz}")
     evaluate_link_locator.click()
@@ -627,15 +625,15 @@ def test_checks_02_license_files(page: sync_api.Page, credentials: Credentials) 
 
     logging.info("Verifying License Files check status")
     check_row_locator = page.locator("tr.atr-result-primary:has(th:text-is('License Files'))")
-    sync_api.expect(check_row_locator).to_have_count(2)
+    expect(check_row_locator).to_have_count(2)
     logging.info("Located 2 License Files check rows")
 
     success_badge_locator = check_row_locator.locator("td span.badge.bg-success:text-is('Success')")
-    sync_api.expect(success_badge_locator).to_have_count(2)
+    expect(success_badge_locator).to_have_count(2)
     logging.info("License Files check status verified as Success for 2 rows")
 
 
-def test_checks_03_license_headers(page: sync_api.Page, credentials: Credentials) -> None:
+def test_checks_03_license_headers(page: Page, credentials: Credentials) -> None:
     project_name = TEST_PROJECT
     version_name = "0.2"
     filename_targz = f"apache-{project_name}-{version_name}.tar.gz"
@@ -652,15 +650,15 @@ def test_checks_03_license_headers(page: sync_api.Page, credentials: Credentials
 
     logging.info("Verifying License Headers check status")
     check_row_locator = page.locator("tr.atr-result-primary:has(th:has-text('License Headers'))")
-    sync_api.expect(check_row_locator).to_be_visible()
+    expect(check_row_locator).to_be_visible()
     logging.info("Located License Headers check row")
 
     success_badge_locator = check_row_locator.locator("td span.badge.bg-success:text-is('Success')")
-    sync_api.expect(success_badge_locator).to_be_visible()
+    expect(success_badge_locator).to_be_visible()
     logging.info("License Headers check status verified as Success")
 
 
-def test_checks_04_paths(page: sync_api.Page, credentials: Credentials) -> None:
+def test_checks_04_paths(page: Page, credentials: Credentials) -> None:
     project_name = TEST_PROJECT
     version_name = "0.2"
     filename_sha512 = f"apache-{project_name}-{version_name}.tar.gz.sha512"
@@ -678,15 +676,15 @@ def test_checks_04_paths(page: sync_api.Page, credentials: Credentials) -> None:
     # But we have to do this because we need separate Recorder objects
     logging.info("Verifying Paths Check Success status")
     check_row_locator = page.locator("tr.atr-result-primary:has(th:has-text('Paths Check Success'))")
-    sync_api.expect(check_row_locator).to_be_visible()
+    expect(check_row_locator).to_be_visible()
     logging.info("Located Paths Check Success row")
 
     success_badge_locator = check_row_locator.locator("td span.badge.bg-success:text-is('Success')")
-    sync_api.expect(success_badge_locator).to_be_visible()
+    expect(success_badge_locator).to_be_visible()
     logging.info("Paths Check Success status verified as Success")
 
 
-def test_checks_05_signature(page: sync_api.Page, credentials: Credentials) -> None:
+def test_checks_05_signature(page: Page, credentials: Credentials) -> None:
     project_name = TEST_PROJECT
     version_name = "0.2"
     filename_asc = f"apache-{project_name}-{version_name}.tar.gz.asc"
@@ -702,15 +700,15 @@ def test_checks_05_signature(page: sync_api.Page, credentials: Credentials) -> N
 
     logging.info("Verifying Signature Check status")
     check_row_locator = page.locator("tr.atr-result-primary:has(th:has-text('Signature Check'))")
-    sync_api.expect(check_row_locator).to_be_visible()
+    expect(check_row_locator).to_be_visible()
     logging.info("Located Signature Check row")
 
     success_badge_locator = check_row_locator.locator("td span.badge.bg-success:text-is('Success')")
-    sync_api.expect(success_badge_locator).to_be_visible()
+    expect(success_badge_locator).to_be_visible()
     logging.info("Signature Check status verified as Success")
 
 
-def test_checks_06_targz(page: sync_api.Page, credentials: Credentials) -> None:
+def test_checks_06_targz(page: Page, credentials: Credentials) -> None:
     project_name = TEST_PROJECT
     version_name = "0.2"
     filename_targz = f"apache-{project_name}-{version_name}.tar.gz"
@@ -726,22 +724,22 @@ def test_checks_06_targz(page: sync_api.Page, credentials: Credentials) -> None:
 
     logging.info("Verifying Targz Integrity status")
     integrity_row_locator = page.locator("tr.atr-result-primary:has(th:has-text('Targz Integrity'))")
-    sync_api.expect(integrity_row_locator).to_be_visible()
+    expect(integrity_row_locator).to_be_visible()
     logging.info("Located Targz Integrity row")
     integrity_success_badge = integrity_row_locator.locator("td span.badge.bg-success:text-is('Success')")
-    sync_api.expect(integrity_success_badge).to_be_visible()
+    expect(integrity_success_badge).to_be_visible()
     logging.info("Targz Integrity status verified as Success")
 
     logging.info("Verifying Targz Structure status")
     structure_row_locator = page.locator("tr.atr-result-primary:has(th:has-text('Targz Structure'))")
-    sync_api.expect(structure_row_locator).to_be_visible()
+    expect(structure_row_locator).to_be_visible()
     logging.info("Located Targz Structure row")
     structure_success_badge = structure_row_locator.locator("td span.badge.bg-success:text-is('Success')")
-    sync_api.expect(structure_success_badge).to_be_visible()
+    expect(structure_success_badge).to_be_visible()
     logging.info("Targz Structure status verified as Success")
 
 
-def test_openpgp_01_upload(page: sync_api.Page, credentials: Credentials) -> None:
+def test_openpgp_01_upload(page: Page, credentials: Credentials) -> None:
     for key_path in glob.glob("/run/tests/*.asc"):
         key_fingerprint_lower = os.path.basename(key_path).split(".")[0].lower()
         key_fingerprint_upper = key_fingerprint_lower.upper()
@@ -754,7 +752,7 @@ def test_openpgp_01_upload(page: sync_api.Page, credentials: Credentials) -> Non
 
     logging.info("Following link to add OpenPGP key")
     add_key_link_locator = page.locator('a:has-text("Add your OpenPGP key")')
-    sync_api.expect(add_key_link_locator).to_be_visible()
+    expect(add_key_link_locator).to_be_visible()
     add_key_link_locator.click()
 
     logging.info("Waiting for Add OpenPGP key page")
@@ -771,17 +769,17 @@ def test_openpgp_01_upload(page: sync_api.Page, credentials: Credentials) -> Non
 
     logging.info("Filling public key textarea")
     public_key_textarea_locator = page.locator('textarea[name="public_key"]')
-    sync_api.expect(public_key_textarea_locator).to_be_visible()
+    expect(public_key_textarea_locator).to_be_visible()
     public_key_textarea_locator.fill(public_key_content)
 
     logging.info("Clicking Select all committees button")
     select_all_button_locator = page.locator("#toggleCommitteesBtn")
-    sync_api.expect(select_all_button_locator).to_be_visible()
+    expect(select_all_button_locator).to_be_visible()
     select_all_button_locator.click()
 
     logging.info("Submitting the Add OpenPGP key form")
     submit_button_locator = page.get_by_role("button", name="Add OpenPGP key")
-    sync_api.expect(submit_button_locator).to_be_enabled()
+    expect(submit_button_locator).to_be_enabled()
     submit_button_locator.click()
 
     logging.info("Waiting for navigation back to /keys page")
@@ -790,66 +788,64 @@ def test_openpgp_01_upload(page: sync_api.Page, credentials: Credentials) -> Non
     logging.info("Checking for success flash message on /keys page")
     try:
         flash_message_locator = page.locator("div.flash-success")
-        sync_api.expect(flash_message_locator).to_be_visible()
-        sync_api.expect(flash_message_locator).to_contain_text(
-            f"OpenPGP key {key_fingerprint_upper} added successfully."
-        )
+        expect(flash_message_locator).to_be_visible()
+        expect(flash_message_locator).to_contain_text(f"OpenPGP key {key_fingerprint_upper} added successfully.")
         logging.info("OpenPGP key upload successful message shown")
     except AssertionError:
         flash_message_locator = page.locator("div.flash-warning")
-        sync_api.expect(flash_message_locator).to_be_visible()
-        sync_api.expect(flash_message_locator).to_contain_text(
+        expect(flash_message_locator).to_be_visible()
+        expect(flash_message_locator).to_contain_text(
             f"OpenPGP key {key_fingerprint_upper} was already in the database."
         )
         logging.info("OpenPGP key already in database message shown")
 
     logging.info(f"Verifying OpenPGP key with fingerprint {key_fingerprint_upper} is visible")
     key_row_locator = page.locator(f'tr.page-user-openpgp-key:has(a[href="/keys/details/{key_fingerprint_lower}"])')
-    sync_api.expect(key_row_locator).to_be_visible()
+    expect(key_row_locator).to_be_visible()
     logging.info("OpenPGP key fingerprint verified successfully on /keys page")
 
 
-def test_lifecycle_01_add_draft(page: sync_api.Page, credentials: Credentials) -> None:
+def test_lifecycle_01_add_draft(page: Page, credentials: Credentials) -> None:
     lifecycle_01_add_draft(page, credentials, version_name="0.1+draft")
     lifecycle_01_add_draft(page, credentials, version_name="0.1+candidate")
     lifecycle_01_add_draft(page, credentials, version_name="0.1+preview")
     lifecycle_01_add_draft(page, credentials, version_name="0.1+release")
 
 
-def test_lifecycle_02_check_draft_added(page: sync_api.Page, credentials: Credentials) -> None:
+def test_lifecycle_02_check_draft_added(page: Page, credentials: Credentials) -> None:
     lifecycle_02_check_draft_added(page, credentials, version_name="0.1+draft")
     lifecycle_02_check_draft_added(page, credentials, version_name="0.1+candidate")
     lifecycle_02_check_draft_added(page, credentials, version_name="0.1+preview")
     lifecycle_02_check_draft_added(page, credentials, version_name="0.1+release")
 
 
-def test_lifecycle_03_add_file(page: sync_api.Page, credentials: Credentials) -> None:
+def test_lifecycle_03_add_file(page: Page, credentials: Credentials) -> None:
     lifecycle_03_add_file(page, credentials, version_name="0.1+draft")
     lifecycle_03_add_file(page, credentials, version_name="0.1+candidate")
     lifecycle_03_add_file(page, credentials, version_name="0.1+preview")
     lifecycle_03_add_file(page, credentials, version_name="0.1+release")
 
 
-def test_lifecycle_04_start_vote(page: sync_api.Page, credentials: Credentials) -> None:
+def test_lifecycle_04_start_vote(page: Page, credentials: Credentials) -> None:
     lifecycle_04_start_vote(page, credentials, version_name="0.1+candidate")
     lifecycle_04_start_vote(page, credentials, version_name="0.1+preview")
     lifecycle_04_start_vote(page, credentials, version_name="0.1+release")
 
 
-def test_lifecycle_05_resolve_vote(page: sync_api.Page, credentials: Credentials) -> None:
+def test_lifecycle_05_resolve_vote(page: Page, credentials: Credentials) -> None:
     lifecycle_05_resolve_vote(page, credentials, version_name="0.1+preview")
     lifecycle_05_resolve_vote(page, credentials, version_name="0.1+release")
 
 
-def test_lifecycle_06_announce_preview(page: sync_api.Page, credentials: Credentials) -> None:
+def test_lifecycle_06_announce_preview(page: Page, credentials: Credentials) -> None:
     lifecycle_06_announce_preview(page, credentials, version_name="0.1+release")
 
 
-def test_lifecycle_07_release_exists(page: sync_api.Page, credentials: Credentials) -> None:
+def test_lifecycle_07_release_exists(page: Page, credentials: Credentials) -> None:
     lifecycle_07_release_exists(page, credentials, version_name="0.1+release")
 
 
-def test_login(page: sync_api.Page, credentials: Credentials) -> None:
+def test_login(page: Page, credentials: Credentials) -> None:
     debugging = False
 
     def remove_debugging() -> None:
@@ -869,12 +865,12 @@ def test_login(page: sync_api.Page, credentials: Credentials) -> None:
 
     logging.info("Following link to log in")
     login_link_locator = page.get_by_role("link", name="Login")
-    sync_api.expect(login_link_locator).to_be_visible()
+    expect(login_link_locator).to_be_visible()
     login_link_locator.click()
 
     logging.info("Waiting for the login page")
     username_field_locator = page.locator('input[name="username"]')
-    sync_api.expect(username_field_locator).to_be_visible()
+    expect(username_field_locator).to_be_visible()
     logging.info("Login page loaded")
 
     logging.info("Filling credentials")
@@ -883,7 +879,7 @@ def test_login(page: sync_api.Page, credentials: Credentials) -> None:
 
     logging.info("Submitting the login form")
     submit_button_locator = page.get_by_role("button", name="Authenticate")
-    sync_api.expect(submit_button_locator).to_be_enabled()
+    expect(submit_button_locator).to_be_enabled()
     submit_button_locator.click()
 
     logging.info("Waiting for the page to load")
@@ -902,13 +898,13 @@ def test_login(page: sync_api.Page, credentials: Credentials) -> None:
         remove_debugging()
 
 
-def test_logging_debug(page: sync_api.Page, credentials: Credentials) -> Callable[[], None]:
-    def log_request(request: sync_api.Request) -> None:
+def test_logging_debug(page: Page, credentials: Credentials) -> Callable[[], None]:
+    def log_request(request: Request) -> None:
         logging.info(f">> REQUEST: {request.method} {request.url}")
         for key, value in request.headers.items():
             logging.info(f"  REQ HEADER: {key}: {value}")
 
-    def log_response(response: sync_api.Response) -> None:
+    def log_response(response: Response) -> None:
         logging.info(f"<< RESPONSE: {response.status} {response.url}")
         headers = response.headers
         for key, value in headers.items():
@@ -929,19 +925,19 @@ def test_logging_debug(page: sync_api.Page, credentials: Credentials) -> Callabl
 
 
 @slow
-def test_projects_01_update(page: sync_api.Page, credentials: Credentials) -> None:
+def test_projects_01_update(page: Page, credentials: Credentials) -> None:
     logging.info("Navigating to the admin update projects page")
     go_to_path(page, "/admin/projects/update")
     logging.info("Admin update projects page loaded")
 
     logging.info("Locating and activating the button to update projects")
     update_button_locator = page.get_by_role("button", name="Update projects")
-    sync_api.expect(update_button_locator).to_be_enabled()
+    expect(update_button_locator).to_be_enabled()
     update_button_locator.click()
 
     logging.info("Waiting for project update completion message")
     success_message_locator = page.locator("div.status-message.success")
-    sync_api.expect(success_message_locator).to_contain_text(
+    expect(success_message_locator).to_contain_text(
         re.compile(
             r"Successfully added \d+ and updated \d+ committees and projects \(PMCs and PPMCs\) with membership data"
         )
@@ -949,7 +945,7 @@ def test_projects_01_update(page: sync_api.Page, credentials: Credentials) -> No
     logging.info("Project update completed successfully")
 
 
-def test_projects_02_check_directory(page: sync_api.Page, credentials: Credentials) -> None:
+def test_projects_02_check_directory(page: Page, credentials: Credentials) -> None:
     logging.info("Navigating to the project directory page")
     go_to_path(page, "/projects")
     logging.info("Project directory page loaded")
@@ -957,11 +953,11 @@ def test_projects_02_check_directory(page: sync_api.Page, credentials: Credentia
     logging.info("Checking for the Apache Test project card")
     h3_locator = page.get_by_text("Apache Test", exact=True)
     test_card_locator = h3_locator.locator("xpath=ancestor::div[contains(@class, 'project-card')]")
-    sync_api.expect(test_card_locator).to_be_visible()
+    expect(test_card_locator).to_be_visible()
     logging.info("Apache Test project card found successfully")
 
 
-def test_projects_03_add_project(page: sync_api.Page, credentials: Credentials) -> None:
+def test_projects_03_add_project(page: Page, credentials: Credentials) -> None:
     base_project_label = "test"
     project_name = "Apache Test Example"
     project_label = "test-example"
@@ -978,7 +974,7 @@ def test_projects_03_add_project(page: sync_api.Page, credentials: Credentials) 
 
     logging.info("Submitting the add derived project form")
     submit_button_locator = page.get_by_role("button", name="Add project")
-    sync_api.expect(submit_button_locator).to_be_enabled()
+    expect(submit_button_locator).to_be_enabled()
     submit_button_locator.click()
 
     logging.info(f"Waiting for navigation to project view page for {project_label}")
@@ -987,11 +983,11 @@ def test_projects_03_add_project(page: sync_api.Page, credentials: Credentials) 
 
     logging.info(f"Checking for project title '{project_name}' on view page")
     title_locator = page.locator(f'h1:has-text("{project_name}")')
-    sync_api.expect(title_locator).to_be_visible()
+    expect(title_locator).to_be_visible()
     logging.info("Project title confirmed on view page")
 
 
-def test_ssh_01_add_key(page: sync_api.Page, credentials: Credentials) -> None:
+def test_ssh_01_add_key(page: Page, credentials: Credentials) -> None:
     logging.info("Starting SSH key addition test")
     go_to_path(page, "/committees")
 
@@ -1050,11 +1046,11 @@ def test_ssh_01_add_key(page: sync_api.Page, credentials: Credentials) -> None:
 
     logging.info("Verifying that the added SSH key fingerprint is visible")
     key_card_locator = page.locator(f'div.card:has(td:has-text("{expected_fingerprint}"))')
-    sync_api.expect(key_card_locator).to_be_visible()
+    expect(key_card_locator).to_be_visible()
     logging.info("SSH key fingerprint verified successfully on /keys page")
 
 
-def test_ssh_02_rsync_upload(page: sync_api.Page, credentials: Credentials) -> None:
+def test_ssh_02_rsync_upload(page: Page, credentials: Credentials) -> None:
     project_name = TEST_PROJECT
     version_name = "0.2"
     source_dir_rel = f"apache-{project_name}-{version_name}"
@@ -1110,15 +1106,15 @@ def test_ssh_02_rsync_upload(page: sync_api.Page, credentials: Credentials) -> N
     file1_locator = page.get_by_role("cell", name=file1, exact=True)
     file2_locator = page.get_by_role("cell", name=file2, exact=True)
 
-    sync_api.expect(file1_locator).to_be_visible()
+    expect(file1_locator).to_be_visible()
     logging.info(f"Found file: {file1}")
-    sync_api.expect(file2_locator).to_be_visible()
+    expect(file2_locator).to_be_visible()
     logging.info(f"Found file: {file2}")
     logging.info("rsync upload test completed successfully")
 
     logging.info(f"Extracting latest revision from {compose_path}")
     revision_link_locator = page.locator(f'a[href^="/revisions/{project_name}/{version_name}#"]')
-    sync_api.expect(revision_link_locator).to_be_visible()
+    expect(revision_link_locator).to_be_visible()
     revision_href = revision_link_locator.get_attribute("href")
     if not revision_href:
         raise RuntimeError("Could not find revision link href")
@@ -1129,13 +1125,13 @@ def test_ssh_02_rsync_upload(page: sync_api.Page, credentials: Credentials) -> N
     poll_for_tasks_completion(page, project_name, version_name, revision)
 
 
-def test_tidy_up(page: sync_api.Page) -> None:
+def test_tidy_up(page: Page) -> None:
     test_tidy_up_releases(page)
     test_tidy_up_ssh_keys(page)
     test_tidy_up_openpgp_keys(page)
 
 
-def test_tidy_up_openpgp_keys(page: sync_api.Page) -> None:
+def test_tidy_up_openpgp_keys(page: Page) -> None:
     logging.info("Starting OpenPGP key tidy up")
 
     # First, delete the test key if it exists with wrong apache_uid
@@ -1176,7 +1172,7 @@ def test_tidy_up_openpgp_keys(page: sync_api.Page) -> None:
         go_to_path(page, href, wait=False)
 
         pre_locator = page.locator("pre")
-        sync_api.expect(pre_locator).to_be_visible()
+        expect(pre_locator).to_be_visible()
         key_content = pre_locator.inner_text()
 
         if OPENPGP_TEST_UID in key_content:
@@ -1189,7 +1185,7 @@ def test_tidy_up_openpgp_keys(page: sync_api.Page) -> None:
     test_tidy_up_openpgp_keys_continued(page, fingerprints_to_delete)
 
 
-def test_tidy_up_openpgp_keys_continued(page: sync_api.Page, fingerprints_to_delete: list[str]) -> None:
+def test_tidy_up_openpgp_keys_continued(page: Page, fingerprints_to_delete: list[str]) -> None:
     if not fingerprints_to_delete:
         logging.info("No test OpenPGP keys found to delete")
         return
@@ -1205,7 +1201,7 @@ def test_tidy_up_openpgp_keys_continued(page: sync_api.Page, fingerprints_to_del
         if delete_button_locator.is_visible():
             logging.info(f"Delete button found for {fingerprint}, proceeding with deletion")
 
-            def handle_dialog(dialog: sync_api.Dialog) -> None:
+            def handle_dialog(dialog: Dialog) -> None:
                 logging.info(f"Accepting dialog for OpenPGP key deletion: {dialog.message}")
                 dialog.accept()
 
@@ -1217,7 +1213,7 @@ def test_tidy_up_openpgp_keys_continued(page: sync_api.Page, fingerprints_to_del
             wait_for_path(page, "/keys")
 
             flash_message_locator = page.locator("div.flash-success")
-            sync_api.expect(flash_message_locator).to_contain_text("OpenPGP key deleted successfully")
+            expect(flash_message_locator).to_contain_text("OpenPGP key deleted successfully")
             logging.info(f"Deletion successful for OpenPGP key {fingerprint}")
 
         else:
@@ -1226,7 +1222,7 @@ def test_tidy_up_openpgp_keys_continued(page: sync_api.Page, fingerprints_to_del
     logging.info("OpenPGP key tidy up finished")
 
 
-def test_tidy_up_project(page: sync_api.Page) -> None:
+def test_tidy_up_project(page: Page) -> None:
     project_name = "Apache Test"
     logging.info(f"Checking for project '{project_name}' at /projects")
     go_to_path(page, "/projects")
@@ -1242,7 +1238,7 @@ def test_tidy_up_project(page: sync_api.Page) -> None:
         if delete_button_locator.is_visible():
             logging.info(f"Delete button found for '{project_name}', proceeding with deletion")
 
-            def handle_dialog(dialog: sync_api.Dialog) -> None:
+            def handle_dialog(dialog: Dialog) -> None:
                 logging.info(f"Accepting dialog: {dialog.message}")
                 dialog.accept()
 
@@ -1255,7 +1251,7 @@ def test_tidy_up_project(page: sync_api.Page) -> None:
             logging.info(f"Verifying project card for '{project_name}' is no longer visible")
             h3_locator_check = page.get_by_text(project_name, exact=True)
             card_locator_check = h3_locator_check.locator("xpath=ancestor::div[contains(@class, 'project-card')]")
-            sync_api.expect(card_locator_check).not_to_be_visible()
+            expect(card_locator_check).not_to_be_visible()
             logging.info(f"Project '{project_name}' deleted successfully")
         else:
             logging.info(f"Delete button not visible for '{project_name}', no deletion performed")
@@ -1263,7 +1259,7 @@ def test_tidy_up_project(page: sync_api.Page) -> None:
         logging.info(f"Project card for '{project_name}' not found, no deletion needed")
 
 
-def test_tidy_up_ssh_keys(page: sync_api.Page) -> None:
+def test_tidy_up_ssh_keys(page: Page) -> None:
     logging.info("Starting SSH key tidy up")
     go_to_path(page, "/keys")
     logging.info("Navigated to /keys page for SSH key cleanup")
@@ -1296,7 +1292,7 @@ def test_tidy_up_ssh_keys(page: sync_api.Page) -> None:
             logging.info("SSH key card: details is not open, clicking summary to open")
             summary_element.click()
             try:
-                sync_api.expect(details_element).to_have_attribute("open", "", timeout=2000)
+                expect(details_element).to_have_attribute("open", "", timeout=2000)
                 logging.info("SSH key card: details successfully opened")
             except Exception as e:
                 logging.warning(
@@ -1308,7 +1304,7 @@ def test_tidy_up_ssh_keys(page: sync_api.Page) -> None:
 
         details_pre_locator = details_element.locator("pre").first
         try:
-            sync_api.expect(details_pre_locator).to_be_visible(timeout=1000)
+            expect(details_pre_locator).to_be_visible(timeout=1000)
         except Exception as e:
             logging.warning(
                 f"SSH key card: <pre> tag not visible even after attempting to open details: {e}, skipping card"
@@ -1334,7 +1330,7 @@ def test_tidy_up_ssh_keys(page: sync_api.Page) -> None:
     test_tidy_up_ssh_keys_continued(page, fingerprints_to_delete)
 
 
-def test_tidy_up_ssh_keys_continued(page: sync_api.Page, fingerprints_to_delete: list[str]) -> None:
+def test_tidy_up_ssh_keys_continued(page: Page, fingerprints_to_delete: list[str]) -> None:
     if not fingerprints_to_delete:
         logging.info("No test SSH keys found to delete")
         return
@@ -1350,7 +1346,7 @@ def test_tidy_up_ssh_keys_continued(page: sync_api.Page, fingerprints_to_delete:
         if delete_button_locator.is_visible():
             logging.info(f"Delete button found for {fingerprint}, proceeding with deletion")
 
-            def handle_dialog(dialog: sync_api.Dialog) -> None:
+            def handle_dialog(dialog: Dialog) -> None:
                 logging.info(f"Accepting dialog for key deletion: {dialog.message}")
                 dialog.accept()
 
@@ -1362,7 +1358,7 @@ def test_tidy_up_ssh_keys_continued(page: sync_api.Page, fingerprints_to_delete:
             wait_for_path(page, "/keys")
 
             flash_message_locator = page.locator("div.flash-success")
-            sync_api.expect(flash_message_locator).to_contain_text("SSH key deleted successfully")
+            expect(flash_message_locator).to_contain_text("SSH key deleted successfully")
             logging.info(f"Deletion successful for key {fingerprint}")
 
         else:
@@ -1371,7 +1367,7 @@ def test_tidy_up_ssh_keys_continued(page: sync_api.Page, fingerprints_to_delete:
     logging.info("SSH key tidy up finished")
 
 
-def test_tidy_up_releases(page: sync_api.Page) -> None:
+def test_tidy_up_releases(page: Page) -> None:
     logging.info("Navigating to the admin delete release page")
     go_to_path(page, "/admin/delete-release")
     logging.info("Admin delete release page loaded")
@@ -1384,7 +1380,7 @@ def test_tidy_up_releases(page: sync_api.Page) -> None:
     release_remove(page, f"{TEST_PROJECT}-0.2")
 
 
-def wait_for_path(page: sync_api.Page, path: str) -> None:
+def wait_for_path(page: Page, path: str) -> None:
     page.wait_for_load_state()
     parsed_url = urllib.parse.urlparse(page.url)
     if parsed_url.path != path:
