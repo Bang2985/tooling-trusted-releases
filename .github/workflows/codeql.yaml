@@ -1,0 +1,70 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: python
+            suppression_pack: +codeql/python-queries:AlertSuppression.ql
+          - language: actions
+            suppression_pack: ""
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+        with:
+          persist-credentials: false
+
+      - name: Start CodeQL
+        uses: github/codeql-action/init@267c4672a565967e4531438f2498370de5e8a98d
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-extended
+          packs: ${{ matrix.suppression_pack }}
+          config-file: ./codeql-config.yml
+
+      - name: Perform CodeQL analysis
+        id: analyze
+        uses: github/codeql-action/analyze@267c4672a565967e4531438f2498370de5e8a98d
+        with:
+          category: "/language:${{ matrix.language }}"
+          output: sarif-results
+
+      - name: Show SARIF suppressed result statistics
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          p = pathlib.Path("sarif-results") / "${{ matrix.language }}.sarif"
+          data = json.loads(p.read_text())
+          results = data["runs"][0].get("results", [])
+          suppressed = [r for r in results if r.get("suppressions")]
+          print(f"SARIF file: {p}")
+          print(f"Total results: {len(results)}")
+          print(f"Suppressed results: {len(suppressed)}")
+          PY
+
+      - name: Dismiss alerts of suppressed results
+        if: github.ref == 'refs/heads/main'
+        uses: advanced-security/dismiss-alerts@29b55573401eedd7f600e4c3e5d0676a457b9f23
+        with:
+          sarif-id: ${{ steps.analyze.outputs.sarif-id }}
+          sarif-file: sarif-results/${{ matrix.language }}.sarif
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
