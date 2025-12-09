@@ -52,14 +52,6 @@ body {
     width: 8px;                  /* Chrome/Edge */
 }
 
-nav.navbar {
-    padding: 0.5rem 2rem;
-}
-
-nav.navbar * {
-    color: #ffffff !important;
-}
-
 html {
     scroll-padding-top: 80px;
 }
@@ -188,6 +180,15 @@ button, input, option, select, textarea {
     line-height: 24px;
     font-variation-settings: "opsz" 22;
     font-weight: 425;
+}
+
+
+nav.navbar {
+    padding: 0.5rem 2rem;
+}
+
+nav.navbar button, nav.navbar a.navbar-brand {
+    color: #ffffff !important;
 }
 
 label[for] {
