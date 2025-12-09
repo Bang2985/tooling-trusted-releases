@@ -24,7 +24,7 @@ import statistics
 import sys
 import time
 from collections.abc import Callable, Mapping
-from typing import Any, Final, Literal
+from typing import Any, Final, Literal, NamedTuple
 
 import aiofiles.os
 import aiohttp
@@ -102,6 +102,17 @@ class LdapLookupForm(form.Form):
     email: str = form.label("Email address (optional)", "Enter email address, e.g. user@example.org")
 
 
+class SessionDataCommon(NamedTuple):
+    uid: str
+    fullname: str
+    email: str
+    is_member: bool
+    is_chair: bool
+    is_root: bool
+    pmcs: list[str]
+    projects: list[str]
+
+
 @admin.get("/all-releases")
 async def all_releases(session: web.Committer) -> str:
     """Display a list of all releases across all phases."""
@@ -156,7 +167,15 @@ async def browse_as_post(session: web.Committer, browse_form: BrowseAsUserForm) 
         bind_dn,
         bind_password,
     )
-    log.info(f"New Quart cookie (not ASFQuart session) data: {new_session_data}")
+    log_safe_data = _log_safe_session_data(
+        ldap_data,
+        new_uid,
+        ldap_projects_data,
+        committee_data,
+        bind_dn,
+        bind_password,
+    )
+    log.info(f"New Quart cookie (not ASFQuart session) data: {log_safe_data}")
     asfquart.session.write(new_session_data)
 
     await quart.flash(
@@ -215,24 +234,22 @@ async def consistency(session: web.Committer) -> web.TextResponse:
                 filesystem_dirs.remove(filesystem_dir)
                 break
     return web.TextResponse(
-        f"""\
-=== BROKEN ===
-
-DATABASE ONLY:
-
-{"\n".join(sorted(database_dirs or ["-"]))}
-
-FILESYSTEM ONLY:
-
-{"\n".join(sorted(filesystem_dirs or ["-"]))}
-
-
-== Okay ==
-
-Paired correctly:
-
-{"\n".join(sorted(paired_dirs or ["-"]))}
-"""
+        "=== BROKEN ===\n"
+        "\n"
+        "DATABASE ONLY:\n"
+        "\n"
+        f"{chr(10).join(sorted(database_dirs or ['-']))}\n"
+        "\n"
+        "FILESYSTEM ONLY:\n"
+        "\n"
+        f"{chr(10).join(sorted(filesystem_dirs or ['-']))}\n"
+        "\n"
+        "\n"
+        "== Okay ==\n"
+        "\n"
+        "Paired correctly:\n"
+        "\n"
+        f"{chr(10).join(sorted(paired_dirs or ['-']))}\n"
     )
 
 
@@ -244,93 +261,6 @@ async def data(session: web.Committer) -> str:
 @admin.get("/data/<model>")
 async def data_model(session: web.Committer, model: str = "Committee") -> str:
     return await _data(session, model)
-
-
-async def _data(session: web.Committer, model: str = "Committee") -> str:
-    """Browse all records in the database."""
-    async with db.session() as data:
-        # Map of model names to their classes
-        # TODO: Add distribution channel, key link, and any others
-        model_methods: dict[str, Callable[[], db.Query[Any]]] = {
-            "CheckResult": data.check_result,
-            "CheckResultIgnore": data.check_result_ignore,
-            "Committee": data.committee,
-            "Project": data.project,
-            "PublicSigningKey": data.public_signing_key,
-            "Release": data.release,
-            "ReleasePolicy": data.release_policy,
-            "Revision": data.revision,
-            "SSHKey": data.ssh_key,
-            "Task": data.task,
-            "TextValue": data.text_value,
-        }
-
-        if model not in model_methods:
-            raise base.ASFQuartException(f"Model type '{model}' not found", 404)
-
-        # Get all records for the selected model
-        records = await model_methods[model]().all()
-
-        # Convert records to dictionaries for JSON serialization
-        records_dict = []
-        for record in records:
-            if hasattr(record, "dict"):
-                record_dict = record.dict()
-            else:
-                # Fallback for models without dict() method
-                record_dict = {}
-                # record_dict = {
-                #     "id": getattr(record, "id", None),
-                #     "name": getattr(record, "name", None),
-                # }
-                for key in record.__dict__:
-                    if not key.startswith("_"):
-                        record_dict[key] = getattr(record, key)
-            records_dict.append(record_dict)
-
-        return await template.render(
-            "data-browser.html", models=list(model_methods.keys()), model=model, records=records_dict
-        )
-
-
-@admin.get("/delete-test-openpgp-keys")
-async def delete_test_openpgp_keys_get(session: web.Committer) -> web.Response:
-    """Display the form to delete test user OpenPGP keys."""
-    if not config.get().ALLOW_TESTS:
-        raise base.ASFQuartException("Test operations are disabled in this environment", errorcode=403)
-
-    rendered_form = form.render(
-        model_cls=form.Empty,
-        submit_label="Delete all OpenPGP keys for test user",
-        empty=True,
-    )
-    return web.ElementResponse(rendered_form)
-
-
-@admin.post("/delete-test-openpgp-keys")
-@admin.empty()
-async def delete_test_openpgp_keys_post(session: web.Committer) -> web.Response:
-    """Delete all test user OpenPGP keys and their links."""
-    if not config.get().ALLOW_TESTS:
-        raise base.ASFQuartException("Test operations are disabled in this environment", errorcode=403)
-
-    test_uid = "test"
-    try:
-        async with storage.write() as write:
-            wafc = write.as_foundation_committer()
-            delete_outcome = await wafc.keys.test_user_delete_all(test_uid)
-            deleted_count = delete_outcome.result_or_raise()
-
-        suffix = "s" if deleted_count != 1 else ""
-        await quart.flash(
-            f"Successfully deleted {deleted_count} OpenPGP key{suffix} and their associated links for test user.",
-            "success",
-        )
-    except Exception as e:
-        log.exception("Error deleting test user keys:")
-        await quart.flash(f"Error deleting test user keys: {e!s}", "error")
-
-    return await session.redirect(get.keys.keys)
 
 
 @admin.get("/delete-committee-keys")
@@ -443,6 +373,46 @@ async def delete_release_post(session: web.Committer, delete_form: DeleteRelease
     await _delete_releases(session, delete_form.releases_to_delete)
 
     return await session.redirect(delete_release_get)
+
+
+@admin.get("/delete-test-openpgp-keys")
+async def delete_test_openpgp_keys_get(session: web.Committer) -> web.Response:
+    """Display the form to delete test user OpenPGP keys."""
+    if not config.get().ALLOW_TESTS:
+        raise base.ASFQuartException("Test operations are disabled in this environment", errorcode=403)
+
+    rendered_form = form.render(
+        model_cls=form.Empty,
+        submit_label="Delete all OpenPGP keys for test user",
+        empty=True,
+    )
+    return web.ElementResponse(rendered_form)
+
+
+@admin.post("/delete-test-openpgp-keys")
+@admin.empty()
+async def delete_test_openpgp_keys_post(session: web.Committer) -> web.Response:
+    """Delete all test user OpenPGP keys and their links."""
+    if not config.get().ALLOW_TESTS:
+        raise base.ASFQuartException("Test operations are disabled in this environment", errorcode=403)
+
+    test_uid = "test"
+    try:
+        async with storage.write() as write:
+            wafc = write.as_foundation_committer()
+            delete_outcome = await wafc.keys.test_user_delete_all(test_uid)
+            deleted_count = delete_outcome.result_or_raise()
+
+        suffix = "s" if deleted_count != 1 else ""
+        await quart.flash(
+            f"Successfully deleted {deleted_count} OpenPGP key{suffix} and their associated links for test user.",
+            "success",
+        )
+    except Exception as e:
+        log.exception("Error deleting test user keys:")
+        await quart.flash(f"Error deleting test user keys: {e!s}", "error")
+
+    return await session.redirect(get.keys.keys)
 
 
 @admin.get("/env")
@@ -617,17 +587,6 @@ async def ongoing_tasks_post(
     return await _ongoing_tasks(session, project_name, version_name, revision)
 
 
-async def _ongoing_tasks(
-    session: web.Committer, project_name: str, version_name: str, revision: str
-) -> web.QuartResponse:
-    try:
-        ongoing = await interaction.tasks_ongoing(project_name, version_name, revision)
-        return web.TextResponse(str(ongoing))
-    except Exception:
-        log.exception(f"Error fetching ongoing task count for {project_name} {version_name} rev {revision}:")
-        return web.TextResponse("")
-
-
 @admin.get("/performance")
 async def performance(session: web.Committer) -> str:
     """Display performance statistics for all routes."""
@@ -738,6 +697,24 @@ async def projects_update_post(session: web.Committer) -> str | web.WerkzeugResp
         }, 200
 
 
+@admin.get("/task-times/<project_name>/<version_name>/<revision_number>")
+async def task_times(
+    session: web.Committer, project_name: str, version_name: str, revision_number: str
+) -> web.QuartResponse:
+    values = []
+    async with db.session() as data:
+        tasks = await data.task(
+            project_name=project_name, version_name=version_name, revision_number=revision_number
+        ).all()
+        for task in tasks:
+            if (task.started is None) or (task.completed is None):
+                continue
+            ms_elapsed = (task.completed - task.started).total_seconds() * 1000
+            values.append(f"{task.task_type} {ms_elapsed:.2f}ms")
+
+    return web.TextResponse("\n".join(values))
+
+
 @admin.get("/tasks")
 async def tasks_(session: web.Committer) -> str:
     return await template.render("tasks.html")
@@ -801,24 +778,6 @@ async def tasks_recent(session: web.Committer, minutes: int) -> str:
         page.append(table.collect())
 
     return await template.blank(f"Recent Tasks ({minutes}m)", content=page.collect())
-
-
-@admin.get("/task-times/<project_name>/<version_name>/<revision_number>")
-async def task_times(
-    session: web.Committer, project_name: str, version_name: str, revision_number: str
-) -> web.QuartResponse:
-    values = []
-    async with db.session() as data:
-        tasks = await data.task(
-            project_name=project_name, version_name=version_name, revision_number=revision_number
-        ).all()
-        for task in tasks:
-            if (task.started is None) or (task.completed is None):
-                continue
-            ms_elapsed = (task.completed - task.started).total_seconds() * 1000
-            values.append(f"{task.task_type} {ms_elapsed:.2f}ms")
-
-    return web.TextResponse("\n".join(values))
 
 
 @admin.get("/test")
@@ -919,6 +878,53 @@ async def _check_keys(fix: bool = False) -> str:
     if bad_keys:
         message += f"\nFound {len(bad_keys)} bad keys:\n{'\n'.join(bad_keys)}"
     return message
+
+
+async def _data(session: web.Committer, model: str = "Committee") -> str:
+    """Browse all records in the database."""
+    async with db.session() as data:
+        # Map of model names to their classes
+        # TODO: Add distribution channel, key link, and any others
+        model_methods: dict[str, Callable[[], db.Query[Any]]] = {
+            "CheckResult": data.check_result,
+            "CheckResultIgnore": data.check_result_ignore,
+            "Committee": data.committee,
+            "Project": data.project,
+            "PublicSigningKey": data.public_signing_key,
+            "Release": data.release,
+            "ReleasePolicy": data.release_policy,
+            "Revision": data.revision,
+            "SSHKey": data.ssh_key,
+            "Task": data.task,
+            "TextValue": data.text_value,
+        }
+
+        if model not in model_methods:
+            raise base.ASFQuartException(f"Model type '{model}' not found", 404)
+
+        # Get all records for the selected model
+        records = await model_methods[model]().all()
+
+        # Convert records to dictionaries for JSON serialization
+        records_dict = []
+        for record in records:
+            if hasattr(record, "dict"):
+                record_dict = record.dict()
+            else:
+                # Fallback for models without dict() method
+                record_dict = {}
+                # record_dict = {
+                #     "id": getattr(record, "id", None),
+                #     "name": getattr(record, "name", None),
+                # }
+                for key in record.__dict__:
+                    if not key.startswith("_"):
+                        record_dict[key] = getattr(record, key)
+            records_dict.append(record_dict)
+
+        return await template.render(
+            "data-browser.html", models=list(model_methods.keys()), model=model, records=records_dict
+        )
 
 
 async def _delete_releases(session: web.Committer, releases_to_delete: list[str]) -> None:
@@ -1026,6 +1032,43 @@ def _get_user_committees_from_ldap(uid: str, bind_dn: str, bind_password: str) -
     return committees
 
 
+def _log_safe_session_data(
+    ldap_data: dict[str, Any],
+    new_uid: str,
+    ldap_projects: apache.LDAPProjectsData,
+    committee_data: apache.CommitteeData,
+    bind_dn: str,
+    bind_password: str,
+) -> dict[str, Any]:
+    # This version excludes "mfa" which CodeQL treats as sensitive
+    # It's just a bool, but we can't suppress the error at source
+    common = _session_data_common(ldap_data, new_uid, ldap_projects, committee_data, bind_dn, bind_password)
+    return {
+        "uid": common.uid,
+        "dn": None,
+        "fullname": common.fullname,
+        "email": common.email,
+        "isMember": common.is_member,
+        "isChair": common.is_chair,
+        "isRoot": common.is_root,
+        "pmcs": common.pmcs,
+        "projects": common.projects,
+        "isRole": False,
+        "metadata": {},
+    }
+
+
+async def _ongoing_tasks(
+    session: web.Committer, project_name: str, version_name: str, revision: str
+) -> web.QuartResponse:
+    try:
+        ongoing = await interaction.tasks_ongoing(project_name, version_name, revision)
+        return web.TextResponse(str(ongoing))
+    except Exception:
+        log.exception(f"Error fetching ongoing task count for {project_name} {version_name} rev {revision}:")
+        return web.TextResponse("")
+
+
 def _session_data(
     ldap_data: dict[str, Any],
     new_uid: str,
@@ -1035,6 +1078,33 @@ def _session_data(
     bind_dn: str,
     bind_password: str,
 ) -> dict[str, Any]:
+    common = _session_data_common(ldap_data, new_uid, ldap_projects, committee_data, bind_dn, bind_password)
+    return {
+        "uid": common.uid,
+        "dn": None,
+        "fullname": common.fullname,
+        "email": common.email,
+        "isMember": common.is_member,
+        "isChair": common.is_chair,
+        "isRoot": common.is_root,
+        # WARNING: ASFQuart session.ClientSession uses "committees"
+        # But this is cookie, not ClientSession, data, and requires "pmcs"
+        "pmcs": common.pmcs,
+        "projects": common.projects,
+        "mfa": current_session.mfa,
+        "isRole": False,
+        "metadata": {},
+    }
+
+
+def _session_data_common(
+    ldap_data: dict[str, Any],
+    new_uid: str,
+    ldap_projects: apache.LDAPProjectsData,
+    committee_data: apache.CommitteeData,
+    bind_dn: str,
+    bind_password: str,
+) -> SessionDataCommon:
     # This is not quite accurate
     # For example, this misses "tooling" for tooling members
     projects = {p.name for p in ldap_projects.projects if (new_uid in p.members) or (new_uid in p.owners)}
@@ -1046,24 +1116,16 @@ def _session_data(
     is_root = False
     is_chair = any(new_uid in (user.id for user in c.chair) for c in committee_data.committees)
 
-    return {
-        "uid": ldap_data.get("uid", [new_uid])[0],
-        "dn": None,
-        "fullname": ldap_data.get("cn", [new_uid])[0],
-        # "email": ldap_user.get("mail", [""])[0],
-        # Or asf-committer-email?
-        "email": f"{new_uid}@apache.org",
-        "isMember": is_member,
-        "isChair": is_chair,
-        "isRoot": is_root,
-        # WARNING: ASFQuart session.ClientSession uses "committees"
-        # But this is cookie, not ClientSession, data, and requires "pmcs"
-        "pmcs": sorted(list(committees)),
-        "projects": sorted(list(projects)),
-        "mfa": current_session.mfa,
-        "isRole": False,
-        "metadata": {},
-    }
+    return SessionDataCommon(
+        uid=ldap_data.get("uid", [new_uid])[0],
+        fullname=ldap_data.get("cn", [new_uid])[0],
+        email=f"{new_uid}@apache.org",
+        is_member=is_member,
+        is_chair=is_chair,
+        is_root=is_root,
+        pmcs=sorted(list(committees)),
+        projects=sorted(list(projects)),
+    )
 
 
 async def _update_keys(asf_uid: str) -> int:

@@ -184,9 +184,11 @@ async def async_temporary_directory(
 
 
 def chmod_directories(path: pathlib.Path, permissions: int = 0o755) -> None:
+    # codeql[py/overly-permissive-file]
     os.chmod(path, permissions)
     for dir_path in path.rglob("*"):
         if dir_path.is_dir():
+            # codeql[py/overly-permissive-file]
             os.chmod(dir_path, permissions)
 
 
