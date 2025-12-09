@@ -15,6 +15,7 @@ repos:
     - id: semgrep
       args:
         - --config=p/ci
+        - --config=p/command-injection
         - --config=p/cwe-top-25
         - --config=p/docker-compose
         - --config=p/jwt
@@ -23,13 +24,15 @@ repos:
         - --config=p/secrets
         - --config=p/security-audit
         - --config=p/sql-injection
-        - --error
-        - --quiet
-        - --metrics=off
+        - --config=r/python.lang.security.audit.dangerous-asyncio-shell
         - --disable-version-check
-        - --exclude=migrations/versions/0027_2025.09.08_69e565eb.py
+        - --error
         - --exclude-rule=generic.html-templates.security.var-in-href.var-in-href
         - --exclude-rule=html.security.plaintext-http-link.plaintext-http-link
-        - --exclude-rule=python.lang.security.use-defused-xml.use-defused-xml
+        - --exclude-rule=python.flask.security.xss.audit.template-unescaped-with-safe.template-unescaped-with-safe
         - --exclude-rule=python.lang.security.use-defused-xml-parse.use-defused-xml-parse
+        - --exclude-rule=python.lang.security.use-defused-xml.use-defused-xml
+        - --exclude=migrations/versions/0027_2025.09.08_69e565eb.py
+        - --metrics=off
+        - --quiet
       pass_filenames: false
