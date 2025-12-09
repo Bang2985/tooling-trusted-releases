@@ -88,7 +88,7 @@ class PyPIResponse(schema.Lax):
 
 
 # Lax to ignore csrf_token and submit
-# WTForms types platform as Any, which is insufficient
+# Our previous forms implementation typed platform as Any, which was insufficient
 # And this way we also get nice JSON from the Pydantic model dump
 # Including all of the enum properties
 class Data(schema.Lax):

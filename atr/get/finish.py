@@ -19,7 +19,6 @@
 import dataclasses
 import json
 import pathlib
-from typing import Any
 
 import aiofiles.os
 import asfquart.base as base
@@ -117,13 +116,9 @@ async def _analyse_rc_tags(latest_revision_dir: pathlib.Path) -> RCTagAnalysisRe
     return r
 
 
-async def _deletable_choices(latest_revision_dir: pathlib.Path, target_dirs: set[pathlib.Path]) -> Any:
-    # This should be -> list[tuple[str, str]], but that causes pyright to complain incorrectly
-    # Details in pyright/dist/dist/typeshed-fallback/stubs/WTForms/wtforms/fields/choices.pyi
-    # _Choice: TypeAlias = tuple[Any, str] | tuple[Any, str, dict[str, Any]]
-    # Then it wants us to use list[_Choice] (= list[tuple[Any, str]])
-    # But it says, incorrectly, that list[tuple[str, str]] is not a list[_Choice]
-    # This mistake is not made by mypy
+async def _deletable_choices(
+    latest_revision_dir: pathlib.Path, target_dirs: set[pathlib.Path]
+) -> list[tuple[str, str]]:
     empty_deletable_dirs: list[pathlib.Path] = []
     if latest_revision_dir.exists():
         for d_rel in target_dirs:
