@@ -746,6 +746,7 @@ async def tasks_recent(session: web.Committer, minutes: int) -> str:
                 htpy.th["Added"],
                 htpy.th["Project"],
                 htpy.th["Version"],
+                htpy.th["Revision"],
                 htpy.th["Error"],
             ]
         ]
@@ -766,6 +767,7 @@ async def tasks_recent(session: web.Committer, minutes: int) -> str:
                     htpy.td[task.added.strftime("%H:%M:%S") if task.added else ""],
                     htpy.td[task.project_name or ""],
                     htpy.td[task.version_name or ""],
+                    htpy.td[task.revision_number or ""],
                     htpy.td[error_text],
                 ]
             )
