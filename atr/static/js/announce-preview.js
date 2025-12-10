@@ -59,24 +59,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     fetchAndUpdateAnnouncePreview();
 
-    // Copy variable button functionality
-    document.querySelectorAll(".copy-var-btn").forEach(btn => {
-        btn.addEventListener("click", () => {
-            const variable = btn.dataset.variable;
-            navigator.clipboard.writeText(variable).then(() => {
-                const originalText = btn.textContent;
-                btn.textContent = "Copied!";
-                btn.classList.remove("btn-outline-secondary");
-                btn.classList.add("btn-success");
-                setTimeout(() => {
-                    btn.textContent = originalText;
-                    btn.classList.remove("btn-success");
-                    btn.classList.add("btn-outline-secondary");
-                }, 1500);
-            });
-        });
-    });
-
     // Download path suffix validation
     const pathInput = document.getElementById("download_path_suffix");
     const pathHelpText = pathInput ? pathInput.parentElement.querySelector(".form-text") : null;

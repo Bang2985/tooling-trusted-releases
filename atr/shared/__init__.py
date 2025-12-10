@@ -145,10 +145,11 @@ async def check(
             submit_label="Delete",
             empty=True,
             defaults={"file_path": str(path)},
+            # TODO: Add a static check for the confirm syntax
             confirm=(
-                f"Are you sure you want to delete {path}? "
-                f"This will also delete any associated metadata files. "
-                f"This cannot be undone."
+                "Are you sure you want to delete this file? "
+                "This will also delete any associated metadata files. "
+                "This cannot be undone."
             ),
         )
 

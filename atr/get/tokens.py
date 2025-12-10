@@ -78,12 +78,11 @@ async def tokens(session: web.Committer) -> str:
         ]
     page.append(jwt_section)
 
-    return await template.render_sync(
-        "blank.html",
+    return await template.blank(
         title="Tokens",
         description="Manage your PATs and JWTs.",
         content=page.collect(),
-        javascripts=[util.static_path("js", "create-a-jwt.js")],
+        javascripts=["create-a-jwt"],
     )
 
 

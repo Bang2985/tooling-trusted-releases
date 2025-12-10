@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import asfquart.base as base
 import htpy
-import markupsafe
 
 import atr.blueprints.get as get
 import atr.config as config
@@ -34,7 +33,6 @@ import atr.htm as htm
 import atr.models.sql as sql
 import atr.post as post
 import atr.registry as registry
-import atr.render as render
 import atr.shared as shared
 import atr.template as template
 import atr.user as user
@@ -69,26 +67,20 @@ async def add_project(session: web.Committer, committee_name: str) -> web.Werkze
         },
     )
 
-    script_text = markupsafe.Markup(f"""
-document.addEventListener("DOMContentLoaded", function() {{
-    const committeeInput = document.querySelector('input[name="committee_name"]');
-    if (committeeInput) {{
-        const committeeName = committeeInput.value;
-        const committeeDisplayName = "{committee_display_name}";
-        const formTexts = document.querySelectorAll('.form-text, .text-muted');
-        formTexts.forEach(function(element) {{
-            element.textContent = element.textContent.replace(/Example/g, committeeDisplayName);
-            element.textContent = element.textContent.replace(/example/g, committeeName.toLowerCase());
-        }});
-    }}
-}});
-""")
-    page.append(htm.script[script_text])
+    # TODO: It would be better to have these attributes on the form
+    page.append(
+        htpy.div(
+            "#projects-add-config.d-none",
+            data_committee_name=committee_name,
+            data_committee_display_name=committee_display_name,
+        )
+    )
 
     return await template.blank(
         title="Add project",
         description=f"Add a new project to the {committee.display_name} committee.",
         content=page.collect(),
+        javascripts=["projects-add-form"],
     )
 
 
@@ -214,10 +206,12 @@ async def view(session: web.Committer, name: str) -> web.WerkzeugResponse | str:
 
     content = page.collect()
 
+    javascripts = ["copy-variable"] if can_edit else []
     return await template.blank(
         title=f"{project.display_name}",
         description=f"Information regarding {project.display_name}.",
         content=content,
+        javascripts=javascripts,
     )
 
 
@@ -562,7 +556,6 @@ def _render_vote_form(project: sql.Project) -> htm.Element:
             skip=skip_fields,
             custom={"release_checklist": release_checklist_widget},
         )
-        card_body.append(htm.script[render.copy_javascript()])
     return card.collect()
 
 

@@ -100,11 +100,7 @@ async def list_get(session: web.Committer, project: str, version: str) -> str:
                 "package": dist.package,
                 "version": dist.version,
             },
-            confirm=(
-                f"Are you sure you want to delete the distribution "
-                f"{dist.platform.name} {dist.package} {dist.version}? "
-                f"This cannot be undone."
-            ),
+            confirm=("Are you sure you want to delete this distribution? This cannot be undone."),
         )
         block.append(htm.div(".mb-3")[delete_form])
 

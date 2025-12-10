@@ -18,7 +18,6 @@
 
 import aiofiles.os
 import htpy
-import markupsafe
 
 import atr.blueprints.get as get
 import atr.construct as construct
@@ -86,7 +85,9 @@ async def selected_revision(
         )
 
         return await template.blank(
-            title=f"Start voting on {release.project.short_display_name} {release.version}", content=content
+            title=f"Start voting on {release.project.short_display_name} {release.version}",
+            content=content,
+            javascripts=["copy-variable", "vote-preview"],
         )
 
 
@@ -167,7 +168,12 @@ async def _render_page(
         },
     )
     page.append(vote_form)
-    page.append(_render_javascript(release, min_hours))
+
+    preview_url = util.as_url(
+        post.preview.vote_preview, project_name=release.project.name, version_name=release.version
+    )
+    # TODO: It would be better to have these attributes on the form
+    page.append(htpy.div("#vote-config.d-none", data_preview_url=preview_url, data_min_hours=str(min_hours)))
 
     return page.collect()
 
@@ -175,85 +181,3 @@ async def _render_page(
 def _render_body_tabs(default_body: str) -> htm.Element:
     """Render the tabbed interface for body editing and preview."""
     return render.body_tabs("vote-body", default_body, construct.vote_template_variables())
-
-
-def _render_javascript(release, min_hours: int) -> htm.Element:
-    """Render the JavaScript for email preview."""
-    preview_url = util.as_url(
-        post.preview.vote_preview, project_name=release.project.name, version_name=release.version
-    )
-
-    js_code = f"""
-        document.addEventListener("DOMContentLoaded", () => {{
-            let debounceTimeout;
-            const debounceDelay = 500;
-
-            const bodyTextarea = document.getElementById("body");
-            const voteDurationInput = document.getElementById("vote_duration");
-            const textPreviewContent = document.getElementById("vote-body-preview-content");
-            const voteForm = document.querySelector("form.atr-canary");
-
-            if (!bodyTextarea || !voteDurationInput || !textPreviewContent || !voteForm) {{
-                console.error("Required elements for vote preview not found. Exiting.");
-                return;
-            }}
-
-            const previewUrl = "{preview_url}";
-            const csrfTokenInput = voteForm.querySelector('input[name="csrf_token"]');
-
-            if (!previewUrl || !csrfTokenInput) {{
-                console.error("Required data attributes or CSRF token not found for vote preview.");
-                return;
-            }}
-            const csrfToken = csrfTokenInput.value;
-
-            function fetchAndUpdateVotePreview() {{
-                const bodyContent = bodyTextarea.value;
-                const voteDuration = voteDurationInput.value || "{min_hours}";
-
-                fetch(previewUrl, {{
-                        method: "POST",
-                        headers: {{
-                            "Content-Type": "application/x-www-form-urlencoded",
-                            "X-CSRFToken": csrfToken
-                        }},
-                        body: new URLSearchParams({{
-                            "body": bodyContent,
-                            "duration": voteDuration,
-                            "csrf_token": csrfToken
-                        }})
-                    }})
-                    .then(response => {{
-                        if (!response.ok) {{
-                            return response.text().then(text => {{
-                                throw new Error(`HTTP error ${{response.status}}: ${{text}}`)
-                            }});
-                        }}
-                        return response.text();
-                    }})
-                    .then(previewText => {{
-                        textPreviewContent.textContent = previewText;
-                    }})
-                    .catch(error => {{
-                        console.error("Error fetching email preview:", error);
-                        textPreviewContent.textContent = `Error loading preview:\\n${{error.message}}`;
-                    }});
-            }}
-
-            bodyTextarea.addEventListener("input", () => {{
-                clearTimeout(debounceTimeout);
-                debounceTimeout = setTimeout(fetchAndUpdateVotePreview, debounceDelay);
-            }});
-
-            voteDurationInput.addEventListener("input", () => {{
-                clearTimeout(debounceTimeout);
-                debounceTimeout = setTimeout(fetchAndUpdateVotePreview, debounceDelay);
-            }});
-
-            fetchAndUpdateVotePreview();
-
-            {render.copy_javascript()}
-        }});
-    """
-
-    return htpy.script[markupsafe.Markup(js_code)]

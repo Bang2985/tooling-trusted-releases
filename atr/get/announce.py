@@ -82,7 +82,7 @@ async def selected(session: web.Committer, project_name: str, version_name: str)
         title=f"Announce and distribute {release.project.display_name} {release.version}",
         description=f"Announce and distribute {release.project.display_name} {release.version} as a release.",
         content=content,
-        javascripts=["announce-preview"],
+        javascripts=["announce-preview", "copy-variable"],
     )
 
 
