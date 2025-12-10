@@ -82,6 +82,7 @@ async def selected(session: web.Committer, project_name: str, version_name: str)
         title=f"Announce and distribute {release.project.display_name} {release.version}",
         description=f"Announce and distribute {release.project.display_name} {release.version} as a release.",
         content=content,
+        javascripts=["announce-preview"],
     )
 
 
@@ -133,6 +134,10 @@ async def _render_page(
         "body": default_body,
     }
 
+    preview_url = util.as_url(
+        post.preview.announce_preview, project_name=release.project.name, version_name=release.version
+    )
+
     form.render_block(
         page,
         model_cls=shared.announce.AnnounceForm,
@@ -149,7 +154,9 @@ async def _render_page(
         wider_widgets=True,
     )
 
-    page.append(_render_javascript(release, download_path_description))
+    # TODO: Would be better if we could add data-preview-url to the form
+    page.append(htpy.div("#announce-config.d-none", data_preview_url=preview_url))
+
     return page.collect()
 
 
@@ -213,6 +220,7 @@ def _render_mailing_list_with_warning(choices: list[tuple[str, str]], default_va
 
 def _render_download_path_field(default_value: str, description: str) -> htm.Element:
     """Render the download path suffix field with custom help text."""
+    base_text = description.split(" plus this suffix")[0] if " plus this suffix" in description else description
     return htm.div[
         htpy.input(
             "#download_path_suffix.form-control",
@@ -220,122 +228,5 @@ def _render_download_path_field(default_value: str, description: str) -> htm.Ele
             name="download_path_suffix",
             value=default_value,
         ),
-        htm.div(".form-text.text-muted.mt-2")[description],
+        htpy.div(".form-text.text-muted.mt-2", data_base_text=base_text)[description],
     ]
-
-
-def _render_javascript(release: sql.Release, download_path_description: str) -> htm.Element:
-    """Render the JavaScript for email preview and path validation."""
-    preview_url = util.as_url(
-        post.preview.announce_preview, project_name=release.project.name, version_name=release.version
-    )
-    base_text = (
-        download_path_description.split(" plus this suffix")[0]
-        if " plus this suffix" in download_path_description
-        else download_path_description
-    )
-
-    js_code = f"""
-        document.addEventListener("DOMContentLoaded", () => {{
-            let debounceTimeout;
-            const debounceDelay = 500;
-
-            const bodyTextarea = document.getElementById("body");
-            const textPreviewContent = document.getElementById("announce-body-preview-content");
-            const announceForm = document.querySelector("form.atr-canary");
-
-            if (!bodyTextarea || !textPreviewContent || !announceForm) {{
-                console.error("Required elements for announce preview not found. Exiting.");
-                return;
-            }}
-
-            const previewUrl = "{preview_url}";
-            const csrfTokenInput = announceForm.querySelector('input[name="csrf_token"]');
-
-            if (!previewUrl || !csrfTokenInput) {{
-                console.error("Required data attributes or CSRF token not found for announce preview.");
-                return;
-            }}
-            const csrfToken = csrfTokenInput.value;
-
-            function fetchAndUpdateAnnouncePreview() {{
-                const bodyContent = bodyTextarea.value;
-
-                fetch(previewUrl, {{
-                        method: "POST",
-                        headers: {{
-                            "Content-Type": "application/x-www-form-urlencoded",
-                            "X-CSRFToken": csrfToken
-                        }},
-                        body: new URLSearchParams({{
-                            "body": bodyContent,
-                            "csrf_token": csrfToken
-                        }})
-                    }})
-                    .then(response => {{
-                        if (!response.ok) {{
-                            return response.text().then(text => {{
-                                throw new Error(`HTTP error ${{response.status}}: ${{text}}`)
-                            }});
-                        }}
-                        return response.text();
-                    }})
-                    .then(previewText => {{
-                        textPreviewContent.textContent = previewText;
-                    }})
-                    .catch(error => {{
-                        console.error("Error fetching email preview:", error);
-                        textPreviewContent.textContent = `Error loading preview:\\n${{error.message}}`;
-                    }});
-            }}
-
-            bodyTextarea.addEventListener("input", () => {{
-                clearTimeout(debounceTimeout);
-                debounceTimeout = setTimeout(fetchAndUpdateAnnouncePreview, debounceDelay);
-            }});
-
-            fetchAndUpdateAnnouncePreview();
-
-            {render.copy_javascript()}
-
-            const pathInput = document.getElementById("download_path_suffix");
-            const pathHelpText = pathInput ? pathInput.parentElement.querySelector(".form-text") : null;
-
-            if (pathInput && pathHelpText) {{
-                const baseText = "{base_text}";
-                let pathDebounce;
-
-                function updatePathHelpText() {{
-                    let suffix = pathInput.value;
-                    if (suffix.includes("..") || suffix.includes("//")) {{
-                        pathHelpText.textContent = "Download path suffix must not contain .. or //";
-                        return;
-                    }}
-                    if (suffix.startsWith("./")) {{
-                        suffix = suffix.substring(1);
-                    }} else if (suffix === ".") {{
-                        suffix = "/";
-                    }}
-                    if (!suffix.startsWith("/")) {{
-                        suffix = "/" + suffix;
-                    }}
-                    if (!suffix.endsWith("/")) {{
-                        suffix = suffix + "/";
-                    }}
-                    if (suffix.includes("/.")) {{
-                        pathHelpText.textContent = "Download path suffix must not contain /.";
-                        return;
-                    }}
-                    pathHelpText.textContent = baseText + suffix;
-                }}
-
-                pathInput.addEventListener("input", () => {{
-                    clearTimeout(pathDebounce);
-                    pathDebounce = setTimeout(updatePathHelpText, 10);
-                }});
-                updatePathHelpText();
-            }}
-        }});
-    """
-
-    return htpy.script[markupsafe.Markup(js_code)]

@@ -15,10 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from typing import Final
-
-import markupsafe
-
 import atr.blueprints.get as get
 import atr.form as form
 import atr.htm as htm
@@ -29,23 +25,6 @@ import atr.storage as storage
 import atr.template as template
 import atr.util as util
 import atr.web as web
-
-# TODO: Port to TypeScript and move to static files
-_UPDATE_IGNORE_FORM: Final[str] = """
-document.querySelectorAll("table.page-details input.form-control").forEach(function (input) {
-    var row = input.closest("tr");
-    var updateBtn = row.querySelector("button.btn-primary");
-    function check() {
-        if (input.value !== input.dataset.value) {
-            updateBtn.classList.remove("disabled");
-        } else {
-            updateBtn.classList.add("disabled");
-        }
-    }
-    input.addEventListener("input", check);
-    check();
-});
-"""
 
 
 @get.committer("/ignores/<committee_name>")
@@ -59,10 +38,9 @@ async def ignores(session: web.Committer, committee_name: str) -> str | web.Werk
         htm.p[f"Manage ignored checks for committee {committee_name}."],
         _add_ignore(committee_name),
         _existing_ignores(ignores),
-        _script_dom_loaded(_UPDATE_IGNORE_FORM),
     ]
 
-    return await template.blank("Ignored checks", content)
+    return await template.blank("Ignored checks", content, javascripts=["ignore-form-change"])
 
 
 def _add_ignore(committee_name: str) -> htm.Element:
@@ -133,12 +111,3 @@ def _existing_ignores(ignores: list[sql.CheckResultIgnore]) -> htm.Element:
         htm.h2["Existing ignores"],
         [_check_result_ignore_card(cri) for cri in ignores] or htm.p["No ignores found."],
     ]
-
-
-def _script_dom_loaded(text: str) -> htm.Element:
-    script_text = markupsafe.Markup(f"""
-document.addEventListener("DOMContentLoaded", function () {{
-{text}
-}});
-""")
-    return htm.script[script_text]
