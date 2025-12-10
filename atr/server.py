@@ -165,6 +165,62 @@ def _app_setup_context(app: base.QuartApp) -> None:
         }
 
 
+def _app_setup_security_headers(app: base.QuartApp) -> None:
+    """Setup security headers including a Content Security Policy."""
+
+    # Both object-src 'none' and base-uri 'none' are required by ASVS v5 3.4.3 (L2)
+    # The frame-ancestors 'none' directive is required by ASVS v5 3.4.6 (L2)
+    # Bootstrap uses data: URLs extensively, so we need to include that in img-src
+    csp_directives = [
+        "default-src 'self'",
+        "script-src 'self'",
+        "style-src 'self' 'unsafe-inline'",
+        "img-src 'self' https://apache.org https://incubator.apache.org https://www.apache.org data:",
+        "font-src 'self'",
+        "connect-src 'self'",
+        "frame-src 'none'",
+        "object-src 'none'",
+        "base-uri 'none'",
+        "form-action 'self'",
+        "frame-ancestors 'none'",
+    ]
+    csp_header = "; ".join(csp_directives)
+
+    permissions_policy = ", ".join(
+        [
+            "accelerometer=()",
+            "autoplay=()",
+            "camera=()",
+            "clipboard-read=()",
+            "clipboard-write=(self)",
+            "display-capture=()",
+            "geolocation=()",
+            "gyroscope=()",
+            "magnetometer=()",
+            "microphone=()",
+            "midi=()",
+            "payment=()",
+            "usb=()",
+            "xr-spatial-tracking=()",
+        ]
+    )
+
+    # X-Content-Type-Options: nosniff is required by ASVS v5 3.4.4 (L2)
+    # A strict Referrer-Policy is required by ASVS v5 3.4.5 (L2)
+    # ASVS does not specify exactly what is meant by strict
+    # We can't use Referrer-Policy: no-referrer because it breaks form redirection
+    # TODO: We could automatically include a form field noting the form action URL
+    @app.after_request
+    async def add_security_headers(response: quart.Response) -> quart.Response:
+        response.headers["Content-Security-Policy"] = csp_header
+        response.headers["Permissions-Policy"] = permissions_policy
+        response.headers["Referrer-Policy"] = "same-origin"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Permitted-Cross-Domain-Policies"] = "none"
+        return response
+
+
 def _app_setup_lifecycle(app: base.QuartApp) -> None:
     """Setup application lifecycle hooks."""
 
@@ -315,6 +371,7 @@ def _create_app(app_config: type[config.AppConfig]) -> base.QuartApp:
     blueprints.register(app)
     filters.register_filters(app)
     _app_setup_context(app)
+    _app_setup_security_headers(app)
     _app_setup_lifecycle(app)
     _app_setup_logging(app, config_mode, app_config)
 
