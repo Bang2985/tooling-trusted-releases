@@ -27,6 +27,7 @@ import quart
 
 import atr.blueprints.post as post
 import atr.construct as construct
+import atr.db.interaction as interaction
 import atr.form as form
 import atr.get as get
 import atr.log as log
@@ -35,7 +36,6 @@ import atr.shared as shared
 import atr.storage as storage
 import atr.util as util
 import atr.web as web
-from atr.db.interaction import wait_for_task
 
 
 class VotePreviewForm(form.Form):
@@ -202,7 +202,7 @@ async def sbomgen(session: web.Committer, project_name: str, version_name: str, 
                 sbom_task = await wacp.sbom.generate_cyclonedx(
                     project_name, version_name, creating.old.number, path_in_new_revision, sbom_path_in_new_revision
                 )
-                success = await wait_for_task(sbom_task)
+                success = await interaction.wait_for_task(sbom_task)
                 if not success:
                     raise web.FlashError("Internal error: SBOM generation timed out")
 
@@ -213,7 +213,7 @@ async def sbomgen(session: web.Committer, project_name: str, version_name: str, 
 
     return await session.redirect(
         get.compose.selected,
-        success=f"SBOM generation task queued for {rel_path.name}",
+        success=f"SBOM generated for {rel_path.name}",
         project_name=project_name,
         version_name=version_name,
     )
