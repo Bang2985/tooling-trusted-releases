@@ -5,6 +5,9 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  schedule:
+    # Run every Monday at 5:30 AM UTC
+    - cron: '30 5 * * 1'
 
 jobs:
   analyze:
@@ -24,6 +27,8 @@ jobs:
           - language: python
             suppression_pack: +codeql/python-queries:AlertSuppression.ql
           - language: actions
+            suppression_pack: ""
+          - language: javascript-typescript
             suppression_pack: ""
 
     steps:
@@ -48,16 +53,24 @@ jobs:
           output: sarif-results
 
       - name: Show SARIF suppressed result statistics
+        id: sarif-stats
         run: |
           python - <<'PY'
-          import json, pathlib
-          p = pathlib.Path("sarif-results") / "${{ matrix.language }}.sarif"
+          import json, os, pathlib
+          sarif_dir = pathlib.Path("sarif-results")
+          sarif_files = list(sarif_dir.glob("*.sarif"))
+          if not sarif_files:
+              print("No SARIF files found in sarif-results/")
+              raise SystemExit(1)
+          p = sarif_files[0]
           data = json.loads(p.read_text())
           results = data["runs"][0].get("results", [])
           suppressed = [r for r in results if r.get("suppressions")]
           print(f"SARIF file: {p}")
           print(f"Total results: {len(results)}")
           print(f"Suppressed results: {len(suppressed)}")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"sarif-file={p}\n")
           PY
 
       - name: Dismiss alerts of suppressed results
@@ -65,6 +78,6 @@ jobs:
         uses: advanced-security/dismiss-alerts@29b55573401eedd7f600e4c3e5d0676a457b9f23
         with:
           sarif-id: ${{ steps.analyze.outputs.sarif-id }}
-          sarif-file: sarif-results/${{ matrix.language }}.sarif
+          sarif-file: ${{ steps.sarif-stats.outputs.sarif-file }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
