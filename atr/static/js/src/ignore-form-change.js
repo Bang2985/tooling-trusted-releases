@@ -5,10 +5,10 @@ document.addEventListener("DOMContentLoaded", () => {
 			var row = input.closest("tr");
 			var updateBtn = row.querySelector("button.btn-primary");
 			function check() {
-				if (input.value !== input.dataset.value) {
-					updateBtn.classList.remove("disabled");
-				} else {
+				if (input.value === input.dataset.value) {
 					updateBtn.classList.add("disabled");
+				} else {
+					updateBtn.classList.remove("disabled");
 				}
 			}
 			input.addEventListener("input", check);
