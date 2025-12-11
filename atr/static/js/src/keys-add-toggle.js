@@ -16,11 +16,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
 	button.addEventListener("click", () => {
 		const allChecked = Array.from(checkboxes).every((cb) => cb.checked);
-		checkboxes.forEach((cb) => (cb.checked = !allChecked));
+		checkboxes.forEach((cb) => {
+			cb.checked = !allChecked;
+		});
 		button.textContent = allChecked
 			? "Select all committees"
 			: "Deselect all committees";
 	});
 
-	container.appendChild(button);
+	container.append(button);
 });
