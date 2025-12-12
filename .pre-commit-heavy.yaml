@@ -1,29 +1,5 @@
 exclude: ^node_modules/
 repos:
-- repo: local
-  hooks:
-    - id: biome-check
-      # Install biome from https://biomejs.dev/guides/manual-installation/
-      # Avoid using NPM to install it until #359 is resolved
-      name: biome JS check
-      entry: biome check --write --error-on-warnings --files-ignore-unknown=true --no-errors-on-unmatched --colors=off
-      language: system
-      types: [javascript]
-      files: ^atr/static/js/src/.*\.js$
-- repo: https://github.com/oxc-project/mirrors-oxlint
-  rev: v1.32.0
-  hooks:
-    - id: oxlint
-      name: oxlint JS linter
-      types: [javascript]
-      files: ^atr/static/js/src/.*\.js$
-      args:
-        # These must be in the order deny, warn, allow
-        - --deny=correctness
-        - --deny=perf
-        - --deny=suspicious
-        - --deny=pedantic
-        - --allow=unicorn/prefer-query-selector
 - repo: https://github.com/oxipng/oxipng
   rev: v9.1.5
   hooks:

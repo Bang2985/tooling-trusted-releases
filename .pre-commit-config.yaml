@@ -101,6 +101,20 @@ repos:
   rev: v2.10.0
   hooks:
     - id: pip-audit
+- repo: https://github.com/oxc-project/mirrors-oxlint
+  rev: v1.32.0
+  hooks:
+    - id: oxlint
+      name: Oxlint JS Linter
+      types: [javascript]
+      files: ^atr/static/js/src/.*\.js$
+      args:
+        # These must be in the order deny, warn, allow
+        - --deny=correctness
+        - --deny=perf
+        - --deny=suspicious
+        - --deny=pedantic
+        - --allow=unicorn/prefer-query-selector
 # - repo: https://github.com/PyCQA/flake8
 #   rev: 7.3.0
 #   hooks:
@@ -136,6 +150,15 @@ repos:
       # Avoid using NPM to install it until #359 is resolved
       name: Biome JS Formatter
       entry: biome format --write --files-ignore-unknown=true --no-errors-on-unmatched --colors=off
+      language: system
+      types: [javascript]
+      files: ^atr/static/js/src/.*\.js$
+
+    - id: biome-check
+      # Install biome from https://biomejs.dev/guides/manual-installation/
+      # Avoid using NPM to install it until #359 is resolved
+      name: Biome JS Linter
+      entry: biome check --write --error-on-warnings --files-ignore-unknown=true --no-errors-on-unmatched --colors=off
       language: system
       types: [javascript]
       files: ^atr/static/js/src/.*\.js$
