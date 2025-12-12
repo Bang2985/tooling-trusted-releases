@@ -23,7 +23,9 @@ function toggleAllDetails() {
 	const anyClosed = Array.from(details).some((detail) => !detail.open);
 	// If any are closed, open all
 	// Otherwise, close all
-	details.forEach((detail) => (detail.open = anyClosed));
+	details.forEach((detail) => {
+		detail.open = anyClosed;
+	});
 }
 
 function toggleStatusVisibility(type, status) {
@@ -31,7 +33,7 @@ function toggleStatusVisibility(type, status) {
 	const targets = document.querySelectorAll(
 		`.atr-result-${type}.atr-result-status-${status}`,
 	);
-	if (!targets.length) return;
+	if (targets.length === 0) return;
 	const elementsCurrentlyHidden = targets[0].classList.contains("atr-hide");
 	targets.forEach((el) => {
 		if (elementsCurrentlyHidden) {
@@ -47,7 +49,6 @@ function toggleStatusVisibility(type, status) {
 		console.error("Button text regex mismatch for:", btn.textContent);
 		return;
 	}
-	const cnt = cntMatch[0];
 	const newButtonAction = elementsCurrentlyHidden ? "Hide" : "Show";
 	btn.querySelector("span").textContent = newButtonAction;
 	if (newButtonAction === "Hide") {
@@ -108,12 +109,8 @@ if (mpfInput) {
 		const filterText = this.value.toLowerCase();
 		document.querySelectorAll(".atr-result-member").forEach((row) => {
 			const pathCell = row.cells[0];
-			let hide = false;
-			if (filterText) {
-				if (!pathCell.textContent.toLowerCase().includes(filterText)) {
-					hide = true;
-				}
-			}
+			const hide =
+				filterText && !pathCell.textContent.toLowerCase().includes(filterText);
 			row.classList.toggle("page-member-path-hide", hide);
 		});
 		updateMemberStriping();
