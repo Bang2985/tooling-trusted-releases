@@ -168,7 +168,7 @@ async def sbomgen(session: web.Committer, project_name: str, version_name: str, 
     rel_path = pathlib.Path(file_path)
 
     # Check that the file is a .tar.gz archive before creating a revision
-    if not (file_path.endswith(".tar.gz") or file_path.endswith(".tgz")):
+    if not (file_path.endswith(".tar.gz") or file_path.endswith(".tgz") or file_path.endswith(".zip")):
         raise base.ASFQuartException(
             f"SBOM generation requires .tar.gz or .tgz files. Received: {file_path}", errorcode=400
         )
