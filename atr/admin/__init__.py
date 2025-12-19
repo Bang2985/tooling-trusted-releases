@@ -744,6 +744,7 @@ async def tasks_recent(session: web.Committer, minutes: int) -> str:
                 htpy.th["Type"],
                 htpy.th["Status"],
                 htpy.th["Added"],
+                htpy.th["Took"],
                 htpy.th["Project"],
                 htpy.th["Version"],
                 htpy.th["Revision"],
@@ -759,12 +760,18 @@ async def tasks_recent(session: web.Committer, minutes: int) -> str:
                 sql.TaskStatus.COMPLETED: ".table-success",
                 sql.TaskStatus.FAILED: ".table-danger",
             }.get(task.status, "")
+            if (task.started is not None) and (task.completed is not None):
+                took_seconds = (task.completed - task.started).total_seconds()
+                took_text = f"{took_seconds:.1f}s"
+            else:
+                took_text = ""
             tbody.append(
                 htpy.tr(class_=status_class.lstrip(".") if status_class else None)[
                     htpy.td[str(task.id)],
                     htpy.td[task.task_type.value],
                     htpy.td[task.status.value],
                     htpy.td[task.added.strftime("%H:%M:%S") if task.added else ""],
+                    htpy.td[took_text],
                     htpy.td[task.project_name or ""],
                     htpy.td[task.version_name or ""],
                     htpy.td[task.revision_number or ""],
