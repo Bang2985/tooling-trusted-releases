@@ -25,22 +25,58 @@ window.UploadUI = {
 		return `${(b / 1073741824).toFixed(2)} GB`;
 	},
 
-	createFileProgressUI(file, index, activeUploads) {
+	buildFileProgressCard(fileName, fileSizeText) {
 		const div = document.createElement("div");
 		div.className = "card mb-3";
+
+		const cardBody = document.createElement("div");
+		cardBody.className = "card-body";
+
+		const headerRow = document.createElement("div");
+		headerRow.className =
+			"d-flex justify-content-between align-items-start mb-2";
+
+		const fileInfoDiv = document.createElement("div");
+		const fileNameEl = document.createElement("strong");
+		fileNameEl.className = "file-name";
+		fileNameEl.textContent = fileName;
+		const fileSize = document.createElement("small");
+		fileSize.className = "text-muted ms-2";
+		fileSize.textContent = `(${fileSizeText})`;
+		fileInfoDiv.append(fileNameEl, fileSize);
+
+		const cancelBtn = document.createElement("button");
+		cancelBtn.type = "button";
+		cancelBtn.className = "btn btn-sm btn-outline-secondary cancel-btn";
+		cancelBtn.textContent = "Cancel";
+		headerRow.append(fileInfoDiv, cancelBtn);
+
+		const progress = document.createElement("progress");
+		progress.className = "w-100 mb-1";
+		progress.value = 0;
+		progress.max = 100;
+
+		const statusRow = document.createElement("div");
+		statusRow.className = "d-flex justify-content-between";
+		const uploadStatus = document.createElement("small");
+		uploadStatus.className = "upload-status text-muted";
+		uploadStatus.textContent = "Preparing...";
+		const uploadPercent = document.createElement("small");
+		uploadPercent.className = "upload-percent";
+		uploadPercent.textContent = "0%";
+		statusRow.append(uploadStatus, uploadPercent);
+
+		cardBody.append(headerRow, progress, statusRow);
+		div.append(cardBody);
+		return div;
+	},
+
+	createFileProgressUI(file, index, activeUploads) {
+		const div = this.buildFileProgressCard(
+			file.name,
+			this.formatBytes(file.size),
+		);
 		div.id = `upload-file-${index}`;
-		div.innerHTML = `<div class="card-body">
-			<div class="d-flex justify-content-between align-items-start mb-2">
-				<div><strong class="file-name"></strong>
-					<small class="text-muted ms-2">(${this.formatBytes(file.size)})</small></div>
-				<button type="button" class="btn btn-sm btn-outline-secondary cancel-btn">Cancel</button>
-			</div>
-			<progress class="w-100 mb-1" value="0" max="100"></progress>
-			<div class="d-flex justify-content-between">
-				<small class="upload-status text-muted">Preparing...</small>
-				<small class="upload-percent">0%</small>
-			</div></div>`;
-		div.querySelector(".file-name").textContent = file.name;
 		div.querySelector(".cancel-btn").addEventListener("click", () => {
 			const xhr = activeUploads.get(index);
 			if (xhr) xhr.abort();
