@@ -188,17 +188,17 @@ def vote_summary(tabulated_votes: dict[str, models.tabulate.VoteEmail]) -> dict[
             result["binding_votes"] += 1
             result["binding_votes_yes"] += 1 if (vote_email.vote.value == "Yes") else 0
             result["binding_votes_no"] += 1 if (vote_email.vote.value == "No") else 0
-            result["binding_votes_abstain"] += 1 if (vote_email.vote.value == "?") else 0
+            result["binding_votes_abstain"] += 1 if (vote_email.vote.value == "-") else 0
         elif vote_email.status in {models.tabulate.VoteStatus.COMMITTER, models.tabulate.VoteStatus.CONTRIBUTOR}:
             result["non_binding_votes"] += 1
             result["non_binding_votes_yes"] += 1 if (vote_email.vote.value == "Yes") else 0
             result["non_binding_votes_no"] += 1 if (vote_email.vote.value == "No") else 0
-            result["non_binding_votes_abstain"] += 1 if (vote_email.vote.value == "?") else 0
+            result["non_binding_votes_abstain"] += 1 if (vote_email.vote.value == "-") else 0
         else:
             result["unknown_votes"] += 1
             result["unknown_votes_yes"] += 1 if (vote_email.vote.value == "Yes") else 0
             result["unknown_votes_no"] += 1 if (vote_email.vote.value == "No") else 0
-            result["unknown_votes_abstain"] += 1 if (vote_email.vote.value == "?") else 0
+            result["unknown_votes_abstain"] += 1 if (vote_email.vote.value == "-") else 0
 
     return result
 
