@@ -126,6 +126,50 @@ async def render_options_page(
     )
 
 
+async def render_vote_closed_page(release: sql.Release) -> str:
+    """Explain that the vote is not open."""
+    page = htm.Block()
+
+    page.h1[
+        "Vote closed for ",
+        htm.strong[release.project.short_display_name],
+        " ",
+        htm.em[release.version],
+    ]
+
+    phase_messages = {
+        sql.ReleasePhase.RELEASE_CANDIDATE_DRAFT: (
+            "This release is still being composed and voting has not yet started."
+        ),
+        sql.ReleasePhase.RELEASE_PREVIEW: ("Voting has concluded and the release is now being finalised."),
+        sql.ReleasePhase.RELEASE: ("This release has been completed and is now available for distribution."),
+    }
+
+    message = phase_messages.get(release.phase, "The vote for this release is no longer open.")
+
+    page.div(".alert.alert-info.d-flex.align-items-center", role="alert")[
+        htpy.i(".bi.bi-info-circle.me-2"),
+        htm.div[message],
+    ]
+
+    page.p["If you are an ASF committer, you can log in to view the current status of this release."]
+
+    redirect_url = util.as_url(selected, project_name=release.project.name, version_name=release.version)
+    login_url = f"/auth?login={urllib.parse.quote(redirect_url, safe='')}"
+    page.div(".mb-3")[
+        htpy.a(".btn.btn-outline-primary", href=login_url)[
+            htpy.i(".bi.bi-box-arrow-in-right.me-1"),
+            "Log in",
+        ],
+        htpy.a(".btn.btn-outline-secondary.ms-2", href=util.as_url(root.index))["Return to Home",],
+    ]
+
+    return await template.blank(
+        f"Vote closed for {release.project.short_display_name} {release.version}",
+        content=page.collect(),
+    )
+
+
 @get.public("/vote/<project_name>/<version_name>")
 async def selected(session: web.Committer | None, project_name: str, version_name: str) -> web.WerkzeugResponse | str:
     """Show voting options for a release candidate."""
@@ -133,7 +177,7 @@ async def selected(session: web.Committer | None, project_name: str, version_nam
 
     if release.phase != sql.ReleasePhase.RELEASE_CANDIDATE:
         if session is None:
-            raise base.ASFQuartException("Release is not a candidate", errorcode=404)
+            return await render_vote_closed_page(release)
         return await mapping.release_as_redirect(session, release)
 
     return await render_options_page(session, release, user_category, latest_vote_task)
