@@ -277,6 +277,10 @@ Do not use `*` for emphasis or `__` for strong emphasis.
 
 It is often possible to avoid using JavaScript without significant loss of functionality, but it may require a little more thought. JavaScript is not, however, something to avoid by rote. User experiences can be significantly improved with thoughtful application of JavaScript. Therefore, default to not using JavaScript, but consider how it could be used concisely and with care to improve UX.
 
+### Use best practices for installing JavaScript dependencies
+
+Disable lifecycle scripts, separate the process into pinning and building from pinned versions, ensure that versions are properly pinned (e.g. using `save-exact` and `save-prefix` in npm), run audits automatically after installation, and set a package cooldown of 14 days. Manually update in case of a CVE within the 14 day cooldown period. If possible, run the whole process in an OCI container with a non-root build user in the container.
+
 ## Shell
 
 ### Use POSIX sh only
