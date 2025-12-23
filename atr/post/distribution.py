@@ -59,22 +59,6 @@ async def delete(
     )
 
 
-@post.committer("/distribution/record/<project>/<version>")
-@post.form(shared.distribution.DistributeForm)
-async def record_selected(
-    session: web.Committer, distribute_form: shared.distribution.DistributeForm, project: str, version: str
-) -> web.WerkzeugResponse:
-    return await record_form_process_page(session, distribute_form, project, version, staging=False)
-
-
-@post.committer("/distribution/stage/<project>/<version>")
-@post.form(shared.distribution.DistributeForm)
-async def stage_selected(
-    session: web.Committer, distribute_form: shared.distribution.DistributeForm, project: str, version: str
-) -> web.WerkzeugResponse:
-    return await record_form_process_page(session, distribute_form, project, version, staging=True)
-
-
 async def record_form_process_page(
     session: web.Committer,
     form_data: shared.distribution.DistributeForm,
@@ -121,3 +105,19 @@ async def record_form_process_page(
         version=version,
         success=message,
     )
+
+
+@post.committer("/distribution/record/<project>/<version>")
+@post.form(shared.distribution.DistributeForm)
+async def record_selected(
+    session: web.Committer, distribute_form: shared.distribution.DistributeForm, project: str, version: str
+) -> web.WerkzeugResponse:
+    return await record_form_process_page(session, distribute_form, project, version, staging=False)
+
+
+@post.committer("/distribution/stage/<project>/<version>")
+@post.form(shared.distribution.DistributeForm)
+async def stage_selected(
+    session: web.Committer, distribute_form: shared.distribution.DistributeForm, project: str, version: str
+) -> web.WerkzeugResponse:
+    return await record_form_process_page(session, distribute_form, project, version, staging=True)

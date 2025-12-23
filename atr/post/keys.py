@@ -227,31 +227,6 @@ async def _delete_ssh_key(session: web.Committer, delete_form: shared.keys.Delet
     return await session.redirect(get.keys.keys, success="SSH key deleted successfully")
 
 
-async def _upload_remote_keys(upload_remote_form: shared.keys.UploadRemoteForm) -> str:
-    """Fetch KEYS file from ASF downloads."""
-    try:
-        selected_committee = upload_remote_form.committee
-        async with db.session() as data:
-            committee = await data.committee(name=selected_committee).get()
-            if not committee:
-                await quart.flash(f"Committee '{selected_committee}' not found", "error")
-                return await shared.keys.render_upload_page(error=True)
-            is_podling = committee.is_podling
-
-        keys_url = _construct_keys_url(selected_committee, is_podling=is_podling)
-        keys_text = await _fetch_keys_from_url(keys_url)
-
-        if not keys_text:
-            await quart.flash("No KEYS data found at ASF downloads", "error")
-            return await shared.keys.render_upload_page(error=True)
-
-        return await _process_keys(keys_text, selected_committee)
-    except Exception as e:
-        log.exception("Error fetching KEYS file from ASF:")
-        await quart.flash(f"Error fetching KEYS file: {e!s}", "error")
-        return await shared.keys.render_upload_page(error=True)
-
-
 async def _fetch_keys_from_url(keys_url: str) -> str:
     """Fetch KEYS file from ASF downloads."""
     try:
@@ -323,4 +298,29 @@ async def _upload_file_keys(upload_file_form: shared.keys.UploadFileForm) -> str
     except Exception as e:
         log.exception("Error uploading KEYS file:")
         await quart.flash(f"Error processing KEYS file: {e!s}", "error")
+        return await shared.keys.render_upload_page(error=True)
+
+
+async def _upload_remote_keys(upload_remote_form: shared.keys.UploadRemoteForm) -> str:
+    """Fetch KEYS file from ASF downloads."""
+    try:
+        selected_committee = upload_remote_form.committee
+        async with db.session() as data:
+            committee = await data.committee(name=selected_committee).get()
+            if not committee:
+                await quart.flash(f"Committee '{selected_committee}' not found", "error")
+                return await shared.keys.render_upload_page(error=True)
+            is_podling = committee.is_podling
+
+        keys_url = _construct_keys_url(selected_committee, is_podling=is_podling)
+        keys_text = await _fetch_keys_from_url(keys_url)
+
+        if not keys_text:
+            await quart.flash("No KEYS data found at ASF downloads", "error")
+            return await shared.keys.render_upload_page(error=True)
+
+        return await _process_keys(keys_text, selected_committee)
+    except Exception as e:
+        log.exception("Error fetching KEYS file from ASF:")
+        await quart.flash(f"Error fetching KEYS file: {e!s}", "error")
         return await shared.keys.render_upload_page(error=True)

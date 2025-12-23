@@ -186,19 +186,6 @@ def html_tr_a(label: str, value: str | None) -> htm.Element:
     return htm.tr[htm.th[label], htm.td[htm.a(href=value)[value] if value else "-"]]
 
 
-async def release_validated_and_committee(
-    project: str,
-    version: str,
-    *,
-    staging: bool | None = None,
-) -> tuple[sql.Release, sql.Committee]:
-    release = await release_validated(project, version, committee=True, staging=staging)
-    committee = release.committee
-    if committee is None:
-        raise RuntimeError(f"Release {project} {version} has no committee")
-    return release, committee
-
-
 async def release_validated(
     project: str,
     version: str,
@@ -223,3 +210,16 @@ async def release_validated(
         # if release.project.status != sql.ProjectStatus.ACTIVE:
         #     raise RuntimeError(f"Project {project} is not active")
     return release
+
+
+async def release_validated_and_committee(
+    project: str,
+    version: str,
+    *,
+    staging: bool | None = None,
+) -> tuple[sql.Release, sql.Committee]:
+    release = await release_validated(project, version, committee=True, staging=staging)
+    committee = release.committee
+    if committee is None:
+        raise RuntimeError(f"Release {project} {version} has no committee")
+    return release, committee
