@@ -522,3 +522,26 @@ span.warning {
     overflow-wrap: anywhere;
     word-break: break-all;
 }
+
+td.atr-shrink {
+    width: 1%;
+    white-space: nowrap;
+}
+
+.atr-stripe-odd {
+    background-color: #f8f9fa;
+}
+
+.atr-stripe-even {
+    background-color: #ffffff;
+}
+
+.atr-stripe-odd .badge,
+.atr-stripe-even .badge {
+    position: relative;
+    top: -1px;
+}
+
+.atr-checks-files {
+    line-height: 2.25;
+}

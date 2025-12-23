@@ -26,6 +26,16 @@ import atr.storage.outcome as outcome
 
 
 @dataclasses.dataclass
+class CheckerStats:
+    checker: str
+    success_count: int
+    warning_count: int
+    failure_count: int
+    warning_files: dict[str, int]
+    failure_files: dict[str, int]
+
+
+@dataclasses.dataclass
 class CheckResults:
     primary_results_list: list[sql.CheckResult]
     member_results_list: dict[str, list[sql.CheckResult]]
@@ -52,6 +62,7 @@ class LinkedCommittee:
 
 class PathInfo(schema.Strict):
     artifacts: set[pathlib.Path] = schema.factory(set)
+    checker_stats: list[CheckerStats] = schema.factory(list)
     errors: dict[pathlib.Path, list[sql.CheckResult]] = schema.factory(dict)
     ignored_errors: list[sql.CheckResult] = schema.factory(list)
     ignored_warnings: list[sql.CheckResult] = schema.factory(list)

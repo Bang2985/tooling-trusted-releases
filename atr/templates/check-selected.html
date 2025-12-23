@@ -97,6 +97,10 @@
     </div>
   </div>
 
+  {% if checks_summary_html %}
+    {{ checks_summary_html|safe }}
+  {% endif %}
+
   <div class="card mb-4">
     <div class="card-header d-flex justify-content-between align-items-center">
       <h5 class="mb-0">

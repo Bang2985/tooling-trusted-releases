@@ -17,6 +17,8 @@
 
 from typing import TYPE_CHECKING, Final
 
+import htpy
+
 import atr.db as db
 import atr.db.interaction as interaction
 import atr.form as form
@@ -44,6 +46,7 @@ import atr.shared.user as user
 import atr.shared.vote as vote
 import atr.shared.voting as voting
 import atr.storage as storage
+import atr.storage.types as types
 import atr.template as template
 import atr.util as util
 import atr.web as web
@@ -167,6 +170,8 @@ async def check(
     strict_checking = release.project.policy_strict_checking
     strict_checking_errors = strict_checking and has_any_errors
 
+    checks_summary_html = _render_checks_summary(info, release.project.name, release.version)
+
     return await template.render(
         "check-selected.html",
         project_name=release.project.name,
@@ -198,7 +203,58 @@ async def check(
         strict_checking_errors=strict_checking_errors,
         can_vote=can_vote,
         can_resolve=can_resolve,
+        checks_summary_html=checks_summary_html,
     )
+
+
+def _checker_display_name(checker: str) -> str:
+    return checker.removeprefix("atr.tasks.checks.").replace("_", " ").replace(".", " ").title()
+
+
+def _render_checks_summary(info: types.PathInfo | None, project_name: str, version_name: str) -> htm.Element | None:
+    if (info is None) or (not info.checker_stats):
+        return None
+
+    card = htm.Block(htm.div, classes=".card.mb-4")
+    card.div(".card-header")[htpy.h5(".mb-0")["Checks summary"]]
+
+    body = htm.Block(htm.div, classes=".card-body")
+    for i, stat in enumerate(info.checker_stats):
+        stripe_class = ".atr-stripe-odd" if ((i % 2) == 0) else ".atr-stripe-even"
+        details = htm.Block(htm.details, classes=f".mb-0.p-2{stripe_class}")
+
+        summary_content: list[htm.Element | str] = []
+        if stat.warning_count > 0:
+            summary_content.append(htpy.span(".badge.bg-warning.text-dark.me-2")[str(stat.warning_count)])
+        if stat.failure_count > 0:
+            summary_content.append(htpy.span(".badge.bg-danger.me-2")[str(stat.failure_count)])
+        summary_content.append(htpy.strong[_checker_display_name(stat.checker)])
+
+        details.summary[*summary_content]
+
+        files_div = htm.Block(htm.div, classes=".mt-2.atr-checks-files")
+        all_files = set(stat.failure_files.keys()) | set(stat.warning_files.keys())
+        for file_path in sorted(all_files):
+            report_url = f"/report/{project_name}/{version_name}/{file_path}"
+            error_count = stat.failure_files.get(file_path, 0)
+            warning_count = stat.warning_files.get(file_path, 0)
+
+            file_content: list[htm.Element | str] = []
+            if error_count > 0:
+                label = "error" if (error_count == 1) else "errors"
+                file_content.append(htpy.span(".badge.bg-danger.me-2")[f"{error_count} {label}"])
+            if warning_count > 0:
+                label = "warning" if (warning_count == 1) else "warnings"
+                file_content.append(htpy.span(".badge.bg-warning.text-dark.me-2")[f"{warning_count} {label}"])
+            file_content.append(htpy.a(href=report_url)[htpy.strong[htpy.code[file_path]]])
+
+            files_div.div[*file_content]
+
+        details.append(files_div.collect())
+        body.append(details.collect())
+
+    card.append(body.collect())
+    return card.collect()
 
 
 def _warnings_from_vote_result(vote_task: sql.Task | None) -> list[str]:
