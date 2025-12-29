@@ -453,7 +453,7 @@ async def _render_releases_sections(
                     title=f"View draft {project.name} {drf.version}",
                 )[
                     f"{project.name} {drf.version} ",
-                    htm.span(".badge.bg-secondary.ms-2")[f"{file_count} {'file' if (file_count == 1) else 'files'}"],
+                    htm.span(".badge.bg-secondary.ms-2")[util.plural(file_count, "file")],
                 ]
             )
         sections.div(".d-flex.flex-wrap.gap-2.mb-4")[*draft_buttons]
@@ -470,7 +470,7 @@ async def _render_releases_sections(
                     title=f"View candidate {project.name} {cnd.version}",
                 )[
                     f"{project.name} {cnd.version} ",
-                    htm.span(".badge.bg-info.ms-2")[f"{file_count} {'file' if (file_count == 1) else 'files'}"],
+                    htm.span(".badge.bg-info.ms-2")[util.plural(file_count, "file")],
                 ]
             )
         sections.div(".d-flex.flex-wrap.gap-2.mb-4")[*candidate_buttons]
@@ -487,7 +487,7 @@ async def _render_releases_sections(
                     title=f"View preview {project.name} {prv.version}",
                 )[
                     f"{project.name} {prv.version} ",
-                    htm.span(".badge.bg-warning.ms-2")[f"{file_count} {'file' if (file_count == 1) else 'files'}"],
+                    htm.span(".badge.bg-warning.ms-2")[util.plural(file_count, "file")],
                 ]
             )
         sections.div(".d-flex.flex-wrap.gap-2.mb-4")[*preview_buttons]
@@ -504,7 +504,7 @@ async def _render_releases_sections(
                     title=f"View release {project.name} {rel.version}",
                 )[
                     f"{project.name} {rel.version} ",
-                    htm.span(".badge.bg-success.ms-2")[f"{file_count} {'file' if (file_count == 1) else 'files'}"],
+                    htm.span(".badge.bg-success.ms-2")[util.plural(file_count, "file")],
                 ]
             )
         sections.div(".d-flex.flex-wrap.gap-2.mb-4")[*release_buttons]

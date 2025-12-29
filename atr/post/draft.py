@@ -94,10 +94,7 @@ async def delete_file(
 
     success_message = f"File '{rel_path_to_delete.name}' deleted successfully"
     if metadata_files_deleted:
-        success_message += (
-            f", and {metadata_files_deleted} associated metadata "
-            f"file{'' if (metadata_files_deleted == 1) else 's'} deleted"
-        )
+        success_message += f", and {util.plural(metadata_files_deleted, 'associated metadata file')} deleted"
     return await session.redirect(
         get.compose.selected, success=success_message, project_name=project_name, version_name=version_name
     )

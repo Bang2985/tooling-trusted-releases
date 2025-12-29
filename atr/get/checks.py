@@ -479,9 +479,9 @@ def _render_summary(
         f" {files_skipped} {skipped_word}." if (files_skipped > 0) else "",
     ]
 
-    check_word = "check" if (totals.file_pass_after == 1) else "checks"
-    warn_word = "warning" if (totals.file_warn_after == 1) else "warnings"
-    err_word = "error" if (totals.file_err_after == 1) else "errors"
+    check_word = util.plural(totals.file_pass_after, "check", include_count=False)
+    warn_word = util.plural(totals.file_warn_after, "warning", include_count=False)
+    err_word = util.plural(totals.file_err_after, "error", include_count=False)
 
     summary_div = htm.Block(htm.div, classes=".d-flex.flex-wrap.gap-4.mb-3")
     summary_div.span(".text-success")[

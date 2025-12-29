@@ -35,6 +35,7 @@ import quart_wtf.utils as utils
 
 import atr.htm as htm
 import atr.models.schema as schema
+import atr.util as util
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -121,8 +122,7 @@ def flash_error_data(
 
 def flash_error_summary(errors: list[pydantic_core.ErrorDetails], flash_data: dict[str, Any]) -> markupsafe.Markup:
     div = htm.Block(htm.div, classes=".atr-initial")
-    plural = len(errors) > 1
-    div.text(f"Please fix the following issue{'s' if plural else ''}:")
+    div.text(f"Please fix the following {util.plural(len(errors), 'issue', include_count=False)}:")
     with div.block(htm.ul, classes=".mt-2.mb-0") as ul:
         for i, flash_datum in enumerate(flash_data.values()):
             if i > 9:

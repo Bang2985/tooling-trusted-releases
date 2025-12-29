@@ -354,9 +354,9 @@ def _render_section_checks(page: htm.Block, release: sql.Release, file_totals: c
     warn_count = file_totals.file_warn_after
     err_count = file_totals.file_err_after
 
-    check_word = "check" if (pass_count == 1) else "checks"
-    warn_word = "warning" if (warn_count == 1) else "warnings"
-    err_word = "error" if (err_count == 1) else "errors"
+    check_word = util.plural(pass_count, "check", include_count=False)
+    warn_word = util.plural(warn_count, "warning", include_count=False)
+    err_word = util.plural(err_count, "error", include_count=False)
 
     checks_list = htm.Block(htm.div, classes=".d-flex.flex-wrap.gap-4.mb-3")
     checks_list.span(".text-success")[

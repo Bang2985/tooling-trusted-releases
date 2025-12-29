@@ -453,7 +453,7 @@ def _headers_check_core_logic(artifact_path: str, ignore_lines: list[str]) -> It
 
     yield ArtifactResult(
         status=sql.CheckResultStatus.SUCCESS,
-        message=f"Checked {artifact_data.files_checked} files,"
+        message=f"Checked {util.plural(artifact_data.files_checked, 'file')},"
         f" found {artifact_data.files_with_valid_headers} with valid headers,"
         f" {artifact_data.files_with_invalid_headers} with invalid headers,"
         f" and {artifact_data.files_skipped} skipped",

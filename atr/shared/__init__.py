@@ -241,11 +241,11 @@ def _render_checks_summary(info: types.PathInfo | None, project_name: str, versi
 
             file_content: list[htm.Element | str] = []
             if error_count > 0:
-                label = "error" if (error_count == 1) else "errors"
-                file_content.append(htpy.span(".badge.bg-danger.me-2")[f"{error_count} {label}"])
+                file_content.append(htpy.span(".badge.bg-danger.me-2")[util.plural(error_count, "error")])
             if warning_count > 0:
-                label = "warning" if (warning_count == 1) else "warnings"
-                file_content.append(htpy.span(".badge.bg-warning.text-dark.me-2")[f"{warning_count} {label}"])
+                file_content.append(
+                    htpy.span(".badge.bg-warning.text-dark.me-2")[util.plural(warning_count, "warning")]
+                )
             file_content.append(htpy.a(href=report_url)[htpy.strong[htpy.code[file_path]]])
 
             files_div.div[*file_content]

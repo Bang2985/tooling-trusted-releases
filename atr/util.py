@@ -284,14 +284,6 @@ def create_path_matcher(lines: Iterable[str], full_path: pathlib.Path, base_dir:
     return lambda file_path: gitignore_parser.handle_negation(file_path, rules)
 
 
-def is_dev_environment() -> bool:
-    conf = config.get()
-    for development_host in ("127.0.0.1", "localhost.apache.org"):
-        if (conf.APP_HOST == development_host) or conf.APP_HOST.startswith(f"{development_host}:"):
-            return True
-    return False
-
-
 def email_from_uid(uid: str) -> str | None:
     if m := re.search(r"<([^>]+)>", uid):
         return m.group(1).lower()
@@ -524,6 +516,14 @@ async def has_files(release: sql.Release) -> bool:
     return False
 
 
+def is_dev_environment() -> bool:
+    conf = config.get()
+    for development_host in ("127.0.0.1", "localhost.apache.org"):
+        if (conf.APP_HOST == development_host) or conf.APP_HOST.startswith(f"{development_host}:"):
+            return True
+    return False
+
+
 async def is_dir_resolve(path: pathlib.Path) -> pathlib.Path | None:
     try:
         resolved_path = await asyncio.to_thread(path.resolve)
@@ -688,6 +688,15 @@ def permitted_voting_recipients(asf_uid: str, committee_name: str) -> list[str]:
     ]
 
 
+def plural(count: int, singular: str, plural_form: str | None = None, *, include_count: bool = True) -> str:
+    if plural_form is None:
+        plural_form = singular + "s"
+    word = singular if (count == 1) else plural_form
+    if include_count:
+        return f"{count} {word}"
+    return word
+
+
 async def read_file_for_viewer(full_path: pathlib.Path, max_size: int) -> tuple[str | None, bool, bool, str | None]:
     """Read file content for viewer."""
     content: str | None = None
@@ -757,13 +766,6 @@ def release_directory_base(release: sql.Release) -> pathlib.Path:
             base_dir = get_finished_dir()
         # Do not add "case _" here
     return base_dir / project_name / version_name
-
-
-# def release_directory_eventual(release: models.Release) -> pathlib.Path:
-#     """Return the path to the eventual destination of the release files."""
-#     path_project = release.project.name
-#     path_version = release.version
-#     return get_finished_dir() / path_project / path_version
 
 
 def release_directory_revision(release: sql.Release) -> pathlib.Path | None:
@@ -1024,7 +1026,7 @@ def version_sort_key(version: str) -> bytes:
         if version[i].isdigit():
             # Find the end of this digit sequence
             j = i
-            while j < length and version[j].isdigit():
+            while (j < length) and version[j].isdigit():
                 j += 1
 
             digit_sequence = version[i:j]

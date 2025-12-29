@@ -134,9 +134,9 @@ async def import_selected_revision(
         wacm = await write.as_project_committee_member(project_name)
         outcomes: outcome.List[types.Key] = await wacm.keys.import_keys_file(project_name, version_name)
 
-    message = f"Uploaded {outcomes.result_count} keys"
+    message = f"Uploaded {util.plural(outcomes.result_count, 'key')}"
     if outcomes.error_count > 0:
-        message += f", failed to upload {outcomes.error_count} keys for {wacm.committee_name}"
+        message += f", failed to upload {util.plural(outcomes.error_count, 'key')} for {wacm.committee_name}"
     return await session.redirect(
         get.compose.selected,
         success=message,
@@ -251,7 +251,7 @@ async def _process_keys(keys_text: str, selected_committee: str) -> str:
     error_count = outcomes.error_count
     total_count = success_count + error_count
 
-    message = f"Processed {total_count} keys: {success_count} successful"
+    message = f"Processed {util.plural(total_count, 'key')}: {success_count} successful"
     if error_count > 0:
         message += f", {error_count} failed"
 

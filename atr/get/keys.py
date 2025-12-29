@@ -115,7 +115,7 @@ async def details(session: web.Committer, fingerprint: str) -> str:
             expires_content = htm.span(".text-warning.fw-bold")[
                 expires_str,
                 " ",
-                htm.span(".badge.bg-warning.text-dark.ms-2")[f"Expires in {days_until_expiry} days"],
+                htm.span(".badge.bg-warning.text-dark.ms-2")[f"Expires in {util.plural(days_until_expiry, 'day')}"],
             ]
         else:
             expires_content = expires_str

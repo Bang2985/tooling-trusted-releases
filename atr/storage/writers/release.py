@@ -122,12 +122,12 @@ class CommitteeParticipant(FoundationCommitter):
         tasks_to_delete = await self.__data.task(project_name=release.project.name, version_name=release.version).all()
         for task in tasks_to_delete:
             await self.__data.delete(task)
-        log.debug(f"Deleted {len(tasks_to_delete)} tasks for {project_name} {version}")
+        log.debug(f"Deleted {util.plural(len(tasks_to_delete), 'task')} for {project_name} {version}")
 
         checks_to_delete = await self.__data.check_result(release_name=release.name).all()
         for check in checks_to_delete:
             await self.__data.delete(check)
-        log.debug(f"Deleted {len(checks_to_delete)} check results for {project_name} {version}")
+        log.debug(f"Deleted {util.plural(len(checks_to_delete), 'check result')} for {project_name} {version}")
 
         # TODO: Ensure that revisions are not deleted
         # But this makes testing difficult
@@ -436,7 +436,7 @@ class CommitteeParticipant(FoundationCommitter):
     ) -> int:
         """Process and save the uploaded files into a new draft revision."""
         number_of_files = len(files)
-        description = f"Upload of {number_of_files} file{'' if (number_of_files == 1) else 's'} through web interface"
+        description = f"Upload of {util.plural(number_of_files, 'file')} through web interface"
         async with self.create_and_manage_revision(project_name, version_name, description) as creating:
             # Save each uploaded file to the new revision directory
             for file in files:

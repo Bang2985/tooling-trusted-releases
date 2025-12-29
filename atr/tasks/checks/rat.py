@@ -196,7 +196,7 @@ def _check_core_logic(
                 raise ValueError("XML output path is None")
 
             results = _check_core_logic_parse_output(xml_output_path, extract_dir)
-            log.info(f"Successfully parsed RAT output with {results.get('total_files', 0)} files")
+            log.info(f"Successfully parsed RAT output with {util.plural(results.get('total_files', 0), 'file')}")
 
             # The unknown_license_files key may contain a list of dicts
             # {"name": "./README.md", "license": "Unknown license"}
@@ -597,11 +597,9 @@ def _summary_message(valid: bool, unapproved_licenses: int, unknown_licenses: in
     if not valid:
         message = "Found "
         if unapproved_licenses > 0:
-            files = "file" if (unapproved_licenses == 1) else "files"
-            message += f"{unapproved_licenses} {files} with unapproved licenses"
+            message += f"{util.plural(unapproved_licenses, 'file')} with unapproved licenses"
             if unknown_licenses > 0:
                 message += " and "
         if unknown_licenses > 0:
-            files = "file" if (unknown_licenses == 1) else "files"
-            message += f"{unknown_licenses} {files} with unknown licenses"
+            message += f"{util.plural(unknown_licenses, 'file')} with unknown licenses"
     return message

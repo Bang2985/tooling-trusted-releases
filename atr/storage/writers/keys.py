@@ -558,7 +558,7 @@ class CommitteeParticipant(FoundationCommitter):
                 stmt.returning(via(sql.PublicSigningKey.fingerprint)),
             )
             key_inserts = {row.fingerprint for row in key_insert_result}
-            log.info(f"Inserted or updated {len(key_inserts)} keys")
+            log.info(f"Inserted or updated {util.plural(len(key_inserts), 'key')}")
         else:
             # TODO: Warn the user about any keys that were already inserted
             key_inserts = set()
@@ -585,7 +585,7 @@ class CommitteeParticipant(FoundationCommitter):
                 .returning(via(sql.KeyLink.key_fingerprint))
             )
             link_inserts = {row.key_fingerprint for row in link_insert_result}
-            log.info(f"Inserted {len(link_inserts)} key links")
+            log.info(f"Inserted {util.plural(len(link_inserts), 'key link')}")
 
             def replace_with_linked(key: types.Key) -> types.Key:
                 # nonlocal link_inserts

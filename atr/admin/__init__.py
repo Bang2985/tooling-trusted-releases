@@ -303,7 +303,8 @@ async def delete_committee_keys_post(
 
         await data.commit()
         await quart.flash(
-            f"Removed {num_removed} key links for '{committee_name}'. Deleted {unused_deleted} unused keys.",
+            f"Removed {util.plural(num_removed, 'key link')} for '{committee_name}'. "
+            f"Deleted {util.plural(unused_deleted, 'unused key')}.",
             "success",
         )
 
@@ -389,9 +390,9 @@ async def delete_test_openpgp_keys_post(session: web.Committer) -> web.Response:
             delete_outcome = await wafc.keys.test_user_delete_all(test_uid)
             deleted_count = delete_outcome.result_or_raise()
 
-        suffix = "s" if (deleted_count != 1) else ""
         await quart.flash(
-            f"Successfully deleted {deleted_count} OpenPGP key{suffix} and their associated links for test user.",
+            f"Successfully deleted {util.plural(deleted_count, 'OpenPGP key')} "
+            "and their associated links for test user.",
             "success",
         )
     except Exception as e:
@@ -717,10 +718,8 @@ async def tasks_recent(session: web.Committer, minutes: int) -> str:
         recent_tasks = (await data.execute(statement)).scalars().all()
 
     page = htm.Block()
-    minute_word = "minute" if (minutes == 1) else "minutes"
-    page.h1[f"Tasks from the last {minutes} {minute_word}"]
-    task_word = "task" if (len(recent_tasks) == 1) else "tasks"
-    page.p[f"Found {len(recent_tasks)} {task_word}"]
+    page.h1[f"Tasks from the last {util.plural(minutes, 'minute')}"]
+    page.p[f"Found {util.plural(len(recent_tasks), 'task')}"]
 
     if recent_tasks:
         table = htm.Block(htpy.table, classes=".table.table-sm")
@@ -785,7 +784,7 @@ async def test(session: web.Committer) -> web.QuartResponse:
         start = time.perf_counter_ns()
         outcomes: outcome.List[types.Key] = await wacm.keys.ensure_stored(keys_file_text)
         end = time.perf_counter_ns()
-        log.info(f"Upload of {outcomes.result_count} keys took {end - start} ns")
+        log.info(f"Upload of {util.plural(outcomes.result_count, 'key')} took {end - start} ns")
     for ocr in outcomes.results():
         log.info(f"Uploaded key: {type(ocr)} {ocr.key_model.fingerprint}")
     for oce in outcomes.errors():
@@ -864,9 +863,9 @@ async def _check_keys(fix: bool = False) -> str:
             if fix:
                 key.apache_uid = asf_uid
                 await data.commit()
-    message = f"Checked {len(keys)} keys"
+    message = f"Checked {util.plural(len(keys), 'key')}"
     if bad_keys:
-        message += f"\nFound {len(bad_keys)} bad keys:\n{'\n'.join(bad_keys)}"
+        message += f"\nFound {util.plural(len(bad_keys), 'bad key')}:\n{'\n'.join(bad_keys)}"
     return message
 
 
@@ -943,12 +942,11 @@ async def _delete_releases(session: web.Committer, releases_to_delete: list[str]
             fail_count += 1
             error_messages.append(f"{release_name}: Unexpected error ({e})")
 
-    releases = "release" if (success_count == 1) else "releases"
     if success_count > 0:
-        await quart.flash(f"Successfully deleted {success_count} {releases}.", "success")
+        await quart.flash(f"Successfully deleted {util.plural(success_count, 'release')}.", "success")
     if fail_count > 0:
         errors_str = "\n".join(error_messages)
-        await quart.flash(f"Failed to delete {fail_count} {releases}:\n{errors_str}", "error")
+        await quart.flash(f"Failed to delete {util.plural(fail_count, 'release')}:\n{errors_str}", "error")
 
 
 def _format_exception_location(exc: BaseException) -> str:

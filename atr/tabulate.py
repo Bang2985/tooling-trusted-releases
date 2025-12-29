@@ -212,14 +212,10 @@ def _format_duration(duration_hours: float | int) -> str:
         minutes = 0
 
     parts: list[str] = []
-    if hours == 1:
-        parts.append("1 hour")
-    elif hours > 1:
-        parts.append(f"{hours} hours")
-    if minutes == 1:
-        parts.append("1 minute")
-    elif minutes > 1:
-        parts.append(f"{minutes} minutes")
+    if hours > 0:
+        parts.append(util.plural(hours, "hour"))
+    if minutes > 0:
+        parts.append(util.plural(minutes, "minute"))
 
     if not parts:
         return "less than 1 minute"

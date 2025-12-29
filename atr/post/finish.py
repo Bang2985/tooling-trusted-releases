@@ -21,6 +21,7 @@ import atr.blueprints.post as post
 import atr.log as log
 import atr.shared as shared
 import atr.storage as storage
+import atr.util as util
 import atr.web as web
 
 
@@ -126,16 +127,16 @@ async def _remove_rc_tags(
         if creation_error is not None:
             return await respond(409, creation_error)
 
-        items = "item" if (renamed_count == 1) else "items"
         if error_messages:
             status_ok = renamed_count > 0
             # TODO: Ideally HTTP would have a general mixed status, like 207 but for anything
             http_status = 200 if status_ok else 500
-            msg = f"RC tags removed for {renamed_count} {items} with some errors: {'; '.join(error_messages)}"
+            msg = f"RC tags removed for {util.plural(renamed_count, 'item')}"
+            msg += f" with some errors: {'; '.join(error_messages)}"
             return await respond(http_status, msg)
 
         if renamed_count > 0:
-            return await respond(200, f"Successfully removed RC tags from {renamed_count} {items}.")
+            return await respond(200, f"Successfully removed RC tags from {util.plural(renamed_count, 'item')}.")
 
         return await respond(200, "No items required RC tag removal or no changes were made.")
 

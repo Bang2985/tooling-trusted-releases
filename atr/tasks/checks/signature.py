@@ -137,7 +137,7 @@ def _check_core_logic_verify_signature(
         if not import_result.fingerprints:
             log.warning("No fingerprints found after importing keys")
         end = time.perf_counter_ns()
-        log.info(f"Import {len(ascii_armored_keys)} keys took {(end - start) / 1000000} ms")
+        log.info(f"Import of {util.plural(len(ascii_armored_keys), 'key')} took {(end - start) / 1000000} ms")
         verified = gpg.verify_file(sig_file, str(artifact_path))
 
     key_fp = verified.pubkey_fingerprint.lower() if verified.pubkey_fingerprint else None

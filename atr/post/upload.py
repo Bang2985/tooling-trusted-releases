@@ -66,8 +66,7 @@ async def finalise(
         async with storage.write(session) as write:
             wacp = await write.as_project_committee_participant(project_name)
             number_of_files = len(staged_files)
-            plural = "s" if (number_of_files != 1) else ""
-            description = f"Upload of {number_of_files} file{plural} through web interface"
+            description = f"Upload of {util.plural(number_of_files, 'file')} through web interface"
 
             async with wacp.release.create_and_manage_revision(project_name, version_name, description) as creating:
                 for filename in staged_files:
@@ -79,7 +78,7 @@ async def finalise(
 
         return await session.redirect(
             get.compose.selected,
-            success=f"{number_of_files} file{plural} added successfully",
+            success=f"{util.plural(number_of_files, 'file')} added successfully",
             project_name=project_name,
             version_name=version_name,
         )
@@ -157,10 +156,9 @@ async def _add_files(
             wacp = await write.as_project_committee_participant(project_name)
             number_of_files = await wacp.release.upload_files(project_name, version_name, file_name, file_data)
 
-        plural = number_of_files != 1
         return await session.redirect(
             get.compose.selected,
-            success=f"{number_of_files} file{'s' if plural else ''} added successfully",
+            success=f"{util.plural(number_of_files, 'file')} added successfully",
             project_name=project_name,
             version_name=version_name,
         )

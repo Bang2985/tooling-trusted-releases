@@ -23,6 +23,7 @@ from typing import Any
 import atr.log as log
 import atr.models.results as results
 import atr.tasks.checks as checks
+import atr.util as util
 
 
 async def integrity(args: checks.FunctionArguments) -> results.Results | None:
@@ -38,7 +39,9 @@ async def integrity(args: checks.FunctionArguments) -> results.Results | None:
         if result_data.get("error"):
             await recorder.failure(result_data["error"], result_data)
         else:
-            await recorder.success(f"Zip archive integrity OK ({result_data['member_count']} members)", result_data)
+            await recorder.success(
+                f"Zip archive integrity OK ({util.plural(result_data['member_count'], 'member')})", result_data
+            )
     except Exception as e:
         await recorder.failure("Error checking zip integrity", {"error": str(e)})
 

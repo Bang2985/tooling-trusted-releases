@@ -32,6 +32,7 @@ import sqlmodel
 import atr.db as db
 import atr.log as log
 import atr.models.sql as sql
+import atr.util as util
 
 # Global debug flag to control worker process output capturing
 global_worker_debug: bool = False
@@ -340,7 +341,7 @@ class WorkerManager:
                         log.error(f"Expected cursor result, got {type(result)}")
                         return
                     if result.rowcount > 0:
-                        log.info(f"Reset {result.rowcount} tasks to state 'QUEUED' due to worker issues")
+                        log.info(f"Reset {util.plural(result.rowcount, 'task')} to state 'QUEUED' due to worker issues")
 
         except Exception as e:
             log.error(f"Error resetting broken tasks: {e}")
