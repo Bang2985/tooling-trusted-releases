@@ -96,7 +96,12 @@ async def _directory_listing_pre(full_path: pathlib.Path, current_path: str, pre
 
 
 async def _file_content(full_path: pathlib.Path) -> web.QuartResponse:
-    return await quart.send_file(full_path)
+    return await quart.send_file(
+        full_path,
+        as_attachment=True,
+        attachment_filename=full_path.name,
+        mimetype="application/octet-stream",
+    )
 
 
 async def _path(session: web.Committer, path: str) -> web.QuartResponse:
