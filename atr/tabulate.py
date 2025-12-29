@@ -203,6 +203,29 @@ def vote_summary(tabulated_votes: dict[str, models.tabulate.VoteEmail]) -> dict[
     return result
 
 
+def _format_duration(duration_hours: float | int) -> str:
+    hours = int(duration_hours)
+    minutes = round((duration_hours - hours) * 60)
+    if minutes == 60:
+        # Happens when the remainder is 59.5 / 60 or more
+        hours += 1
+        minutes = 0
+
+    parts: list[str] = []
+    if hours == 1:
+        parts.append("1 hour")
+    elif hours > 1:
+        parts.append(f"{hours} hours")
+    if minutes == 1:
+        parts.append("1 minute")
+    elif minutes > 1:
+        parts.append(f"{minutes} minutes")
+
+    if not parts:
+        return "less than 1 minute"
+    return " and ".join(parts)
+
+
 def _vote_break(line: str) -> bool:
     if line == "-- ":
         # Start of a signature
@@ -279,8 +302,8 @@ def _vote_outcome_format(
     outcome_passed = (binding_plus_one >= 3) and (binding_plus_one > binding_minus_one)
     if not outcome_passed:
         if (duration_hours_remaining is not None) and (duration_hours_remaining > 0):
-            rounded = round(duration_hours_remaining, 2)
-            msg = f"The vote is still open for {rounded} hours, but it would fail if closed now."
+            duration_str = _format_duration(duration_hours_remaining)
+            msg = f"The vote is still open for {duration_str}, but it would fail if closed now."
         elif duration_hours_remaining is None:
             msg = "The vote would fail if closed now."
         else:
@@ -288,8 +311,8 @@ def _vote_outcome_format(
         return False, msg
 
     if (duration_hours_remaining is not None) and (duration_hours_remaining > 0):
-        rounded = round(duration_hours_remaining, 2)
-        msg = f"The vote is still open for {rounded} hours, but it would pass if closed now."
+        duration_str = _format_duration(duration_hours_remaining)
+        msg = f"The vote is still open for {duration_str}, but it would pass if closed now."
     else:
         msg = "The vote passed."
     return True, msg
