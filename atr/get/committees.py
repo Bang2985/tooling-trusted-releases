@@ -39,6 +39,7 @@ async def directory(session: web.Committer | None) -> str:
             "committee-directory.html",
             committees=committees,
             committee_is_standing=util.committee_is_standing,
+            plural_fn=util.plural,
         )
 
 

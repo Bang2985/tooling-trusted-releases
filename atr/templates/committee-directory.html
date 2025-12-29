@@ -141,12 +141,13 @@
                                 </div>
                             {% endfor %}
                             {% if committee.projects|length > max_initial_projects %}
+                                {% set extra_count = committee.projects|length - max_initial_projects %}
                                 <button type="button"
                                         class="btn btn-sm btn-outline-secondary mt-2 page-toggle-committee-projects"
                                         aria-expanded="false"
-                                        data-text-show="Show {{ committee.projects|length - max_initial_projects }} more projects..."
+                                        data-text-show="Show {{ extra_count }} more {{ plural_fn(extra_count, 'project', include_count=False) }}..."
                                         data-text-hide="Show less...">
-                                    Show {{ committee.projects|length - max_initial_projects }} more projects...
+                                    Show {{ extra_count }} more {{ plural_fn(extra_count, 'project', include_count=False) }}...
                                 </button>
                             {% endif %}
                 {# Add an else clause here if we decide to show an alternative to an empty card #}
