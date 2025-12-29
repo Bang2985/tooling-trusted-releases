@@ -195,8 +195,8 @@ async def view(session: web.Committer, name: str) -> web.WerkzeugResponse | str:
         if project.created_by == session.uid:
             page.append(_render_delete_section(project))
 
-        if is_committee_member or is_privileged:
-            if project.committee:
+        if project.committee:
+            if (project.committee.name in session.committees) or is_privileged:
                 page.p[
                     htm.a(
                         ".btn.btn-sm.btn-outline-primary",
