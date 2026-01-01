@@ -24,7 +24,6 @@ import atr.post.finish as finish
 import atr.post.ignores as ignores
 import atr.post.keys as keys
 import atr.post.manual as manual
-import atr.post.preview as preview
 import atr.post.projects as projects
 import atr.post.resolve as resolve
 import atr.post.revisions as revisions
@@ -47,7 +46,6 @@ __all__ = [
     "ignores",
     "keys",
     "manual",
-    "preview",
     "projects",
     "resolve",
     "revisions",

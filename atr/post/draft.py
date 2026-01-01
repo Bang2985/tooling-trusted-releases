@@ -17,15 +17,12 @@
 
 from __future__ import annotations
 
-import datetime
-
 import aiofiles.os
 import aioshutil
 import asfquart.base as base
 import quart
 
 import atr.blueprints.post as post
-import atr.construct as construct
 import atr.db.interaction as interaction
 import atr.form as form
 import atr.get as get
@@ -35,12 +32,6 @@ import atr.shared as shared
 import atr.storage as storage
 import atr.util as util
 import atr.web as web
-
-
-class VotePreviewForm(form.Form):
-    body: str = form.label("Body", widget=form.Widget.TEXTAREA)
-    # Note: this does not provide any vote duration validation; this simply displays a preview to the user
-    vote_duration: form.Int = form.label("Vote duration")
 
 
 @post.committer("/compose/<project_name>/<version_name>")
@@ -216,36 +207,3 @@ async def sbomgen(session: web.Committer, project_name: str, version_name: str, 
         project_name=project_name,
         version_name=version_name,
     )
-
-
-@post.committer("/draft/vote/preview/<project_name>/<version_name>")
-@post.form(VotePreviewForm)
-async def vote_preview(
-    session: web.Committer, vote_preview_form: VotePreviewForm, project_name: str, version_name: str
-) -> web.QuartResponse | web.WerkzeugResponse | str:
-    """Show the vote email preview for a release."""
-
-    release = await session.release(project_name, version_name)
-    if release.committee is None:
-        raise web.FlashError("Release has no associated committee")
-
-    form_body: str = vote_preview_form.body
-    asfuid = session.uid
-    project_name = release.project.name
-    version_name = release.version
-    vote_duration: int = vote_preview_form.vote_duration
-    vote_end = datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=vote_duration)
-    vote_end_str = vote_end.strftime("%Y-%m-%d %H:%M:%S UTC")
-
-    body = await construct.start_vote_body(
-        form_body,
-        construct.StartVoteOptions(
-            asfuid=asfuid,
-            fullname=session.fullname,
-            project_name=project_name,
-            version_name=version_name,
-            vote_duration=vote_duration,
-            vote_end=vote_end_str,
-        ),
-    )
-    return web.TextResponse(body)

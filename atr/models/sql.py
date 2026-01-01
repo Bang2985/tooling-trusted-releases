@@ -584,7 +584,7 @@ Please review the release candidate and vote accordingly.
 
 You can vote on ATR at the URL above, or manually by replying to this email.
 
-The vote ends after {{DURATION}} hours at {{VOTE_ENDS_UTC}}.
+The vote is open for {{DURATION}} hours.
 
 {{RELEASE_CHECKLIST}}
 Thanks,

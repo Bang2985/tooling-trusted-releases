@@ -26,6 +26,7 @@ import atr.db.interaction as interaction
 import atr.form as form
 import atr.get.compose as compose
 import atr.get.keys as keys
+import atr.get.projects as projects
 import atr.htm as htm
 import atr.models.sql as sql
 import atr.post as post
@@ -63,29 +64,26 @@ async def selected_revision(
         if release.release_policy and (release.release_policy.min_hours is not None):
             min_hours = release.release_policy.min_hours
 
-        revision_obj = await data.revision(release_name=release.name, number=revision).get()
-        revision_number = str(revision)
-        revision_tag = revision_obj.tag if (revision_obj and revision_obj.tag) else ""
-
         default_subject_template = await construct.start_vote_subject_default(project_name)
-        default_body = await construct.start_vote_default(project_name)
+        default_body_template = await construct.start_vote_default(project_name)
 
         options = construct.StartVoteOptions(
             asfuid=session.uid,
             fullname=session.fullname,
-            project_name=release.project.display_name or project_name,
+            project_name=project_name,
             version_name=release.version,
+            revision_number=revision,
             vote_duration=min_hours,
-            vote_end="",
         )
-        default_subject = construct.start_vote_subject(
-            default_subject_template, options, revision_number, revision_tag, committee.display_name
+        default_subject, default_body = await construct.start_vote_subject_and_body(
+            default_subject_template, default_body_template, options
         )
 
         keys_warning = await _check_keys_warning(committee)
 
         content = await _render_page(
             release=release,
+            revision_number=revision,
             permitted_recipients=permitted_recipients,
             default_subject=default_subject,
             default_body=default_body,
@@ -96,7 +94,7 @@ async def selected_revision(
         return await template.blank(
             title=f"Start voting on {release.project.short_display_name} {release.version}",
             content=content,
-            javascripts=["copy-variable", "vote-preview"],
+            javascripts=["vote-body-duration"],
         )
 
 
@@ -109,13 +107,27 @@ async def _check_keys_warning(committee: sql.Committee) -> bool:
     return not await aiofiles.os.path.isfile(keys_file_path)
 
 
-def _render_body_tabs(default_body: str) -> htm.Element:
-    """Render the tabbed interface for body editing and preview."""
-    return render.body_tabs("vote-body", default_body, construct.vote_template_variables())
+def _render_body_field(default_body: str, project_name: str) -> htm.Element:
+    """Render the body textarea with a link to edit the template."""
+    textarea = htpy.textarea(
+        "#body.form-control.font-monospace",
+        name="body",
+        rows="12",
+    )[default_body]
+
+    settings_url = util.as_url(projects.view, name=project_name) + "#start_vote_template"
+    link = htm.div(".form-text.text-muted.mt-2")[
+        "To edit the template, go to the ",
+        htm.a(href=settings_url)["project settings"],
+        ".",
+    ]
+
+    return htm.div[textarea, link]
 
 
 async def _render_page(
     release,
+    revision_number: str,
     permitted_recipients: list[str],
     default_subject: str,
     default_body: str,
@@ -165,7 +177,7 @@ async def _render_page(
         version_name=release.version,
     )
 
-    custom_body_widget = _render_body_tabs(default_body)
+    custom_body_widget = _render_body_field(default_body, release.project.name)
 
     vote_form = form.render(
         model_cls=shared.voting.StartVotingForm,
@@ -184,9 +196,11 @@ async def _render_page(
     page.append(vote_form)
 
     preview_url = util.as_url(
-        post.preview.vote_preview, project_name=release.project.name, version_name=release.version
+        post.voting.body_preview,
+        project_name=release.project.name,
+        version_name=release.version,
+        revision_number=revision_number,
     )
-    # TODO: It would be better to have these attributes on the form
-    page.append(htpy.div("#vote-config.d-none", data_preview_url=preview_url, data_min_hours=str(min_hours)))
+    page.append(htpy.div("#vote-body-config.d-none", data_preview_url=preview_url))
 
     return page.collect()

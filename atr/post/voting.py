@@ -18,14 +18,20 @@
 from __future__ import annotations
 
 import atr.blueprints.post as post
+import atr.construct as construct
 import atr.db as db
 import atr.db.interaction as interaction
+import atr.form as form
 import atr.get as get
 import atr.log as log
 import atr.shared as shared
 import atr.storage as storage
 import atr.util as util
 import atr.web as web
+
+
+class BodyPreviewForm(form.Form):
+    vote_duration: form.Int = form.label("Vote duration")
 
 
 @post.committer("/voting/<project_name>/<version_name>/<revision>")
@@ -84,3 +90,30 @@ async def selected_revision(
             project_name=project_name,
             version_name=version_name,
         )
+
+
+@post.committer("/voting/body/preview/<project_name>/<version_name>/<revision_number>")
+@post.form(BodyPreviewForm)
+async def body_preview(
+    session: web.Committer,
+    preview_form: BodyPreviewForm,
+    project_name: str,
+    version_name: str,
+    revision_number: str,
+) -> web.QuartResponse:
+    await session.check_access(project_name)
+
+    default_subject_template = await construct.start_vote_subject_default(project_name)
+    default_body_template = await construct.start_vote_default(project_name)
+
+    options = construct.StartVoteOptions(
+        asfuid=session.uid,
+        fullname=session.fullname,
+        project_name=project_name,
+        version_name=version_name,
+        revision_number=revision_number,
+        vote_duration=preview_form.vote_duration,
+    )
+    _, body = await construct.start_vote_subject_and_body(default_subject_template, default_body_template, options)
+
+    return web.TextResponse(body)

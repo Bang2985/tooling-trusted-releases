@@ -24,6 +24,7 @@ import atr.blueprints.get as get
 import atr.config as config
 import atr.construct as construct
 import atr.form as form
+import atr.get.projects as projects
 import atr.htm as htm
 import atr.models.sql as sql
 import atr.post as post
@@ -43,18 +44,29 @@ async def selected(session: web.Committer, project_name: str, version_name: str)
         project_name, version_name, with_committee=True, phase=sql.ReleasePhase.RELEASE_PREVIEW
     )
 
+    latest_revision_number = release.latest_revision_number
+    if latest_revision_number is None:
+        return await session.redirect(
+            projects.view,
+            error="No revisions exist for this release.",
+            name=project_name,
+        )
+
     # Get the templates from the release policy
     default_subject_template = await construct.announce_release_subject_default(project_name)
-    default_body = await construct.announce_release_default(project_name)
+    default_body_template = await construct.announce_release_default(project_name)
 
-    # Expand the subject template
+    # Expand the templates
     options = construct.AnnounceReleaseOptions(
         asfuid=session.uid,
         fullname=session.fullname,
-        project_name=release.project.display_name or project_name,
+        project_name=project_name,
         version_name=version_name,
+        revision_number=latest_revision_number,
     )
-    default_subject = construct.announce_release_subject(default_subject_template, options)
+    default_subject, default_body = await construct.announce_release_subject_and_body(
+        default_subject_template, default_body_template, options
+    )
 
     # The download path suffix can be changed
     # The defaults depend on whether the project is top level or not
@@ -86,13 +98,26 @@ async def selected(session: web.Committer, project_name: str, version_name: str)
         title=f"Announce and distribute {release.project.display_name} {release.version}",
         description=f"Announce and distribute {release.project.display_name} {release.version} as a release.",
         content=content,
-        javascripts=["announce-confirm", "announce-preview", "copy-variable"],
+        javascripts=["announce-confirm"],
     )
 
 
-def _render_body_tabs(default_body: str) -> htm.Element:
-    """Render the tabbed interface for body editing and preview."""
-    return render.body_tabs("announce-body", default_body, construct.announce_template_variables())
+def _render_body_field(default_body: str, project_name: str) -> htm.Element:
+    """Render the body textarea with a link to edit the template."""
+    textarea = htpy.textarea(
+        "#body.form-control.font-monospace",
+        name="body",
+        rows="12",
+    )[default_body]
+
+    settings_url = util.as_url(projects.view, name=project_name) + "#announce_release_template"
+    link = htm.div(".form-text.text-muted.mt-2")[
+        "To edit the template, go to the ",
+        htm.a(href=settings_url)["project settings"],
+        ".",
+    ]
+
+    return htm.div[textarea, link]
 
 
 def _render_download_path_field(default_value: str, description: str) -> htm.Element:
@@ -183,8 +208,7 @@ async def _render_page(
     page.h2["Announce this release"]
     page.p[f"This form will send an announcement to the ASF {util.USER_TESTS_ADDRESS} mailing list."]
 
-    # Custom widget for body tabs and mailing list with warning
-    custom_body_widget = _render_body_tabs(default_body)
+    custom_body_widget = _render_body_field(default_body, release.project.name)
     custom_mailing_list_widget = _render_mailing_list_with_warning(mailing_list_choices, util.USER_TESTS_ADDRESS)
 
     # Custom widget for download_path_suffix with custom documentation
@@ -195,10 +219,6 @@ async def _render_page(
         "subject": default_subject,
         "body": default_body,
     }
-
-    preview_url = util.as_url(
-        post.preview.announce_preview, project_name=release.project.name, version_name=release.version
-    )
 
     form.render_block(
         page,
@@ -215,9 +235,6 @@ async def _render_page(
         border=True,
         wider_widgets=True,
     )
-
-    # TODO: Would be better if we could add data-preview-url to the form
-    page.append(htpy.div("#announce-config.d-none", data_preview_url=preview_url))
 
     return page.collect()
 

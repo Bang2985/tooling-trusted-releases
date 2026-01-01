@@ -111,8 +111,6 @@ class CommitteeMember(CommitteeParticipant):
         asf_uid: str,
         fullname: str,
     ) -> None:
-        import atr.construct as construct
-
         if recipient not in util.permitted_announce_recipients(asf_uid):
             raise storage.AccessError(f"You are not permitted to send announcements to {recipient}")
 
@@ -133,16 +131,6 @@ class CommitteeMember(CommitteeParticipant):
         )
         if (committee := release.project.committee) is None:
             raise storage.AccessError("Release has no committee")
-
-        body = await construct.announce_release_body(
-            body,
-            options=construct.AnnounceReleaseOptions(
-                asfuid=asf_uid,
-                fullname=fullname,
-                project_name=project_name,
-                version_name=version_name,
-            ),
-        )
 
         # Prepare paths for file operations
         unfinished_revisions_path = util.release_directory_base(release)
