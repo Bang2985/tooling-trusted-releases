@@ -560,6 +560,18 @@ async def ldap_post(session: web.Committer, lookup_form: LdapLookupForm) -> str:
     )
 
 
+@admin.get("/logs")
+async def logs(session: web.Committer) -> web.QuartResponse:
+    conf = config.get()
+    debug_and_allow_tests = (config.get_mode() == config.Mode.Debug) and conf.ALLOW_TESTS
+    if not debug_and_allow_tests:
+        raise base.ASFQuartException("Not available without ALLOW_TESTS", errorcode=403)
+    recent_logs = log.get_recent_logs()
+    if recent_logs is None:
+        raise base.ASFQuartException("Debug logging not initialised", errorcode=404)
+    return web.TextResponse("\n".join(recent_logs))
+
+
 @admin.get("/ongoing-tasks/<project_name>/<version_name>/<revision>")
 async def ongoing_tasks_get(
     session: web.Committer, project_name: str, version_name: str, revision: str

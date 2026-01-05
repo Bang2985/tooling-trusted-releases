@@ -278,7 +278,10 @@ def _app_setup_logging(app: base.QuartApp, config_mode: config.Mode, app_config:
 
     console_handler = rich_logging.RichHandler(rich_tracebacks=True, show_time=False)
     log_queue = queue.Queue(-1)
-    listener = logging.handlers.QueueListener(log_queue, console_handler)
+    handlers: list[logging.Handler] = [console_handler]
+    if (config_mode == config.Mode.Debug) and app_config.ALLOW_TESTS:
+        handlers.append(log.create_debug_handler())
+    listener = logging.handlers.QueueListener(log_queue, *handlers)
     app.extensions["logging_listener"] = listener
 
     logging.basicConfig(

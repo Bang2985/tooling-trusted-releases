@@ -15,13 +15,30 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import collections
 import inspect
 import logging
 import logging.handlers
 import queue
+import threading
 from typing import Final
 
 PERFORMANCE: logging.Logger | None = None
+
+_global_recent_logs: collections.deque[str] | None = None
+_global_recent_logs_lock = threading.Lock()
+
+
+class _BufferingHandler(logging.Handler):
+    def emit(self, record: logging.LogRecord) -> None:
+        if _global_recent_logs is None:
+            return
+        try:
+            msg = self.format(record)
+            with _global_recent_logs_lock:
+                _global_recent_logs.append(msg)
+        except Exception:
+            self.handleError(record)
 
 
 def caller_name(depth: int = 1) -> str:
@@ -73,8 +90,24 @@ def exception(msg: str) -> None:
     _event(logging.ERROR, msg, exc_info=True)
 
 
+def get_recent_logs() -> list[str] | None:
+    if _global_recent_logs is None:
+        return None
+    with _global_recent_logs_lock:
+        return list(_global_recent_logs)
+
+
 def info(msg: str) -> None:
     _event(logging.INFO, msg)
+
+
+def create_debug_handler() -> logging.Handler:
+    global _global_recent_logs
+    _global_recent_logs = collections.deque(maxlen=100)
+    handler = _BufferingHandler()
+    handler.setFormatter(logging.Formatter("%(asctime)s %(name)s %(levelname)s: %(message)s"))
+    handler.setLevel(logging.DEBUG)
+    return handler
 
 
 def interface_name(depth: int = 1) -> str:
