@@ -14,14 +14,11 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+import asyncio
 import collections
 import dataclasses
-import json
-import os.path
 from typing import Any, Final, Literal
 
-import aiofiles
 import ldap3
 import ldap3.utils.conv as conv
 import ldap3.utils.dn as dn
@@ -86,6 +83,7 @@ class SearchParameters:
     uid_query: str | None = None
     email_query: str | None = None
     github_username_query: str | None = None
+    github_nid_query: int | None = None
     bind_dn_from_config: str | None = None
     bind_password_from_config: str | None = None
     results_list: list[dict[str, str | list[str]]] = dataclasses.field(default_factory=list)
@@ -101,14 +99,18 @@ async def github_to_apache(github_numeric_uid: int) -> str:
 
     # We need to lookup the ASF UID from the GitHub NID
     conf = config.get()
-    # TODO: Get this information from backfilled LDAP instead
-    github_nid_to_asf_uid_strpath = os.path.join(conf.STATE_DIR, "github-nid-to-asf-uid.json")
-    async with aiofiles.open(github_nid_to_asf_uid_strpath) as f:
-        github_nid_to_asf_uid = json.loads(await f.read())
-    if github_numeric_uid not in github_nid_to_asf_uid:
+    bind_dn = conf.LDAP_BIND_DN
+    bind_password = conf.LDAP_BIND_PASSWORD
+    ldap_params = SearchParameters(
+        bind_dn_from_config=bind_dn,
+        bind_password_from_config=bind_password,
+        github_nid_query=github_numeric_uid,
+    )
+    await asyncio.to_thread(search, ldap_params)
+    if not (ldap_params.results_list and ("uid" in ldap_params.results_list[0])):
         raise LookupError(f"GitHub NID {github_numeric_uid} not registered with the ATR")
-    asf_uid = github_nid_to_asf_uid[str(github_numeric_uid)]
-    return asf_uid
+    ldap_uid_val = ldap_params.results_list[0]["uid"]
+    return ldap_uid_val[0] if isinstance(ldap_uid_val, list) else ldap_uid_val
 
 
 def parse_dn(dn_string: str) -> dict[str, list[str]]:
@@ -170,7 +172,10 @@ def _search_core(params: SearchParameters) -> None:
             filters.append(f"(asf-altEmail={escaped_email})")
 
     if params.github_username_query:
-        filters.append(f"(githubUsername={conv.escape_filter_chars(params.github_username_query)})")
+        filters.append(f"(asf-githubStringID={conv.escape_filter_chars(params.github_username_query)})")
+
+    if params.github_nid_query:
+        filters.append(f"(asf-githubNumericID={params.github_nid_query})")
 
     if not filters:
         params.err_msg = "Please provide a UID, an email address, or a GitHub username to search."
