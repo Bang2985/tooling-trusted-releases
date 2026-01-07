@@ -24,6 +24,15 @@ import atr.sbom.models.osv as osv
 from . import schema
 
 
+class GithubActionsWorkflow(schema.Strict):
+    """Result of the task to run a Github workflow."""
+
+    kind: Literal["github_actions_workflow"] = schema.Field(alias="kind")
+    name: str = schema.description("The name of the action being performed")
+    run_id: int = schema.description("The ID of the workflow run")
+    url: str = schema.description("The URL of the workflow run")
+
+
 class HashingCheck(schema.Strict):
     """Result of the task to check the hash of a file."""
 
@@ -184,7 +193,8 @@ class MetadataUpdate(schema.Strict):
 
 
 Results = Annotated[
-    HashingCheck
+    GithubActionsWorkflow
+    | HashingCheck
     | MessageSend
     | MetadataUpdate
     | SBOMAugment

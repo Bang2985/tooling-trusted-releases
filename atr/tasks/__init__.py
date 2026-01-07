@@ -28,6 +28,7 @@ import atr.tasks.checks.rat as rat
 import atr.tasks.checks.signature as signature
 import atr.tasks.checks.targz as targz
 import atr.tasks.checks.zipformat as zipformat
+import atr.tasks.gha as gha
 import atr.tasks.keys as keys
 import atr.tasks.message as message
 import atr.tasks.metadata as metadata
@@ -188,6 +189,8 @@ def queued(
 
 def resolve(task_type: sql.TaskType) -> Callable[..., Awaitable[results.Results | None]]:  # noqa: C901
     match task_type:
+        case sql.TaskType.GITHUB_ACTION_WORKFLOW:
+            return gha.trigger_workflow
         case sql.TaskType.HASHING_CHECK:
             return hashing.check
         case sql.TaskType.KEYS_IMPORT_FILE:

@@ -179,6 +179,7 @@ class TaskStatus(str, enum.Enum):
 
 
 class TaskType(str, enum.Enum):
+    GITHUB_ACTION_WORKFLOW = "github_action_workflow"
     HASHING_CHECK = "hashing_check"
     KEYS_IMPORT_FILE = "keys_import_file"
     LICENSE_FILES = "license_files"
