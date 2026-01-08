@@ -91,7 +91,7 @@ def primary_success_toggle(page_report: Page) -> Locator:
 
 
 @pytest.fixture(scope="module")
-def report_context(browser: Browser) -> Generator[BrowserContext]:
+def report_context(browser: Browser, verify_license_check_mode: None) -> Generator[BrowserContext]:
     """Create a release with an uploaded file and completed tasks."""
     context = browser.new_context(ignore_https_errors=True)
     page = context.new_page()
@@ -118,6 +118,18 @@ def report_context(browser: Browser) -> Generator[BrowserContext]:
     yield context
 
     context.close()
+
+
+@pytest.fixture(scope="module")
+def verify_license_check_mode(browser: Browser) -> None:
+    """Verify that the test project has the correct license check mode."""
+    context = browser.new_context(ignore_https_errors=True)
+    policy = helpers.api_get(context.request, f"/api/project/policy/{PROJECT_NAME}")
+    context.close()
+
+    mode = policy.get("policy_license_check_mode", "").upper()
+    if mode == "RAT":
+        pytest.fail(f"Test project has policy_license_check_mode={mode}. Member results will not be produced.")
 
 
 def _wait_for_tasks_banner_hidden(page: Page, timeout: int = 30000) -> None:

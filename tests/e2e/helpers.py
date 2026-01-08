@@ -16,11 +16,16 @@
 # under the License.
 
 import os
-from typing import Final
+from typing import Any, Final
 
-from playwright.sync_api import Page
+from playwright.sync_api import APIRequestContext, Page
 
 _ATR_BASE_URL: Final[str] = os.environ.get("ATR_BASE_URL", "https://localhost.apache.org:8080")
+
+
+def api_get(request: APIRequestContext, path: str) -> dict[str, Any]:
+    response = request.get(f"{_ATR_BASE_URL}{path}")
+    return response.json()
 
 
 def delete_release_if_exists(page: Page, project_name: str, version_name: str) -> None:
