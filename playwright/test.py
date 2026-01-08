@@ -27,7 +27,6 @@ import socket
 import subprocess
 import sys
 import time
-import urllib.parse
 from collections.abc import Callable
 from typing import Any, Final
 
@@ -1386,13 +1385,9 @@ def test_tidy_up_releases(page: Page) -> None:
     release_remove(page, f"{TEST_PROJECT}-0.2")
 
 
-def wait_for_path(page: Page, path: str) -> None:
+def wait_for_path(page: Page, path: str, timeout: int = 30000) -> None:
+    page.wait_for_url(f"**{path}", timeout=timeout)
     page.wait_for_load_state()
-    parsed_url = urllib.parse.urlparse(page.url)
-    if parsed_url.path != path:
-        logging.error(f"Expected URL path '{path}', but got '{parsed_url.path}'")
-        logging.error(f"Page content:\\n{page.content()}")
-        raise RuntimeError(f"Expected URL path '{path}', but got '{parsed_url.path}'")
     logging.info(f"Current URL: {page.url}")
 
 
