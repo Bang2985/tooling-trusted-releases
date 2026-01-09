@@ -15,7 +15,7 @@
 
 ## Introduction
 
-To develop ATR locally, we manage dependencies using [uv](https://docs.astral.sh/uv/). To run ATR on ASF hardware, we run it in containers managed by Puppet, but since this guide is about development, we focus on using uv.
+To develop ATR locally, we manage dependencies using [uv](https://docs.astral.sh/uv/). To run ATR on ASF hardware, we run it in containers managed by Puppet, but since this guide is about development, we focus on using Compose and uv. ATR can be developed on Linux or macOS. Windows and other platforms are not supported.
 
 ## Get the source
 
@@ -74,8 +74,6 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 rehash
 uv python install 3.13
 ```
-
-ATR should work in any POSIX style environment.
 
 ### Run the server
 
