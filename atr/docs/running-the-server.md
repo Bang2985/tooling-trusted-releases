@@ -27,13 +27,13 @@ Once you have the source, there are two ways of running the server: [in an OCI c
 
 ## Run the server in an OCI container
 
-The easiest way to run the ATR server with all dependencies included is using Compose. This builds an OCI container based on the Alpine Linux distribution that includes external tools such as CycloneDX, syft, and Apache RAT, syft which are required for SBOM generation and license checking.
+The easiest way to run the ATR server with all dependencies included is using Docker Compose. This builds an OCI container based on the Alpine Linux distribution that includes external tools such as CycloneDX, syft, and Apache RAT, syft which are required for SBOM generation and license checking.
 
 To run ATR in a container, you need an OCI compatible container runtime with Compose support such as Docker or Podman. Then, in the ATR root source directory, use your Compose tool to bring the container up. If using Docker, for example, run:
 
 ```shell
 mkdir -p state
-docker compose up --build
+[LDAP_BIND_DN=dn LDAP_BIND_PASSWORD=pass] docker compose up --build
 ```
 
 The first build will take several minutes as Compose downloads and compiles dependencies. Subsequent runs will be faster due to caching.
