@@ -303,13 +303,12 @@ def _files_check_core_logic_notice(archive: tarzip.Archive, member: tarzip.Membe
     preamble = "".join(content.splitlines(keepends=True)[:3])
     issues = []
 
-    if not re.search(r"Apache\s+[\w\-\.]+", content, re.MULTILINE):
+    normalised = re.sub(r"\s+", " ", content)
+    if not re.search(r"Apache [\w\-\.]+", normalised):
         issues.append("missing or invalid Apache product header")
-    if not re.search(r"Copyright\s+(?:\d{4}|\d{4}-\d{4})\s+The Apache Software Foundation", content, re.MULTILINE):
+    if not re.search(r"Copyright (\d{4}|\d{4}-\d{4}) The Apache Software Foundation", normalised):
         issues.append("missing or invalid copyright statement")
-    if not re.search(
-        r"This product includes software developed at\s*\nThe Apache Software Foundation", content, re.DOTALL
-    ):
+    if not re.search(r"This product includes software developed at The Apache Software Foundation", normalised):
         issues.append("missing or invalid foundation attribution")
 
     return len(issues) == 0, issues, preamble
