@@ -1,5 +1,5 @@
 .PHONY: build build-alpine build-bootstrap build-playwright build-ts \
-  build-ubuntu bump-bootstrap certs check check-extra check-light commit \
+  bump-bootstrap certs check check-extra check-light commit \
   docs generate-version ipython manual run-alpine run-playwright \
   run-playwright-slow serve serve-local sync sync-all update-deps
 
@@ -9,7 +9,7 @@ IMAGE ?= tooling-trusted-release
 build: build-alpine
 
 build-alpine:
-	scripts/build Dockerfile.alpine $(IMAGE)
+	scripts/build $(IMAGE)
 
 build-bootstrap:
 	docker build -t atr-bootstrap bootstrap/context
@@ -23,9 +23,6 @@ build-playwright:
 
 build-ts:
 	tsgo --project ./tsconfig.json
-
-build-ubuntu:
-	scripts/build Dockerfile.ubuntu $(IMAGE)
 
 bump-bootstrap:
 	@test -n "$(BOOTSTRAP_VERSION)" \
