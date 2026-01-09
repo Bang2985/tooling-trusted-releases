@@ -10,9 +10,8 @@
 
 * [Introduction](#introduction)
 * [Get the source](#get-the-source)
-* [Install dependencies](#install-dependencies)
-* [Run the server](#run-the-server)
-* [Load the site](#load-the-site)
+* [Run the server in an OCI container](#run-the-server-in-an-oci-container)
+* [Run the server directly](#run-the-server-directly)
 
 ## Introduction
 
@@ -24,9 +23,34 @@ To develop ATR locally, we manage dependencies using [uv](https://docs.astral.sh
 
 There are lots of files and directories in the root of the ATR Git repository. The most important thing to know is that `atr/` contains the source code. ATR is a Python application based on [ASFQuart](https://github.com/apache/infrastructure-asfquart), which is based on [Quart](https://github.com/pallets/quart). The Quart web framework is an asynchronous version of [Flask](https://github.com/pallets/flask), a very widely used synchronous web framework. In addition to Python, we use small amounts of JavaScript and TypeScript for the front end.
 
-## Install dependencies
+Once you have the source, there are two ways of running the server: [in an OCI container](#run-the-server-in-an-oci-container), or [directly](#run-the-server-directly). The following sections explain how to do this. The trade off is that running in an OCI container gives more isolation from the system, but is slower. Running directly is fast, and does not require you to configure your browser to trust the certificate, but requires more manual set up. Do not use both methods simultaneously, because they share the same state directory and will conflict.
 
-To run ATR locally after cloning the source, you will need to install the following dependencies:
+## Run the server in an OCI container
+
+The easiest way to run the ATR server with all dependencies included is using Compose. This builds an OCI container based on the Alpine Linux distribution that includes external tools such as CycloneDX, syft, and Apache RAT, syft which are required for SBOM generation and license checking.
+
+To run ATR in a container, you need an OCI compatible container runtime with Compose support such as Docker or Podman. Then, in the ATR root source directory, use your Compose tool to bring the container up. If using Docker, for example, run:
+
+```shell
+mkdir -p state
+docker compose up --build
+```
+
+The first build will take several minutes as Compose downloads and compiles dependencies. Subsequent runs will be faster due to caching.
+
+This setup mounts your local `atr/` directory into the container, so code changes are reflected immediately without rebuilding. The containerised server runs with `--reload` enabled, and automatically restarts when files change.
+
+The container runs in test mode (`ALLOW_TESTS=1`), which enables mock authentication. Visit [`https://127.0.0.1:8080/`](https://127.0.0.1:8080/) to access the site. You will need to accept the self-signed certificate. Browser vendors update the methods to achieve this, so documenting this is a moving target, but there is some advice from [Simple Web Server](https://github.com/terreng/simple-web-server/blob/main/website/src/docs/https.md#using-a-dummy-certificate-for-testing-purposes) and [IBM](https://github.com/IBM/fhe-toolkit-linux/blob/master/GettingStarted.md#step-4-accessing-the-toolkit) which may be useful and covers Chrome, Firefox, and Safari.
+
+To stop the server, press `Ctrl+C` or run your Compose tool equivalent of `compose down` in the same directory in another terminal session. Do not run ATR in a container if also running it directly.
+
+If you use are using Docker, you can start a terminal session in a container using `docker compose exec atr bash`, and you can start a container and run a shell instead of ATR using `docker compose run -rm atr bash`.
+
+## Run the server directly
+
+### Install dependencies
+
+To run ATR directly, on the local machine, after cloning the source, you will need to install the following dependencies:
 
 * [cmark](https://github.com/commonmark/cmark) (optional; for rebuilding documentation)
 * Any [POSIX](https://en.wikipedia.org/wiki/POSIX) compliant [make](https://frippery.org/make/)
@@ -53,7 +77,7 @@ uv python install 3.13
 
 ATR should work in any POSIX style environment.
 
-## Run the server
+### Run the server
 
 Then, to run the server:
 
@@ -68,7 +92,9 @@ The `certs-local` step runs `mkcert localhost.apache.org 127.0.0.1 ::1` to gener
 
 ATR requires TLS even for development because login is performed through the actual ASF OAuth server. This way, the development behavior aligns closely with the production behavior. We try to minimize differences between development and production environments.
 
-## Load the site
+Do not run ATR directly if also running it in an OCI container.
+
+### Load the site
 
 ATR will then be served on various hosts, but we recommend using only `localhost.apache.org`. This requires adding an entry to your `/etc/hosts` and potentially restarting your DNS server. If you do this, the following link should work:
 
