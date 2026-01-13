@@ -67,8 +67,8 @@ def test_excludes_archive_ignores_policy_when_file_exists(rat_available: tuple[b
     _skip_if_unavailable(rat_available)
     result = rat._synchronous(str(TEST_ARCHIVE_WITH_RAT_EXCLUDES), ["*.py", "*.txt"])
     assert result.excludes_source == "archive"
-    # Should NOT use .atr-rat-excludes
-    assert ".atr-rat-excludes" not in result.command
+    # Should NOT use the RAT policy file
+    assert rat._POLICY_EXCLUDES_FILENAME not in result.command
 
 
 def test_excludes_archive_uses_rat_excludes_file(rat_available: tuple[bool, bool]):
@@ -77,9 +77,9 @@ def test_excludes_archive_uses_rat_excludes_file(rat_available: tuple[bool, bool
     result = rat._synchronous(str(TEST_ARCHIVE_WITH_RAT_EXCLUDES), [])
     assert result.excludes_source == "archive"
     assert "--input-exclude-file" in result.command
-    # Should use .rat-excludes, not .atr-rat-excludes
+    # Should use the RAT excludes file, not the RAT policy file
     idx = result.command.index("--input-exclude-file")
-    assert result.command[idx + 1] == ".rat-excludes"
+    assert result.command[idx + 1] == rat._RAT_EXCLUDES_FILENAME
 
 
 def test_excludes_none_has_no_exclude_file(rat_available: tuple[bool, bool]):
@@ -89,8 +89,8 @@ def test_excludes_none_has_no_exclude_file(rat_available: tuple[bool, bool]):
     assert result.excludes_source == "none"
     assert "--input-exclude-file" not in result.command
     # Should have neither excludes file in command
-    assert ".rat-excludes" not in result.command
-    assert ".atr-rat-excludes" not in result.command
+    assert rat._RAT_EXCLUDES_FILENAME not in result.command
+    assert rat._POLICY_EXCLUDES_FILENAME not in result.command
 
 
 def test_excludes_policy_uses_atr_rat_excludes(rat_available: tuple[bool, bool]):
@@ -100,11 +100,11 @@ def test_excludes_policy_uses_atr_rat_excludes(rat_available: tuple[bool, bool])
     result = rat._synchronous(str(TEST_ARCHIVE), ["*.py"])
     assert result.excludes_source == "policy"
     assert "--input-exclude-file" in result.command
-    # Should use .atr-rat-excludes, not .rat-excludes
+    # Should use the RAT policy file, not the RAT excludes file
     idx = result.command.index("--input-exclude-file")
-    assert result.command[idx + 1] == ".atr-rat-excludes"
-    # Should therefore NOT have .rat-excludes in the command
-    assert ".rat-excludes" not in result.command
+    assert result.command[idx + 1] == rat._POLICY_EXCLUDES_FILENAME
+    # Should therefore NOT have the RAT excludes file in the command
+    assert rat._RAT_EXCLUDES_FILENAME not in result.command
 
 
 def test_sanitise_command_replaces_absolute_paths():

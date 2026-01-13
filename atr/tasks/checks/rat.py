@@ -49,7 +49,7 @@ _JAVA_MEMORY_ARGS: Final[list[str]] = []
 _GENERATED_FILE_PATTERNS: Final[list[str]] = [f"**/*{s}" for s in constants.GENERATED_FILE_SUFFIXES]
 
 # The name of the temp file for excludes defined in release policies
-_POLICY_EXCLUDES_FILENAME: Final[str] = ".atr-rat-excludes"
+_POLICY_EXCLUDES_FILENAME: Final[str] = ".atr-policy-rat-excludes"
 
 # The name of the file that contains the exclusions for the specified archive
 _RAT_EXCLUDES_FILENAME: Final[str] = ".rat-excludes"
