@@ -32,6 +32,7 @@ import asfquart
 import asfquart.base as base
 import asfquart.session
 import htpy
+import ldap3.utils.conv as conv
 import pydantic
 import quart
 import sqlalchemy.orm as orm
@@ -1010,11 +1011,12 @@ async def _get_filesystem_dirs_unfinished(filesystem_dirs: list[str]) -> None:
 
 
 def _get_user_committees_from_ldap(uid: str, bind_dn: str, bind_password: str) -> set[str]:
+    escaped_uid = conv.escape_filter_chars(uid)
     with ldap.Search(bind_dn, bind_password) as ldap_search:
         result = ldap_search.search(
             ldap_base="ou=project,ou=groups,dc=apache,dc=org",
             ldap_scope="SUBTREE",
-            ldap_query=f"(|(ownerUid={uid})(owner=uid={uid},ou=people,dc=apache,dc=org))",
+            ldap_query=f"(|(ownerUid={escaped_uid})(owner=uid={escaped_uid},ou=people,dc=apache,dc=org))",
             ldap_attrs=["cn"],
         )
 
