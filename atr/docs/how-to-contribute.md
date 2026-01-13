@@ -38,19 +38,21 @@ Once you have identified something to work on, the process of contributing is as
 
 2. **Clone your fork.** Clone your fork to your local machine and set up your development environment. Follow the instructions in the [running the server](running-the-server) guide to get ATR running locally. Please [ask us for help](#getting-help) if you encounter any problems with this step.
 
-3. **Create a branch.** [Create a new branch](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-and-deleting-branches-within-your-repository) for your work. Use a descriptive name that indicates what you are working on, such as `fix-typo-in-docs` or `improve-error-messages`.
+3. **Ensure that you enable pre-commit checks.** Download [pre-commit](https://pre-commit.com/), [install `biome`](https://biomejs.dev/guides/manual-installation/), and run `pre-commit install` in the ATR repository where you are going to make your changes.
 
-4. **Ensure that you enable pre-commit checks.** Download [pre-commit](https://pre-commit.com/) and run `pre-commit install` in the ATR repository where you are going to make your changes.
+4. **Install Python dependencies.** [Install `uv` if you do not have it already](https://docs.astral.sh/uv/getting-started/installation/), and run `uv sync --frozen --all-groups` to install Python dependencies.
 
-5. **Make your changes.** Implement your fix or feature, following our [code conventions](code-conventions). If you are changing code, ensure that your changes do not break existing functionality. Whenever you change code, and especially if you are adding a new feature, consider [adding a test](running-and-creating-tests).
+5. **Create a branch.** [Create a new branch](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-and-deleting-branches-within-your-repository) for your work. Use a descriptive name that indicates what you are working on, such as `fix-typo-in-docs` or `improve-error-messages`.
 
-6. **Commit your changes.** Write clear, concise commit messages following [our commit message style](#commit-message-style). Each commit should represent a logical unit of work, but we are not particularly strict about this.
+6. **Make your changes.** Implement your fix or feature, following our [code conventions](code-conventions). If you are changing code, ensure that your changes do not break existing functionality. Whenever you change code, and especially if you are adding a new feature, consider [adding a test](running-and-creating-tests).
 
-7. **Push your branch.** Push your branch to your fork on GitHub.
+7. **Commit your changes.** Write clear, concise commit messages following [our commit message style](#commit-message-style). Each commit should represent a logical unit of work, but we are not particularly strict about this.
 
-8. **Create a pull request (PR).** The PR should be from your branch to the `main` branch of the ATR repository. In the PR description, explain what your changes do and why they are needed. If your PR addresses an existing issue, reference that issue by number. Use the rebase strategy, not merge, to keep your PR up to date as you work on it. Mark your PR as a draft until it is ready for review.
+8. **Push your branch.** Push your branch to your fork on GitHub.
 
-9. **Participate in code review.** A member of the Tooling team will review your PR and may request changes. _We strongly recommend enabling the option to allow maintainers to edit your PR when you create it._ Even if you allow us to make changes, we may still ask you to make the changes yourself. Also, because of the stringent security and usability requirements for ATR, we accept only [high quality contributions](#special-considerations-for-atr).
+9. **Create a pull request (PR).** The PR should be from your branch to the `main` branch of the ATR repository. In the PR description, explain what your changes do and why they are needed. If your PR addresses an existing issue, reference that issue by number. Use the rebase strategy, not merge, to keep your PR up to date as you work on it. Mark your PR as a draft until it is ready for review.
+
+10. **Participate in code review.** A member of the Tooling team will review your PR and may request changes. _We strongly recommend enabling the option to allow maintainers to edit your PR when you create it._ Even if you allow us to make changes, we may still ask you to make the changes yourself. Also, because of the stringent security and usability requirements for ATR, we accept only [high quality contributions](#special-considerations-for-atr).
 
 You can also [email patches](https://lists.apache.org/list.html?dev@tooling.apache.org) if you prefer not to use GitHub. Please use standard Git patch formatting, as if you were e.g. contributing to the Linux Kernel.
 
