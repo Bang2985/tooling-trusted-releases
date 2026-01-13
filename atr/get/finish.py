@@ -231,7 +231,7 @@ def _render_distribution_tasks(release: sql.Release, tasks: Sequence[sql.Task]) 
     block = htm.Block()
 
     if len(failed_tasks) > 0:
-        summary = f"{len(failed_tasks)} distribution{'s' if len(failed_tasks) > 1 else ''} failed for this release"
+        summary = f"{len(failed_tasks)} distribution{'s' if (len(failed_tasks) != 1) else ''} failed for this release"
         block.append(
             htm.div(".alert.alert-danger.mb-3")[
                 htm.h3["Failed distributions"],

@@ -405,11 +405,11 @@ async def trusted_jwt_for_version(
         release = await db_data.release(project_name=project.name, version=version_name).get()
         if not release:
             raise InteractionError(f"Release {version_name} does not exist in project {project.name}")
-        if phase == TrustedProjectPhase.COMPOSE and release.phase != sql.ReleasePhase.RELEASE_CANDIDATE_DRAFT:
+        if (phase == TrustedProjectPhase.COMPOSE) and (release.phase != sql.ReleasePhase.RELEASE_CANDIDATE_DRAFT):
             raise InteractionError(f"Release {version_name} is not in compose phase")
-        if phase == TrustedProjectPhase.VOTE and release.phase != sql.ReleasePhase.RELEASE_CANDIDATE:
+        if (phase == TrustedProjectPhase.VOTE) and (release.phase != sql.ReleasePhase.RELEASE_CANDIDATE):
             raise InteractionError(f"Release {version_name} is not in vote phase")
-        if phase == TrustedProjectPhase.FINISH and release.phase != sql.ReleasePhase.RELEASE_PREVIEW:
+        if (phase == TrustedProjectPhase.FINISH) and (release.phase != sql.ReleasePhase.RELEASE_PREVIEW):
             raise InteractionError(f"Release {version_name} is not in finish phase")
 
     return payload, asf_uid, project
