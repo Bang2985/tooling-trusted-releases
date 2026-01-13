@@ -190,7 +190,6 @@ def _check_core_logic_execute_rat(
     temp_dir: str,
     excludes_file_path: str | None,
     apply_extended_std: bool,
-    excludes_source: str,
 ) -> tuple[checkdata.Rat | None, str | None]:
     """Execute Apache RAT and process its output."""
     xml_output_path = os.path.join(temp_dir, _RAT_REPORT_FILENAME)
@@ -205,10 +204,9 @@ def _check_core_logic_execute_rat(
             return checkdata.Rat(
                 message=f"Exclusion file is not a regular file: {excludes_file_path}",
                 errors=[f"Expected exclusion file but found: {abs_path}"],
-                excludes_source=excludes_source,
             ), None
         excludes_file = os.path.relpath(abs_path, scan_root)
-        log.info(f"Using exclusion file: {excludes_file} (source: {excludes_source})")
+        log.info(f"Using exclusion file: {excludes_file}")
     command = _build_rat_command(rat_jar_path, xml_output_path, excludes_file, apply_extended_std)
     log.info(f"Running Apache RAT: {' '.join(command)}")
 
@@ -242,7 +240,6 @@ def _check_core_logic_execute_rat(
                     f"STDOUT: {process.stdout}",
                     f"STDERR: {process.stderr}",
                 ],
-                excludes_source=excludes_source,
             ), None
 
         log.info(f"Apache RAT completed successfully with return code {process.returncode}")
@@ -253,7 +250,6 @@ def _check_core_logic_execute_rat(
         return checkdata.Rat(
             message="Apache RAT process timed out",
             errors=[f"Timeout: {e}"],
-            excludes_source=excludes_source,
         ), None
     except Exception as e:
         # Change back to the original directory before raising
@@ -262,7 +258,6 @@ def _check_core_logic_execute_rat(
         return checkdata.Rat(
             message=f"Apache RAT process failed: {e}",
             errors=[f"Process error: {e}"],
-            excludes_source=excludes_source,
         ), None
 
     # Change back to the original directory
@@ -278,7 +273,6 @@ def _check_core_logic_execute_rat(
         return checkdata.Rat(
             message=f"RAT output XML file not found: {xml_output_path}",
             errors=[f"Missing output file: {xml_output_path}"],
-            excludes_source=excludes_source,
         ), None
 
     # The XML was found correctly
@@ -576,7 +570,7 @@ def _synchronous_extract(
     # Extended std exclusions apply when there's no archive .rat-excludes
     apply_extended_std = excludes_source != "archive"
     error_result, xml_output_path = _check_core_logic_execute_rat(
-        rat_jar_path, scan_root, temp_dir, effective_excludes_path, apply_extended_std, excludes_source
+        rat_jar_path, scan_root, temp_dir, effective_excludes_path, apply_extended_std
     )
     if error_result is not None:
         error_result.excludes_source = excludes_source
