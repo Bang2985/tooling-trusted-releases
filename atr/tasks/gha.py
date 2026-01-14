@@ -58,7 +58,7 @@ class DistributionWorkflow(schema.Strict):
 
 @checks.with_model(DistributionWorkflow)
 async def trigger_workflow(args: DistributionWorkflow, *, task_id: int | None = None) -> results.Results | None:
-    unique_id = f"{args.name}-{uuid.uuid4()}"
+    unique_id = f"atr-dist-{args.name}-{uuid.uuid4()}"
     try:
         sql_platform = sql.DistributionPlatform[args.platform]
     except KeyError:
