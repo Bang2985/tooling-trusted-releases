@@ -88,7 +88,7 @@ class DistributeStatusUpdateArgs(schema.Strict):
     publisher: str = schema.example("user")
     jwt: str = schema.example("eyJhbGciOiJIUzI1[...]mMjLiuyu5CSpyHI=")
     workflow: str = schema.description("Workflow name")
-    run_id: int = schema.description("Workflow run ID")
+    run_id: str = schema.description("Workflow run ID")
     project_name: str = schema.description("Project name in ATR")
     status: str = schema.description("Workflow status")
     message: str = schema.description("Workflow message")

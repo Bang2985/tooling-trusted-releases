@@ -293,7 +293,7 @@ async def update_distribution_task_status(data: models.api.DistributeStatusUpdat
         status = await db_data.workflow_status(
             workflow_id=data.workflow,
             project_name=data.project_name,
-            run_id=data.run_id,
+            run_id=int(data.run_id),
         ).demand(exceptions.NotFound(f"Workflow {data.workflow} not found"))
         status.status = data.status
         status.message = data.message
