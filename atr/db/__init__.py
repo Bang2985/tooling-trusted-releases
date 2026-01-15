@@ -772,7 +772,6 @@ class Session(sqlalchemy.ext.asyncio.AsyncSession):
 
 async def create_async_engine(app_config: type[config.AppConfig]) -> sqlalchemy.ext.asyncio.AsyncEngine:
     absolute_db_path = os.path.join(app_config.STATE_DIR, app_config.SQLITE_DB_PATH)
-    os.makedirs(os.path.dirname(absolute_db_path), exist_ok=True)
     # Three slashes are required before either a relative or absolute path
     sqlite_url = f"sqlite+aiosqlite:///{absolute_db_path}"
     # Use aiosqlite for async SQLite access

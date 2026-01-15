@@ -299,7 +299,6 @@ def _app_setup_logging(app: base.QuartApp, config_mode: config.Mode, app_config:
 
     # Configure dedicated audit logger
     try:
-        pathlib.Path(app_config.STORAGE_AUDIT_LOG_FILE).parent.mkdir(parents=True, exist_ok=True)
         audit_handler = logging.FileHandler(
             app_config.STORAGE_AUDIT_LOG_FILE,
             encoding="utf-8",
@@ -438,6 +437,50 @@ def _create_app(app_config: type[config.AppConfig]) -> base.QuartApp:
     return app
 
 
+def _get_parent_process_age() -> float:
+    import datetime
+    import subprocess
+    import time
+
+    ppid = os.getppid()
+
+    try:
+        with open(f"/proc/{ppid}/stat") as f:
+            stat = f.read().split()
+        starttime_ticks = int(stat[21])
+        ticks_per_sec = os.sysconf("SC_CLK_TCK")
+        with open("/proc/stat") as f:
+            for line in f:
+                if line.startswith("btime "):
+                    boot_time = int(line.split()[1])
+                    break
+            else:
+                return 0.0
+        process_start = boot_time + (starttime_ticks / ticks_per_sec)
+        return time.time() - process_start
+    except (FileNotFoundError, IndexError, ValueError, OSError):
+        pass
+
+    try:
+        result = subprocess.run(
+            ["ps", "-o", "lstart=", "-p", str(ppid)],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            start_str = result.stdout.strip()
+            for fmt in ["%a %b %d %H:%M:%S %Y", "%a %d %b %H:%M:%S %Y"]:
+                try:
+                    dt = datetime.datetime.strptime(start_str, fmt)
+                    return time.time() - dt.timestamp()
+                except ValueError:
+                    continue
+    except OSError:
+        pass
+
+    return 0.0
+
+
 async def _initialise_test_environment() -> None:
     if not config.get().ALLOW_TESTS:
         return
@@ -546,6 +589,24 @@ def _migrate_file(old_path: pathlib.Path, new_path: pathlib.Path) -> None:
 
 def _migrate_state_directory(app_config: type[config.AppConfig]) -> None:
     state_dir = pathlib.Path(app_config.STATE_DIR)
+
+    pending = _pending_migrations(state_dir, app_config)
+    if pending:
+        parent_age = _get_parent_process_age()
+        if parent_age > 10.0:
+            import sys
+
+            print("=" * 70, file=sys.stderr)
+            print("ERROR: State directory migration required but hot reload detected", file=sys.stderr)
+            print(f"Parent process age: {parent_age:.1f}s", file=sys.stderr)
+            print("Pending migrations:", file=sys.stderr)
+            for p in pending:
+                print(f"  - {p}", file=sys.stderr)
+            print("", file=sys.stderr)
+            print("Please restart the server, not hot reload, to apply migrations", file=sys.stderr)
+            print("=" * 70, file=sys.stderr)
+            sys.exit(1)
+
     runtime_dir = state_dir / "runtime"
     runtime_dir.mkdir(parents=True, exist_ok=True)
     lock_path = runtime_dir / "migration.lock"
@@ -558,6 +619,21 @@ def _migrate_state_directory(app_config: type[config.AppConfig]) -> None:
             _migrate_database(state_dir, app_config)
         finally:
             fcntl.flock(lock_file, fcntl.LOCK_UN)
+
+
+def _pending_migrations(state_dir: pathlib.Path, app_config: type[config.AppConfig]) -> list[str]:
+    pending = []
+    if (state_dir / "storage-audit.log").exists():
+        pending.append("storage-audit.log -> audit/storage-audit.log")
+    if (state_dir / "routes.json").exists():
+        pending.append("routes.json -> cache/routes.json")
+    if (state_dir / "user_session_cache.json").exists():
+        pending.append("user_session_cache.json -> cache/user_session_cache.json")
+    configured_path = app_config.SQLITE_DB_PATH
+    if configured_path in ("atr.db", "database/atr.db"):
+        if (state_dir / "atr.db").exists():
+            pending.append("atr.db -> database/atr.db")
+    return pending
 
 
 def _register_routes(app: base.QuartApp) -> None:
