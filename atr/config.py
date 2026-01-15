@@ -73,7 +73,7 @@ class AppConfig:
     # TODO: We need to get Puppet to check SVN out initially, or do it manually
     SVN_STORAGE_DIR = os.path.join(STATE_DIR, "svn")
     ATTESTABLE_STORAGE_DIR = os.path.join(STATE_DIR, "attestable")
-    SQLITE_DB_PATH = decouple.config("SQLITE_DB_PATH", default="atr.db")
+    SQLITE_DB_PATH = decouple.config("SQLITE_DB_PATH", default="database/atr.db")
     STORAGE_AUDIT_LOG_FILE = os.path.join(STATE_DIR, "audit", "storage-audit.log")
     PERFORMANCE_LOG_FILE = os.path.join(STATE_DIR, "route-performance.log")
 

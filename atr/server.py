@@ -114,6 +114,7 @@ def _app_dirs_setup(app_config: type[config.AppConfig]) -> None:
     directories_to_ensure = [
         pathlib.Path(app_config.STATE_DIR) / "audit",
         pathlib.Path(app_config.STATE_DIR) / "cache",
+        pathlib.Path(app_config.STATE_DIR) / "database",
         util.get_downloads_dir(),
         util.get_finished_dir(),
         util.get_tmp_dir(),
@@ -503,6 +504,25 @@ def _migrate_cache(state_dir: pathlib.Path) -> None:
     )
 
 
+def _migrate_database(state_dir: pathlib.Path, app_config: type[config.AppConfig]) -> None:
+    configured_path = app_config.SQLITE_DB_PATH
+    if configured_path not in ("atr.db", "database/atr.db"):
+        raise RuntimeError(
+            f"SQLITE_DB_PATH is set to '{configured_path}' but migration only supports "
+            f"the default value 'atr.db'. Please manually migrate your database to "
+            f"'database/atr.db' and update SQLITE_DB_PATH, or remove the custom setting."
+        )
+    _migrate_file(
+        state_dir / "atr.db",
+        state_dir / "database" / "atr.db",
+    )
+    for suffix in ["-shm", "-wal"]:
+        old_path = state_dir / f"atr.db{suffix}"
+        new_path = state_dir / "database" / f"atr.db{suffix}"
+        if old_path.exists():
+            _migrate_file(old_path, new_path)
+
+
 def _migrate_directory(old_path: pathlib.Path, new_path: pathlib.Path) -> None:
     if old_path.exists() and (not new_path.exists()):
         old_path.rename(new_path)
@@ -535,6 +555,7 @@ def _migrate_state_directory(app_config: type[config.AppConfig]) -> None:
         try:
             _migrate_audit(state_dir)
             _migrate_cache(state_dir)
+            _migrate_database(state_dir, app_config)
         finally:
             fcntl.flock(lock_file, fcntl.LOCK_UN)
 
