@@ -64,6 +64,7 @@ def generate_self_signed_cert() -> None:
     with open(CERT_PATH, "wb") as f:
         f.write(cert.public_bytes(serialization.Encoding.PEM))
 
+    # codeql[py/clear-text-logging-sensitive-data]
     print(f"Certificate generated:\n  Cert: {CERT_PATH}\n  Key:  {KEY_PATH}")
 
 
