@@ -138,6 +138,7 @@ def _app_dirs_setup(state_dir_str: str, hot_reload: bool) -> None:
         pathlib.Path(state_dir_str) / "cache",
         pathlib.Path(state_dir_str) / "database",
         pathlib.Path(state_dir_str) / "logs",
+        pathlib.Path(state_dir_str) / "runtime",
         util.get_downloads_dir(),
         util.get_finished_dir(),
         util.get_tmp_dir(),
