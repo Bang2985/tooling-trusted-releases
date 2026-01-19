@@ -68,3 +68,74 @@ The actual test cases themselves tend to use helpers such as [`go_to_path`](/ref
 ## Running end-to-end tests
 
 To run ATR end-to-end (e2e) tests, you must first have an OCI container runtime with Compose functionality, such as Docker or Podman, installed. You will also need a POSIX shell. You can then run `tests/run-e2e.sh` to run the entire e2e test suite.
+
+### Debugging e2e test failures
+
+When e2e tests fail, the test script will display suggestions for debugging. You can also use the following techniques:
+
+**View the ATR server logs:**
+
+```shell
+cd tests && docker compose logs atr-dev --tail 100
+```
+
+**View specific log files from the state volume:**
+
+```shell
+# View the Hypercorn logs
+docker compose exec atr-dev cat /opt/atr/state/logs/hypercorn.log
+
+# View the worker logs
+docker compose exec atr-dev cat /opt/atr/state/logs/atr-worker.log
+
+# View the worker error logs
+docker compose exec atr-dev cat /opt/atr/state/logs/atr-worker-error.log
+```
+
+**Enter a shell in an already running ATR e2e container:**
+
+```shell
+cd tests && docker compose exec atr-dev sh
+```
+
+Once in a shell in the running container you can e.g. run `ls -al /opt/atr/state/logs`.
+
+### Resetting cached state
+
+The e2e tests use a persistent OCI container volume to store ATR state between runs. If you encounter errors due to stale or corrupted state, you need to reset this volume.
+
+**Stop containers and remove the state volume:**
+
+```shell
+cd tests && docker compose down -v
+```
+
+The `-v` flag removes the persistent state volume (`atr-dev-state`), which resets all ATR state including the database, logs, and any uploaded files.
+
+**Force rebuild the container images:**
+
+If you have made changes to `Dockerfile.e2e` or any other dependencies, and the cached image is stale, run:
+
+```shell
+cd tests && docker compose build --no-cache atr-dev
+```
+
+**Perform a full reset:**
+
+To stop the container, remove the volume, rebuild, and run the tests:
+
+```shell
+cd tests && docker compose down -v
+docker compose build --no-cache atr-dev
+sh tests/run-e2e.sh
+```
+
+**Remove all test containers and images:**
+
+To completely remove all test related containers, volumes, and images:
+
+```shell
+cd tests && docker compose down -v --rmi all
+```
+
+You probably only need to do this if you're running out of disk space.
