@@ -238,6 +238,8 @@ def _app_setup_lifecycle(app: base.QuartApp) -> None:
         if listener := app.extensions.get("logging_listener"):
             listener.start()
 
+        await asyncio.to_thread(_set_file_permissions_to_read_only)
+
         worker_manager = manager.get_worker_manager()
         await worker_manager.start()
 
@@ -704,6 +706,25 @@ def _register_routes(app: base.QuartApp) -> None:
         if quart.request.path.startswith("/api"):
             return quart.jsonify({"error": "404 Not Found"}), 404
         return await template.render("notfound.html", error="404 Not Found", traceback="", status_code=404), 404
+
+
+def _set_file_permissions_to_read_only() -> None:
+    """Set permissions of all files in the unfinished and finished directories to read only."""
+    # TODO: After a migration period, incorrect permissions should be an error
+    directories = [util.get_unfinished_dir(), util.get_finished_dir()]
+    fixed_count = 0
+    for directory in directories:
+        if not directory.exists():
+            continue
+        for file_path in directory.rglob("*"):
+            if not file_path.is_file():
+                continue
+            mode = stat.S_IMODE(file_path.stat().st_mode)
+            if mode != 0o444:
+                os.chmod(file_path, 0o444)
+                fixed_count += 1
+    if fixed_count > 0:
+        log.info(f"Set permissions of {fixed_count} files to read only (0o444)")
 
 
 def _validate_config(app_config: type[config.AppConfig], hot_reload: bool) -> None:
