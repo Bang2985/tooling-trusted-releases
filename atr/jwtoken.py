@@ -28,6 +28,7 @@ import jwt
 import quart
 
 import atr.config as config
+import atr.log as log
 
 _ALGORITHM: Final[str] = "HS256"
 _ATR_JWT_AUDIENCE: Final[str] = "atr-api-pat-test-v1"
@@ -105,11 +106,30 @@ async def verify_github_oidc(token: str) -> dict[str, Any]:
         async with aiohttp.ClientSession() as session:
             r = await session.get(
                 f"{_GITHUB_OIDC_ISSUER}/.well-known/openid-configuration",
-                timeout=aiohttp.ClientTimeout(total=5),
+                timeout=aiohttp.ClientTimeout(total=10),
             )
             r.raise_for_status()
             jwks_uri = (await r.json())["jwks_uri"]
-    except Exception:
+    except aiohttp.ClientSSLError as exc:
+        log.error(f"TLS failure fetching OIDC config: {exc}")
+        raise base.ASFQuartException(
+            f"TLS verification failed for GitHub OIDC endpoint: {exc}",
+            errorcode=502,
+        ) from exc
+    except aiohttp.ClientConnectionError as exc:
+        log.error(f"Failed to connect to GitHub OIDC endpoint: {exc}")
+        raise base.ASFQuartException(
+            f"Failed to connect to GitHub OIDC endpoint: {exc}",
+            errorcode=502,
+        ) from exc
+    except aiohttp.ClientResponseError as exc:
+        log.error(f"GitHub OIDC endpoint returned HTTP {exc.status}: {exc.message}")
+        raise base.ASFQuartException(
+            f"GitHub OIDC endpoint returned HTTP {exc.status}: {exc.message}",
+            errorcode=502,
+        ) from exc
+    except (aiohttp.ServerTimeoutError, aiohttp.ClientError) as exc:
+        log.warning(f"Failed to fetch OIDC config: {exc}")
         jwks_uri = f"{_GITHUB_OIDC_ISSUER}/.well-known/jwks"
 
     jwks_client = jwt.PyJWKClient(jwks_uri)
