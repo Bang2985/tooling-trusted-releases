@@ -41,7 +41,7 @@ If **any** of the following are true:
 * Work is incomplete
 * Rebase on `main` is pending
 
-👉 **This PR MUST be opened or converted to a Draft**
+**This PR MUST be opened or converted to a Draft**:
 
 Convert to a ready PR only after all acknowledgements above can be confirmed.
 

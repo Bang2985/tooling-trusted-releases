@@ -21,7 +21,7 @@ The project is in **alpha development** and subject to significant changes.
 We welcome feedback and discussion, but note that many known issues and design refinements are already scheduled for future iterations.
 Please review our [issue tracker](https://github.com/apache/tooling-trusted-releases/issues) and inline comments before filing new issues.
 
-**Alpha test deployment:** 🔗 https://release-test.apache.org/
+**Alpha test deployment:** https://release-test.apache.org/
 
 > **Note:** This repository is not yet an officially maintained or endorsed ASF project.
 > It does not represent final technical or policy decisions for future ASF Tooling products.
@@ -61,7 +61,7 @@ Community feedback is encouraged! If you are an ASF committer or contributor int
 1. **Try it out** – The [alpha test server](https://release-test.apache.org/) allows you to experiment with the release process.
 
 2. **Introduce yourself** on the development mailing list:
-   📧 [dev@tooling.apache.org](mailto:dev@tooling.apache.org)
+   [dev@tooling.apache.org](mailto:dev@tooling.apache.org)
 
    Subscribe by sending email with empty subject and body to [dev-subscribe@tooling.apache.org](mailto:dev-subscribe@tooling.apache.org) and replying to the automated response (per the [ASF mailing list how-to](https://www.apache.org/foundation/mailinglists)).
 
@@ -69,7 +69,7 @@ Community feedback is encouraged! If you are an ASF committer or contributor int
    Use the [GitHub Issues](https://github.com/apache/tooling-trusted-releases/issues) page to report bugs, suggest features, or discuss improvements.
 
 4. **Chat with us:**
-   💬 [#apache-trusted-releases](https://the-asf.slack.com/archives/C049WADAAQG) on ASF Slack
+   [#apache-trusted-releases](https://the-asf.slack.com/archives/C049WADAAQG) on ASF Slack
 
 ## Contributing
 

@@ -8,7 +8,7 @@ This document describes how to get help with Apache Trusted Releases (ATR).
 
 The development mailing list is the primary forum for ATR discussions:
 
-📧 **[dev@tooling.apache.org](https://lists.apache.org/list.html?dev@tooling.apache.org)**
+**[dev@tooling.apache.org](https://lists.apache.org/list.html?dev@tooling.apache.org)**
 
 **To subscribe:** Send an email with empty subject and body to [dev-subscribe@tooling.apache.org](mailto:dev-subscribe@tooling.apache.org) and reply to the automated response.
 
@@ -16,13 +16,13 @@ The development mailing list is the primary forum for ATR discussions:
 
 Chat with the team in real-time:
 
-💬 **[#apache-trusted-releases](https://the-asf.slack.com/archives/C049WADAAQG)** on ASF Slack
+**[#apache-trusted-releases](https://the-asf.slack.com/archives/C049WADAAQG)** on ASF Slack
 
 ### Issue tracker
 
 Report bugs or request features:
 
-🐛 **[GitHub Issues](https://github.com/apache/tooling-trusted-releases/issues)**
+**[GitHub Issues](https://github.com/apache/tooling-trusted-releases/issues)**
 
 ## Reporting bugs
 
@@ -35,7 +35,7 @@ Report bugs or request features:
 
 ## Security issues
 
-⚠️ **Do not open public issues for security vulnerabilities.**
+**Do not open public issues for security vulnerabilities.**
 
 Follow the [ASF security reporting process](https://www.apache.org/security/) to report security issues responsibly.
 
