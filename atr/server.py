@@ -46,6 +46,7 @@ import werkzeug.routing as routing
 
 import atr
 import atr.blueprints as blueprints
+import atr.cache as cache
 import atr.config as config
 import atr.db as db
 import atr.db.interaction as interaction
@@ -244,6 +245,10 @@ def _app_setup_lifecycle(app: base.QuartApp, app_config: type[config.AppConfig])
 
         await asyncio.to_thread(_set_file_permissions_to_read_only)
 
+        await cache.admins_startup_load()
+        admins_task = asyncio.create_task(cache.admins_refresh_loop())
+        app.extensions["admins_task"] = admins_task
+
         worker_manager = manager.get_worker_manager()
         await worker_manager.start()
 
@@ -278,6 +283,11 @@ def _app_setup_lifecycle(app: base.QuartApp, app_config: type[config.AppConfig])
             await ssh.server_stop(ssh_server)
 
         if task := app.extensions.get("svn_listener"):
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+
+        if task := app.extensions.get("admins_task"):
             task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await task

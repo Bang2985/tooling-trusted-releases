@@ -60,7 +60,7 @@ async def asc_checks(asf_uid: str, release: sql.Release, revision: str, signatur
     return tasks
 
 
-async def clear_scheduled(caller_data: db.Session | None = None):
+async def clear_scheduled(caller_data: db.Session | None = None) -> None:
     """Clear all future scheduled tasks of the given types."""
     async with db.ensure_session(caller_data) as data:
         via = sql.validate_instrumented_attribute

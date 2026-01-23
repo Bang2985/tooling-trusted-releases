@@ -29,9 +29,21 @@ if TYPE_CHECKING:
     from pytest import MonkeyPatch
 
 
+class _MockApp:
+    def __init__(self):
+        self.extensions: dict[str, object] = {}
+
+
 class _MockConfig:
     def __init__(self, state_dir: pathlib.Path):
         self.STATE_DIR = str(state_dir)
+
+
+@pytest.fixture
+def mock_app(monkeypatch: "MonkeyPatch") -> _MockApp:
+    app = _MockApp()
+    monkeypatch.setattr("asfquart.APP", app)
+    return app
 
 
 @pytest.fixture
@@ -130,3 +142,60 @@ async def test_admins_save_to_file_creates_parent_dirs(state_dir: pathlib.Path):
     await cache.admins_save_to_file(frozenset({"alice"}))
     assert cache_dir.exists()
     assert cache_dir.is_dir()
+
+
+@pytest.mark.asyncio
+async def test_admins_startup_load_calls_ldap_when_cache_missing(
+    state_dir: pathlib.Path, mock_app: _MockApp, monkeypatch: "MonkeyPatch"
+):
+    ldap_called = False
+
+    async def mock_fetch_admin_users() -> frozenset[str]:
+        nonlocal ldap_called
+        ldap_called = True
+        return frozenset({"ldap_alice", "ldap_bob"})
+
+    monkeypatch.setattr("atr.ldap.fetch_admin_users", mock_fetch_admin_users)
+
+    await cache.admins_startup_load()
+
+    assert ldap_called is True
+    assert mock_app.extensions["admins"] == frozenset({"ldap_alice", "ldap_bob"})
+    cache_path = state_dir / "cache" / "admins.json"
+    assert cache_path.exists()
+
+
+@pytest.mark.asyncio
+async def test_admins_startup_load_handles_ldap_failure(
+    state_dir: pathlib.Path, mock_app: _MockApp, monkeypatch: "MonkeyPatch"
+):
+    async def mock_fetch_admin_users() -> frozenset[str]:
+        raise ConnectionError("LDAP server unavailable")
+
+    monkeypatch.setattr("atr.ldap.fetch_admin_users", mock_fetch_admin_users)
+
+    await cache.admins_startup_load()
+
+    assert "admins" not in mock_app.extensions
+    cache_path = state_dir / "cache" / "admins.json"
+    assert not cache_path.exists()
+
+
+@pytest.mark.asyncio
+async def test_admins_startup_load_uses_cache_when_present(
+    state_dir: pathlib.Path, mock_app: _MockApp, monkeypatch: "MonkeyPatch"
+):
+    ldap_called = False
+
+    async def mock_fetch_admin_users() -> frozenset[str]:
+        nonlocal ldap_called
+        ldap_called = True
+        return frozenset({"from_ldap"})
+
+    monkeypatch.setattr("atr.ldap.fetch_admin_users", mock_fetch_admin_users)
+
+    await cache.admins_save_to_file(frozenset({"cached_alice", "cached_bob"}))
+    await cache.admins_startup_load()
+
+    assert ldap_called is False
+    assert mock_app.extensions["admins"] == frozenset({"cached_alice", "cached_bob"})

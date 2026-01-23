@@ -15,14 +15,60 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import pathlib
+from typing import TYPE_CHECKING
+
 import pytest
 
+import atr.cache as cache
 import atr.ldap as ldap
+
+if TYPE_CHECKING:
+    from pytest import MonkeyPatch
+
+
+class _MockApp:
+    def __init__(self):
+        self.extensions: dict[str, object] = {}
+
+
+class _MockConfig:
+    def __init__(self, state_dir: pathlib.Path, ldap_bind_dn: str | None, ldap_bind_password: str | None):
+        self.STATE_DIR = str(state_dir)
+        self.LDAP_BIND_DN = ldap_bind_dn
+        self.LDAP_BIND_PASSWORD = ldap_bind_password
 
 
 @pytest.fixture
 def ldap_configured() -> bool:
     return ldap.get_bind_credentials() is not None
+
+
+@pytest.mark.asyncio
+async def test_admins_startup_load_fetches_real_admins(
+    ldap_configured: bool, tmp_path: pathlib.Path, monkeypatch: "MonkeyPatch"
+):
+    _skip_if_unavailable(ldap_configured)
+
+    import atr.config as config
+
+    real_config = config.get()
+    mock_config = _MockConfig(tmp_path, real_config.LDAP_BIND_DN, real_config.LDAP_BIND_PASSWORD)
+    monkeypatch.setattr("atr.config.get", lambda: mock_config)
+
+    mock_app = _MockApp()
+    monkeypatch.setattr("asfquart.APP", mock_app)
+
+    await cache.admins_startup_load()
+
+    admins = mock_app.extensions.get("admins")
+    assert admins is not None
+    assert isinstance(admins, frozenset)
+    assert len(admins) > 1
+    assert "wave" in admins
+
+    cache_path = tmp_path / "cache" / "admins.json"
+    assert cache_path.exists()
 
 
 @pytest.mark.asyncio
