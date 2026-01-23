@@ -14,7 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+import datetime
 import sys
 from types import ModuleType
 from typing import Any
@@ -23,6 +23,7 @@ import asfquart.base as base
 import pydantic
 import quart
 import quart.blueprints as blueprints
+import quart_rate_limiter as rate_limiter
 import quart_schema
 import werkzeug.exceptions as exceptions
 
@@ -36,6 +37,13 @@ def register(app: base.QuartApp) -> tuple[ModuleType, list[str]]:
 
     app.register_blueprint(_BLUEPRINT)
     return api, []
+
+
+@_BLUEPRINT.before_request
+@rate_limiter.rate_limit(500, datetime.timedelta(hours=1))
+async def _api_rate_limit() -> None:
+    """Set API-wide rate limit"""
+    pass
 
 
 def _exempt_blueprint(app: base.QuartApp) -> None:

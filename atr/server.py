@@ -37,7 +37,9 @@ import asfquart.base as base
 import asfquart.generics
 import asfquart.session
 import blockbuster
+import hypercorn.middleware.proxy_fix as proxy_fix
 import quart
+import quart_rate_limiter as rate_limiter
 import quart_schema
 import quart_wtf
 import werkzeug.routing as routing
@@ -127,6 +129,10 @@ def _app_create_base(app_config: type[config.AppConfig]) -> base.QuartApp:
     asfquart_secret_key = app.secret_key
     app.config.from_object(app_config)
     app.secret_key = asfquart_secret_key
+
+    # if not util.is_dev_environment():
+    app.asgi_app = proxy_fix.ProxyFixMiddleware(app.asgi_app, mode="legacy", trusted_hops=1)
+
     return app
 
 
@@ -380,6 +386,24 @@ def _app_setup_logging(app: base.QuartApp, config_mode: config.Mode, app_config:
             log.info(f"STATE_DIR    = {app_config.STATE_DIR}")
 
 
+def _app_setup_rate_limits(app: base.QuartApp):
+    async def get_rate_limit_key() -> str:
+        """Authenticated users -> pool per user"""
+        session = await asfquart.session.read()
+        if session is not None:
+            return f"user:{session.uid}"
+        return f"ip:{quart.request.remote_addr}"
+
+    rate_limiter.RateLimiter(
+        app,
+        default_limits=[
+            rate_limiter.RateLimit(100, datetime.timedelta(minutes=1)),
+            rate_limiter.RateLimit(1000, datetime.timedelta(hours=1)),
+        ],
+        key_function=get_rate_limit_key,
+    )
+
+
 def _app_setup_request_lifecycle(app: base.QuartApp) -> None:
     """Setup application request lifecycle hooks."""
     import structlog
@@ -395,8 +419,6 @@ def _app_setup_request_lifecycle(app: base.QuartApp) -> None:
         session = await asfquart.session.read()
         if session is not None:
             log.add_context(user_id=session.uid)
-
-        log.debug("headers", **quart.request.headers)
 
     @app.after_request
     async def log_request(response: quart.Response) -> quart.Response:
@@ -484,6 +506,8 @@ def _create_app(app_config: type[config.AppConfig]) -> base.QuartApp:
 
     _app_setup_api_docs(app)
     quart_wtf.CSRFProtect(app)
+
+    _app_setup_rate_limits(app)
     _app_setup_logging(app, config_mode, app_config)
     db.init_database(app)
     _register_routes(app)
