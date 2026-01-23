@@ -130,8 +130,8 @@ def _app_create_base(app_config: type[config.AppConfig]) -> base.QuartApp:
     app.config.from_object(app_config)
     app.secret_key = asfquart_secret_key
 
-    # if not util.is_dev_environment():
-    app.asgi_app = proxy_fix.ProxyFixMiddleware(app.asgi_app, mode="legacy", trusted_hops=1)
+    if not util.is_dev_environment():
+        app.asgi_app = proxy_fix.ProxyFixMiddleware(app.asgi_app, mode="legacy", trusted_hops=1)
 
     return app
 
