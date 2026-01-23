@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import logging.handlers
 import queue
@@ -47,6 +48,7 @@ def create_json_formatter(
     return structlog.stdlib.ProcessorFormatter(
         processors=[
             structlog.stdlib.ProcessorFormatter.remove_processors_meta,
+            _parse_json_event,
             structlog.processors.JSONRenderer(),
         ],
         foreign_pre_chain=list(shared_processors),
@@ -98,3 +100,19 @@ def shared_processors() -> list[structlog.types.Processor]:
         structlog.processors.StackInfoRenderer(),
         structlog.processors.UnicodeDecoder(),
     ]
+
+
+def _parse_json_event(
+    _logger: structlog.types.WrappedLogger,
+    _method_name: str,
+    event_dict: structlog.types.EventDict,
+) -> structlog.types.EventDict:
+    if event_dict.get("logger") != "atr.storage.audit":
+        return event_dict
+    event = event_dict.get("event")
+    if isinstance(event, str) and event.startswith("{"):
+        try:
+            event_dict["event"] = json.loads(event)
+        except json.JSONDecodeError:
+            pass
+    return event_dict
