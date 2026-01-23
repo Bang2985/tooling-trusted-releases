@@ -141,9 +141,13 @@ async def _execute_check_task(
 def _setup_logging() -> None:
     import logging
 
+    import atr.config as config
     import atr.loggers as loggers
 
+    conf = config.get()
+
     os.makedirs("logs", exist_ok=True)
+    os.makedirs(os.path.dirname(conf.STORAGE_AUDIT_LOG_FILE), exist_ok=True)
 
     shared_processors = loggers.shared_processors()
     output_handler = logging.FileHandler("logs/atr-worker.log")
@@ -152,6 +156,13 @@ def _setup_logging() -> None:
     logging.basicConfig(level=logging.INFO, handlers=[output_handler], force=True)
 
     loggers.configure_structlog(shared_processors)
+
+    # Audit logger
+    loggers.setup_dedicated_file_logger(
+        "atr.storage.audit",
+        conf.STORAGE_AUDIT_LOG_FILE,
+        shared_processors,
+    )
 
 
 async def _task_next_claim() -> tuple[int, str, list[str] | dict[str, Any], str] | None:
