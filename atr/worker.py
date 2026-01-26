@@ -26,6 +26,7 @@ import asyncio
 import datetime
 import inspect
 import os
+import resource
 import signal
 import traceback
 from collections.abc import Awaitable, Callable
@@ -41,9 +42,9 @@ import atr.tasks as tasks
 import atr.tasks.checks as checks
 import atr.tasks.task as task
 
-# Resource limits, 5 minutes and 1GB
-# _CPU_LIMIT_SECONDS: Final = 300
-_MEMORY_LIMIT_BYTES: Final = 1024 * 1024 * 1024
+# Resource limits, 5 minutes and 3GB
+_CPU_LIMIT_SECONDS: Final = 300
+_MEMORY_LIMIT_BYTES: Final = 3 * 1024 * 1024 * 1024
 
 # # Create tables if they don't exist
 # SQLModel.metadata.create_all(engine)
@@ -304,18 +305,18 @@ def _worker_resources_limit_set() -> None:
     """Set CPU and memory limits for this process."""
     # TODO: https://github.com/apache/tooling-trusted-releases/issues/411
     # # Set CPU time limit
-    # try:
-    #     resource.setrlimit(resource.RLIMIT_CPU, (CPU_LIMIT_SECONDS, CPU_LIMIT_SECONDS))
-    #     log.info(f"Set CPU time limit to {CPU_LIMIT_SECONDS} seconds")
-    # except ValueError as e:
-    #     log.warning(f"Could not set CPU time limit: {e}")
+    try:
+        resource.setrlimit(resource.RLIMIT_CPU, (_CPU_LIMIT_SECONDS, _CPU_LIMIT_SECONDS))
+        log.info(f"Set CPU time limit to {_CPU_LIMIT_SECONDS} seconds")
+    except ValueError as e:
+        log.warning(f"Could not set CPU time limit: {e}")
 
     # Set memory limit
-    # try:
-    #     resource.setrlimit(resource.RLIMIT_AS, (_MEMORY_LIMIT_BYTES, _MEMORY_LIMIT_BYTES))
-    #     log.info(f"Set memory limit to {_MEMORY_LIMIT_BYTES} bytes")
-    # except ValueError as e:
-    #     log.warning(f"Could not set memory limit: {e}")
+    try:
+        resource.setrlimit(resource.RLIMIT_AS, (_MEMORY_LIMIT_BYTES, _MEMORY_LIMIT_BYTES))
+        log.info(f"Set memory limit to {_MEMORY_LIMIT_BYTES} bytes")
+    except ValueError as e:
+        log.warning(f"Could not set memory limit: {e}")
     return
 
 

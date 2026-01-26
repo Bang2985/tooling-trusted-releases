@@ -34,16 +34,12 @@ import atr.tasks.checks as checks
 import atr.util as util
 
 _CONFIG: Final = config.get()
-_JAVA_MEMORY_ARGS: Final[list[str]] = []
-# Use this to set smaller memory limits and use SerialGC which also requires less memory
-# We prefer, however, to set this in the container
-# _JAVA_MEMORY_ARGS: Final[list[str]] = [
-#     "-XX:MaxMetaspaceSize=32m",
-#     "-Xmx128m",
-#     "-XX:+UseSerialGC",
-#     "-XX:MaxRAM=256m",
-#     "-XX:CompressedClassSpaceSize=16m"
-# ]
+_JAVA_MEMORY_ARGS: Final[list[str]] = [
+    "-Xmx64m",
+    "-XX:MaxMetaspaceSize=32m",
+    "-XX:+UseSerialGC",
+    "-XX:CompressedClassSpaceSize=16m",
+]
 
 # Generated file patterns, always excluded
 _GENERATED_FILE_PATTERNS: Final[list[str]] = [f"**/*{s}" for s in constants.GENERATED_FILE_SUFFIXES]
