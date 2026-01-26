@@ -100,6 +100,8 @@ make certs-local
 make serve-local
 ```
 
+To add your username as an administrator of ATR during testing, you can set the `ADMIN_USERS_ADDITIONAL` environment variable in the call to make. For example: `ADMIN_USERS_ADDITIONAL=alice make serve-local`. This is a comma separated variable, so to add `alice` and `bob` you can use `ADMIN_USERS_ADDITIONAL=alice,bob`.
+
 **Accessing the site:**
 
 We recommend using `localhost.apache.org`, which requires adding to `/etc/hosts`:

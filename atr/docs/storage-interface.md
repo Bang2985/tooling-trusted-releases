@@ -16,6 +16,7 @@
 * [What about audit logging?](#what-about-audit-logging)
 * [How is the filesystem organized?](#how-is-the-filesystem-organized)
 * [How should the filesystem be backed up?](#how-should-the-filesystem-be-backed-up)
+* [Outcome design patterns](#outcome-design-patterns)
 
 ## Introduction
 
