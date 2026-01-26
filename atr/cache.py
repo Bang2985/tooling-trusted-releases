@@ -46,7 +46,7 @@ def admins_get() -> frozenset[str]:
 async def admins_get_async() -> frozenset[str]:
     try:
         return admins_get()
-    except RuntimeError:
+    except (AttributeError, RuntimeError):
         cache_data = await admins_read_from_file()
         if cache_data is None:
             return frozenset()
