@@ -39,31 +39,21 @@ class AdminsCache(schema.Strict):
 
 
 def admins_get() -> frozenset[str]:
-    app = asfquart.APP
-    return app.extensions.get("admins", frozenset())
+    if asfquart.APP is not None:
+        return asfquart.APP.extensions.get("admins", frozenset())
+    cache_data = _admins_read_from_file()
+    if cache_data is None:
+        return frozenset()
+    return cache_data.admins
 
 
 async def admins_get_async() -> frozenset[str]:
-    try:
-        return admins_get()
-    except (AttributeError, RuntimeError):
-        cache_data = await admins_read_from_file()
-        if cache_data is None:
-            return frozenset()
-        return cache_data.admins
-
-
-async def admins_read_from_file() -> AdminsCache | None:
-    cache_path = _admins_path()
-    if not cache_path.exists():
-        return None
-    try:
-        async with aiofiles.open(cache_path) as f:
-            raw_data = await f.read()
-        return AdminsCache.model_validate_json(raw_data)
-    except (pydantic.ValidationError, OSError) as e:
-        log.warning(f"Failed to read admin users cache: {e}")
-        return None
+    if asfquart.APP is not None:
+        return asfquart.APP.extensions.get("admins", frozenset())
+    cache_data = await _admins_read_from_file_async()
+    if cache_data is None:
+        return frozenset()
+    return cache_data.admins
 
 
 async def admins_refresh_loop() -> None:
@@ -87,7 +77,7 @@ async def admins_save_to_file(admins: frozenset[str]) -> None:
 
 
 async def admins_startup_load() -> None:
-    cache_data = await admins_read_from_file()
+    cache_data = await _admins_read_from_file_async()
     if cache_data is not None:
         _admins_update_app_extensions(cache_data.admins)
         log.info(f"Loaded {len(cache_data.admins)} admin users from cache (refreshed: {cache_data.refreshed})")
@@ -104,6 +94,40 @@ async def admins_startup_load() -> None:
 
 def _admins_path() -> pathlib.Path:
     return pathlib.Path(config.get().STATE_DIR) / "cache" / "admins.json"
+
+
+def _admins_read_from_file() -> AdminsCache | None:
+    cache_path = _admins_path()
+    if not cache_path.exists():
+        return None
+    try:
+        with open(cache_path) as f:
+            raw_data = f.read()
+    except OSError as e:
+        log.warning(f"Failed to read admin users cache: {e}")
+        return None
+    try:
+        return AdminsCache.model_validate_json(raw_data)
+    except pydantic.ValidationError as e:
+        log.warning(f"Failed to read admin users cache: {e}")
+        return None
+
+
+async def _admins_read_from_file_async() -> AdminsCache | None:
+    cache_path = _admins_path()
+    if not cache_path.exists():
+        return None
+    try:
+        async with aiofiles.open(cache_path) as f:
+            raw_data = await f.read()
+    except OSError as e:
+        log.warning(f"Failed to read admin users cache: {e}")
+        return None
+    try:
+        return AdminsCache.model_validate_json(raw_data)
+    except pydantic.ValidationError as e:
+        log.warning(f"Failed to read admin users cache: {e}")
+        return None
 
 
 def _admins_update_app_extensions(admins: frozenset[str]) -> None:

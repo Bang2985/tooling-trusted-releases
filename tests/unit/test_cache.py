@@ -131,7 +131,7 @@ async def test_admins_read_from_file_returns_none_for_invalid_json(state_dir: pa
     cache_path = state_dir / "cache" / "admins.json"
     cache_path.parent.mkdir(parents=True)
     cache_path.write_text("not valid json {{{")
-    result = await cache.admins_read_from_file()
+    result = await cache._admins_read_from_file_async()
     assert result is None
 
 
@@ -140,13 +140,13 @@ async def test_admins_read_from_file_returns_none_for_invalid_schema(state_dir: 
     cache_path = state_dir / "cache" / "admins.json"
     cache_path.parent.mkdir(parents=True)
     cache_path.write_text('{"wrong_field": "value"}')
-    result = await cache.admins_read_from_file()
+    result = await cache._admins_read_from_file_async()
     assert result is None
 
 
 @pytest.mark.asyncio
 async def test_admins_read_from_file_returns_none_for_missing(state_dir: pathlib.Path):
-    result = await cache.admins_read_from_file()
+    result = await cache._admins_read_from_file_async()
     assert result is None
 
 
@@ -154,7 +154,7 @@ async def test_admins_read_from_file_returns_none_for_missing(state_dir: pathlib
 async def test_admins_save_and_read_roundtrip(state_dir: pathlib.Path):
     original_admins = frozenset({"alice", "bob", "charlie"})
     await cache.admins_save_to_file(original_admins)
-    result = await cache.admins_read_from_file()
+    result = await cache._admins_read_from_file_async()
     assert result is not None
     assert result.admins == original_admins
 
