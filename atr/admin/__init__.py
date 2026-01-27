@@ -479,7 +479,7 @@ async def keys_update_get(session: web.Committer) -> str | web.WerkzeugResponse 
         form_classes="",
     )
     # TODO: All known file paths should be constants
-    log_path = pathlib.Path("logs") / "keys-import.log"
+    log_path = pathlib.Path(config.get().STATE_DIR) / "logs" / "keys-import.log"
     if not await aiofiles.os.path.exists(log_path):
         previous_output = None
     else:
@@ -493,6 +493,7 @@ async def keys_update_post(session: web.Committer) -> str | web.WerkzeugResponse
     """Update keys from remote data."""
     try:
         pid = await _update_keys(session.asf_uid)
+        log.info(f"Keys update process started with PID {pid}")
         return {
             "message": f"Successfully started key update process with PID {pid}",
             "category": "success",
@@ -1135,6 +1136,10 @@ async def _update_keys(asf_uid: str) -> int:
     async def _log_process(process: asyncio.subprocess.Process) -> None:
         try:
             stdout, stderr = await process.communicate()
+            if process.returncode != 0:
+                log.error(f"keys_import.py exited with code {process.returncode}")
+            else:
+                log.info(f"keys_import.py exited with code {process.returncode}")
             if stdout:
                 log.info(f"keys_import.py stdout:\n{stdout.decode('utf-8')[:1000]}")
             if stderr:
@@ -1148,7 +1153,7 @@ async def _update_keys(asf_uid: str) -> int:
 
     if await aiofiles.os.path.exists("../Dockerfile.alpine"):
         # Not in a container, developing locally
-        command = ["poetry", "run", "python3", "scripts/keys_import.py", asf_uid]
+        command = ["uv", "run", "--frozen", "python3", "scripts/keys_import.py", asf_uid]
     else:
         # In a container
         command = [sys.executable, "scripts/keys_import.py", asf_uid]
