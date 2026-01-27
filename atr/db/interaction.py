@@ -400,7 +400,9 @@ async def trusted_jwt(publisher: str, jwt: str, phase: TrustedProjectPhase) -> t
 async def trusted_jwt_for_dist(
     publisher: str, jwt: str, asf_uid: str, phase: TrustedProjectPhase, project_name: str, version_name: str
 ) -> tuple[dict[str, Any], str, sql.Project, sql.Release]:
-    payload, _asf_uid = await validate_trusted_jwt(publisher, jwt)
+    payload, asf_uid_from_jwt = await validate_trusted_jwt(publisher, jwt)
+    if asf_uid_from_jwt is not None:
+        raise InteractionError("Must use Trusted Publishing when specifying ASF UID")
     # payload, asf_uid, project = await trusted_jwt(publisher, jwt, phase)
     async with db.session() as db_data:
         project = await db_data.project(name=project_name, _committee=True).demand(
