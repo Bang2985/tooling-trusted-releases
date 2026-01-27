@@ -163,6 +163,7 @@ async def browse_as_post(session: web.Committer, browse_form: BrowseAsUserForm) 
         bind_password,
     )
     log.info(f"New Quart cookie (not ASFQuart session) data: {log_safe_data}")
+    asfquart.session.clear()
     asfquart.session.write(new_session_data)
 
     await quart.flash(
