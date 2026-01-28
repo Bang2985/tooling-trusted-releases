@@ -183,6 +183,15 @@ async def github_to_apache(github_numeric_uid: int) -> str:
     return ldap_uid_val[0] if isinstance(ldap_uid_val, list) else ldap_uid_val
 
 
+def is_banned(account: dict[str, str | list[str]]) -> bool:
+    banned_attr = account.get("asf-banned", "no")
+    # This is mostly for the type checker, but since asf-banned is missing from non-banned accounts,
+    # it should be safe to say if it has any value then the account is banned.
+    if not isinstance(banned_attr, str):
+        return True
+    return banned_attr.lower() == "yes"
+
+
 def parse_dn(dn_string: str) -> dict[str, list[str]]:
     parsed = collections.defaultdict(list)
     parts = dn.parse_dn(dn_string)
