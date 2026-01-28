@@ -82,9 +82,9 @@ async def selected(
         return await session.redirect(root.index)
 
     announce_msg = ""
-    if release.release_policy and release.release_policy.file_tag_mappings:
+    if release.project.release_policy and release.project.release_policy.file_tag_mappings:
         missing = []
-        tags = release.release_policy.file_tag_mappings.keys()
+        tags = release.project.release_policy.file_tag_mappings.keys()
         distributions = [d.platform.value.gh_slug for d in release.distributions]
         for tag in tags:
             if tag not in distributions:
@@ -154,7 +154,12 @@ async def _get_page_data(
     async with db.session() as data:
         via = sql.validate_instrumented_attribute
         release = await data.release(
-            project_name=project_name, version=version_name, _committee=True, _release_policy=True, _distributions=True
+            project_name=project_name,
+            version=version_name,
+            _committee=True,
+            _release_policy=True,
+            _project_release_policy=True,
+            _distributions=True,
         ).demand(base.ASFQuartException("Release does not exist", errorcode=404))
         tasks = [
             t
