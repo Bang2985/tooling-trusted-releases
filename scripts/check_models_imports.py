@@ -23,12 +23,17 @@ from typing import Final
 
 _ALLOWED_PACKAGES: Final = frozenset(
     {
+        "hyperscan",
         "pydantic",
         "pydantic_core",
         "sqlalchemy",
         "sqlmodel",
     }
 )
+
+
+def main() -> None:
+    sys.exit(_run())
 
 
 def _check_file(path: pathlib.Path) -> list[str]:
@@ -72,10 +77,6 @@ def _run() -> int:
         print(error, file=sys.stderr)
 
     return 1 if errors else 0
-
-
-def main() -> None:
-    sys.exit(_run())
 
 
 if __name__ == "__main__":

@@ -24,6 +24,7 @@ import pydantic
 
 import atr.form as form
 import atr.models.sql as sql
+import atr.models.validation as validation
 
 type ADD = Literal["add"]
 type DELETE = Literal["delete"]
@@ -93,6 +94,13 @@ class AddIgnoreForm(form.Form):
             ]
         ):
             raise ValueError("At least one field must be set")
+        _validate_ignore_form_patterns(
+            self.release_glob,
+            self.checker_glob,
+            self.primary_rel_path_glob,
+            self.member_rel_path_glob,
+            self.message_glob,
+        )
         return self
 
 
@@ -130,6 +138,13 @@ class UpdateIgnoreForm(form.Form):
             ]
         ):
             raise ValueError("At least one field must be set")
+        _validate_ignore_form_patterns(
+            self.release_glob,
+            self.checker_glob,
+            self.primary_rel_path_glob,
+            self.member_rel_path_glob,
+            self.message_glob,
+        )
         return self
 
 
@@ -137,3 +152,10 @@ type IgnoreForm = Annotated[
     AddIgnoreForm | DeleteIgnoreForm | UpdateIgnoreForm,
     form.DISCRIMINATOR,
 ]
+
+
+def _validate_ignore_form_patterns(*patterns: str) -> None:
+    for pattern in patterns:
+        if not pattern:
+            continue
+        validation.validate_ignore_pattern(pattern)

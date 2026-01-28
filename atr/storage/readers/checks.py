@@ -18,13 +18,13 @@
 # Removing this will cause circular imports
 from __future__ import annotations
 
-import re
 from typing import TYPE_CHECKING
 
 import atr.db as db
 import atr.models.sql as sql
 import atr.storage as storage
 import atr.storage.types as types
+import atr.util as util
 
 if TYPE_CHECKING:
     import pathlib
@@ -142,21 +142,4 @@ class GeneralPublic:
         return True
 
     def __check_ignore_match_pattern(self, pattern: str | None, value: str | None) -> bool:
-        if pattern == "!":
-            # Special case, "!" matches None
-            return True if (value is None) else False
-        if (pattern is None) or (value is None):
-            return False
-        negate = False
-        if pattern.startswith("!"):
-            pattern = pattern[1:]
-            negate = True
-        if pattern.startswith("^") or pattern.endswith("$"):
-            regex = re.compile(pattern)
-        else:
-            regex = re.compile(re.escape(pattern).replace(r"\*", ".*"))
-            # Should maybe add .replace(r"\?", ".?")
-        matched = regex.search(value) is not None
-        if negate:
-            return not matched
-        return matched
+        return util.match_ignore_pattern(pattern, value)

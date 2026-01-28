@@ -24,7 +24,15 @@ import sqlmodel
 
 import atr.db as db
 import atr.models.sql as sql
+import atr.models.validation as validation
 import atr.storage as storage
+
+
+def _validate_ignore_patterns(*patterns: str | None) -> None:
+    for pattern in patterns:
+        if pattern is None:
+            continue
+        validation.validate_ignore_pattern(pattern)
 
 
 class GeneralPublic:
@@ -99,6 +107,13 @@ class CommitteeMember(CommitteeParticipant):
         status: sql.CheckResultStatusIgnore | None = None,
         message_glob: str | None = None,
     ) -> None:
+        _validate_ignore_patterns(
+            release_glob,
+            checker_glob,
+            primary_rel_path_glob,
+            member_rel_path_glob,
+            message_glob,
+        )
         cri = sql.CheckResultIgnore(
             asf_uid=self.__asf_uid,
             created=datetime.datetime.now(datetime.UTC),
@@ -138,6 +153,13 @@ class CommitteeMember(CommitteeParticipant):
         status: sql.CheckResultStatusIgnore | None = None,
         message_glob: str | None = None,
     ) -> None:
+        _validate_ignore_patterns(
+            release_glob,
+            checker_glob,
+            primary_rel_path_glob,
+            member_rel_path_glob,
+            message_glob,
+        )
         cri = await self.__data.get(sql.CheckResultIgnore, id)
         if cri is None:
             raise storage.AccessError(f"Ignore {id} not found")

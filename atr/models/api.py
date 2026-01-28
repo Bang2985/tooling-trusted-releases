@@ -21,7 +21,7 @@ from typing import Annotated, Any, Literal, TypeVar
 
 import pydantic
 
-from . import schema, sql, tabulate
+from . import schema, sql, tabulate, validation
 
 T = TypeVar("T")
 
@@ -172,6 +172,20 @@ class IgnoreAddArgs(schema.Strict):
     member_rel_path_glob: str | None = schema.default_example(None, "apache-example-0.0.1/*.xml")
     status: sql.CheckResultStatusIgnore | None = schema.default_example(None, sql.CheckResultStatusIgnore.FAILURE)
     message_glob: str | None = schema.default_example(None, "sha512 matches for apache-example-0.0.1/*.xml")
+
+    @pydantic.model_validator(mode="after")
+    def validate_patterns(self) -> "IgnoreAddArgs":
+        for pattern in [
+            self.release_glob,
+            self.checker_glob,
+            self.primary_rel_path_glob,
+            self.member_rel_path_glob,
+            self.message_glob,
+        ]:
+            if pattern is None:
+                continue
+            validation.validate_ignore_pattern(pattern)
+        return self
 
 
 class IgnoreAddResults(schema.Strict):

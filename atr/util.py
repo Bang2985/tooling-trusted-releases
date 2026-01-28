@@ -50,6 +50,7 @@ import atr.config as config
 import atr.ldap as ldap
 import atr.log as log
 import atr.models.sql as sql
+import atr.models.validation as validation
 import atr.registry as registry
 import atr.tarzip as tarzip
 import atr.user as user
@@ -626,6 +627,27 @@ def key_ssh_fingerprint_core(ssh_key_string: str) -> str:
         return f"SHA256:{fingerprint_b64}"
 
     raise ValueError("Invalid SSH key format")
+
+
+def match_ignore_pattern(pattern: str | None, value: str | None) -> bool:
+    if pattern == "!":
+        # Special case, "!" matches None
+        return value is None
+    if (pattern is None) or (value is None):
+        return False
+    negate = False
+    raw_pattern = pattern
+    if raw_pattern.startswith("!"):
+        raw_pattern = raw_pattern[1:]
+        negate = True
+    try:
+        regex = validation.compile_ignore_pattern(raw_pattern)
+    except ValueError:
+        return False
+    matched = regex.search(value) is not None
+    if negate:
+        return not matched
+    return matched
 
 
 async def number_of_release_files(release: sql.Release) -> int:
