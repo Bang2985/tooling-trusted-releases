@@ -97,6 +97,31 @@ class SearchParameters:
     email_only: bool = False
 
 
+async def account_lookup(asf_uid: str) -> dict[str, str | list[str]] | None:
+    """
+    Look up an account in LDAP by ASF UID.
+
+    Returns the account details dict if found, None if the account does not exist.
+    If LDAP is not configured, returns None to avoid breaking functionality.
+    """
+    credentials = get_bind_credentials()
+    if credentials is None:
+        return None
+
+    bind_dn, bind_password = credentials
+    params = SearchParameters(
+        uid_query=asf_uid,
+        bind_dn_from_config=bind_dn,
+        bind_password_from_config=bind_password,
+    )
+    await asyncio.to_thread(search, params)
+
+    if not params.results_list:
+        return None
+
+    return params.results_list[0]
+
+
 async def fetch_admin_users() -> frozenset[str]:
     import atr.log as log
 

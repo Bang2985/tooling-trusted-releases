@@ -26,6 +26,7 @@ import sqlmodel
 
 import atr.db as db
 import atr.jwtoken as jwtoken
+import atr.ldap as ldap
 import atr.mail as mail
 import atr.models.sql as sql
 import atr.storage as storage
@@ -116,6 +117,12 @@ class FoundationCommitter(GeneralPublic):
         )
         if (pat is None) or (pat.expires < datetime.datetime.now(datetime.UTC)):
             raise storage.AccessError("Authentication failed")
+
+        # Verify account still exists in LDAP
+        account_details = await ldap.account_lookup(self.__asf_uid)
+        if account_details is None:
+            raise storage.AccessError("Authentication failed")
+
         issued_jwt = jwtoken.issue(self.__asf_uid)
         pat.last_used = datetime.datetime.now(datetime.UTC)
         await self.__data.commit()
