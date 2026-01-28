@@ -174,7 +174,8 @@ class ArchiveContext[ArchiveT: (tarfile.TarFile, zipfile.ZipFile)]:
                 )
             case zipfile.ZipFile():
                 # Zip extraction is handled differently in the calling code
-                pass
+                # TODO: We should make the calling code for ZIP consistent with TGZ
+                raise NotImplementedError("Zip extraction is not supported")
 
     def specific(self) -> tarfile.TarFile | zipfile.ZipFile:
         return self._archive_obj
