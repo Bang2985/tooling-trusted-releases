@@ -24,7 +24,9 @@ FORBIDDEN_PROJECT_CATEGORIES: Final[set[str]] = {
 }
 
 # Committees which are allowed by Infra to make releases via GitHub Actions
-# TODO: This should actually be at the project level, not committee level
+# These are set via an ldap list.
+# TODO: Switch/move this list as appropriate. We do not want to require a code
+# release in order to update these configurations.
 # GITHUB_AUTOMATED_RELEASE_COMMITTEES: Final[frozenset[str]] = frozenset(
 #     {
 #         "arrow",
@@ -36,6 +38,26 @@ FORBIDDEN_PROJECT_CATEGORIES: Final[set[str]] = {
 #         "tooling",
 #     }
 # )
+
+# Committees where commiters are explicitly allowed to promote releases
+# For ATR this means that for these committees committers (participants)
+# are allowed to start project release.
+# Copied from https://github.com/apache/infrastructure-svnauthzblob/master/gen.py
+# Changed roughly once a year.
+COMMITTERS_MAY_RELEASE_COMMITTEES: Final[frozenset[str] = frozenset(
+    {
+        'bookkeeper',
+        'calcite',
+        'camel',
+        'commons',
+        'couchdb',
+        'druid',
+        'hive',
+        'lucene',
+        'solr',
+        'zookeeper',
+    }
+)
 
 # Committees which cannot make releases, by policy
 STANDING_COMMITTEES: Final[frozenset[str]] = frozenset(
