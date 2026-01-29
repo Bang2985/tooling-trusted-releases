@@ -46,16 +46,16 @@ FORBIDDEN_PROJECT_CATEGORIES: Final[set[str]] = {
 # Changed roughly once a year.
 COMMITTERS_MAY_RELEASE_COMMITTEES: Final[frozenset[str]] = frozenset(
     {
-        'bookkeeper',
-        'calcite',
-        'camel',
-        'commons',
-        'couchdb',
-        'druid',
-        'hive',
-        'lucene',
-        'solr',
-        'zookeeper',
+        "bookkeeper",
+        "calcite",
+        "camel",
+        "commons",
+        "couchdb",
+        "druid",
+        "hive",
+        "lucene",
+        "solr",
+        "zookeeper",
     }
 )
 
