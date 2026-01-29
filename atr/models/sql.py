@@ -976,6 +976,7 @@ class Distribution(sqlmodel.SQLModel, table=True):
     upload_date: datetime.datetime | None = sqlmodel.Field(default=None)
     api_url: str | None = sqlmodel.Field(default=None)
     web_url: str | None = sqlmodel.Field(default=None)
+    created_by: str | None = sqlmodel.Field(default=None)
     # The API response can be huge, e.g. from npm
     # So we do not store it in the database
     # api_response: Any = sqlmodel.Field(sa_column=sqlalchemy.Column(sqlalchemy.JSON))

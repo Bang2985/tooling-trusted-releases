@@ -160,6 +160,7 @@ class CommitteeMember(CommitteeParticipant):
             upload_date=upload_date,
             api_url=api_url,
             web_url=web_url,
+            created_by=self.__asf_uid,
         )
         if existing is None:
             self.__data.add(dist)
@@ -271,6 +272,7 @@ class CommitteeMember(CommitteeParticipant):
             existing.upload_date = upload_date
             existing.api_url = api_url
             existing.web_url = web_url
+            existing.created_by = self.__asf_uid
             await self.__data.commit()
             return existing
         return None

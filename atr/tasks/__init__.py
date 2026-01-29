@@ -71,6 +71,7 @@ async def clear_scheduled(caller_data: db.Session | None = None) -> None:
                 [
                     sql.TaskType.METADATA_UPDATE,
                     sql.TaskType.WORKFLOW_STATUS,
+                    sql.TaskType.DISTRIBUTION_STATUS,
                 ]
             ),
             via(sql.Task.status) == sql.TaskStatus.QUEUED,

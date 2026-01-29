@@ -17,6 +17,7 @@
 from collections.abc import Sequence
 
 import asfquart.base as base
+import htpy
 
 import atr.blueprints.get as get
 import atr.db as db
@@ -77,12 +78,15 @@ async def list_get(session: web.Committer, project_name: str, version_name: str)
     ## Distributions
     block.h2["Distributions"]
     for dist in distributions:
+        title_extra = []
+        if dist.pending:
+            title_extra.append(htpy.small(".text-muted")[" (this distribution is being verified by ATR)"])
         ### Platform package version
         block.h3(
             # Cannot use "#id" here, because the ID contains "."
             # If an ID contains ".", htm parses that as a class
             id=f"distribution-{dist.identifier}"
-        )[dist.title]
+        )[dist.title, *title_extra]
         tbody = htm.tbody[
             shared.distribution.html_tr("Release name", dist.release_name),
             shared.distribution.html_tr("Platform", dist.platform.value.name),

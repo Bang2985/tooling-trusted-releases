@@ -802,6 +802,9 @@ async def _register_recurrent_tasks() -> None:
         await asyncio.sleep(60)
         workflow = await tasks.workflow_update(asf_uid="system", schedule_next=True)
         log.info(f"Scheduled workflow status update with ID {workflow.id}")
+        await asyncio.sleep(60)
+        dist_check = await tasks.distribution_status_check(asf_uid="system", schedule_next=True)
+        log.info(f"Scheduled distribution status update with ID {dist_check.id}")
 
     except Exception as e:
         log.exception(f"Failed to schedule recurrent tasks: {e!s}")

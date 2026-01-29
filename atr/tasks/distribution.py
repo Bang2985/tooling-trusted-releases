@@ -39,10 +39,12 @@ class DistributionStatusCheckArgs(schema.Strict):
 
 @checks.with_model(DistributionStatusCheckArgs)
 async def status_check(args: DistributionStatusCheckArgs, *, task_id: int | None = None) -> results.Results | None:
+    log.info("Checking pending recorded distributions")
     dists = []
     async with db.session() as data:
         dists = await data.distribution(pending=True, _with_release=True, _with_release_project=True).all()
     for dist in dists:
+        name = f"{dist.platform} {dist.owner_namespace} {dist.package} {dist.version}"
         dd = distribution.Data(
             platform=dist.platform,
             owner_namespace=dist.owner_namespace,
@@ -50,30 +52,40 @@ async def status_check(args: DistributionStatusCheckArgs, *, task_id: int | None
             version=dist.version,
             details=False,
         )
+        if not dist.created_by:
+            log.warning(f"Distribution {name} has no creator, skipping")
+            continue
+        if not dist.release.project.committee_name:
+            log.warning(f"Distribution {name} has no committee, skipping")
+            continue
         try:
-            async with storage.write_as_committee_member(str(dist.release.project.committee_name), args.asf_uid) as w:
+            async with storage.write_as_committee_member(dist.release.project.committee_name, dist.created_by) as w:
                 if dist.retries >= _RETRY_LIMIT:
                     await w.distributions.delete_distribution(
                         dist.release_name, dist.platform, dist.owner_namespace, dist.package, dist.version
                     )
-                    name = f"{dist.platform} {dist.owner_namespace} {dist.package} {dist.version}"
                     log.error(f"Distribution {name} failed {_RETRY_LIMIT} times, skipping")
                     continue
+                log.warning(f"Retrying distribution {name}")
                 await w.distributions.record_from_data(
                     dist.release_name,
                     dist.staging,
                     dd,
+                    allow_retries=True,
                 )
         except storage.AccessError as e:
             msg = f"Failed to record distribution: {e}"
             log.error(msg)
             raise RuntimeError(msg)
-    if args.next_schedule_seconds:
-        next_schedule = datetime.datetime.now(datetime.UTC) + datetime.timedelta(seconds=args.next_schedule_seconds)
-        await tasks.distribution_status_check(args.asf_uid, schedule=next_schedule, schedule_next=True)
-        log.info(
-            f"Scheduled next workflow status update for: {next_schedule.strftime('%Y-%m-%d %H:%M:%S')}",
-        )
+        finally:
+            if args.next_schedule_seconds:
+                next_schedule = datetime.datetime.now(datetime.UTC) + datetime.timedelta(
+                    seconds=args.next_schedule_seconds
+                )
+                await tasks.distribution_status_check(args.asf_uid, schedule=next_schedule, schedule_next=True)
+                log.info(
+                    f"Scheduled next workflow status update for: {next_schedule.strftime('%Y-%m-%d %H:%M:%S')}",
+                )
     return results.DistributionStatusCheck(
         kind="distribution_status",
     )
