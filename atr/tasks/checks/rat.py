@@ -18,6 +18,7 @@
 import asyncio
 import os
 import pathlib
+import shlex
 import subprocess
 import tempfile
 import xml.etree.ElementTree as ElementTree
@@ -525,6 +526,7 @@ def _synchronous_extract(
     # The unknown_license_files and unapproved_files contain FileEntry objects
     # The path is relative to scan_root, so we prepend the scan_root relative path
     scan_root_rel = os.path.relpath(scan_root, temp_dir)
+    result.directory = scan_root_rel
     if scan_root_rel != ".":
         for file in result.unknown_license_files:
             file.name = os.path.join(scan_root_rel, os.path.normpath(file.name))
@@ -533,7 +535,7 @@ def _synchronous_extract(
 
     result.excludes_source = excludes_source
     result.extended_std_applied = apply_extended_std
-    result.command = _sanitise_command_for_storage(command)
+    result.command = shlex.join(_sanitise_command_for_storage(command))
     return result
 
 

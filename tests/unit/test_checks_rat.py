@@ -16,6 +16,7 @@
 # under the License.
 
 import pathlib
+import shlex
 
 import pytest
 
@@ -43,11 +44,13 @@ def rat_available() -> tuple[bool, bool]:
 def test_check_includes_command(rat_available: tuple[bool, bool]):
     _skip_if_unavailable(rat_available)
     result = rat._synchronous(str(TEST_ARCHIVE), [])
-    assert len(result.command) > 0
-    assert "java" in result.command
-    assert "-jar" in result.command
-    assert "--" in result.command
-    assert "." in result.command
+    command = _command_args(result.command)
+    assert len(command) > 0
+    assert "java" in command
+    assert "-jar" in command
+    assert "--" in command
+    assert "." in command
+    assert result.directory == "."
 
 
 def test_check_includes_excludes_source_none(rat_available: tuple[bool, bool]):
@@ -68,7 +71,8 @@ def test_excludes_archive_ignores_policy_when_file_exists(rat_available: tuple[b
     result = rat._synchronous(str(TEST_ARCHIVE_WITH_RAT_EXCLUDES), ["*.py", "*.txt"])
     assert result.excludes_source == "archive"
     # Should NOT use the RAT policy file
-    assert rat._POLICY_EXCLUDES_FILENAME not in result.command
+    command = _command_args(result.command)
+    assert rat._POLICY_EXCLUDES_FILENAME not in command
 
 
 def test_excludes_archive_uses_rat_excludes_file(rat_available: tuple[bool, bool]):
@@ -76,10 +80,12 @@ def test_excludes_archive_uses_rat_excludes_file(rat_available: tuple[bool, bool
     _skip_if_unavailable(rat_available)
     result = rat._synchronous(str(TEST_ARCHIVE_WITH_RAT_EXCLUDES), [])
     assert result.excludes_source == "archive"
-    assert "--input-exclude-file" in result.command
+    command = _command_args(result.command)
+    assert "--input-exclude-file" in command
     # Should use the RAT excludes file, not the RAT policy file
-    idx = result.command.index("--input-exclude-file")
-    assert result.command[idx + 1] == rat._RAT_EXCLUDES_FILENAME
+    idx = command.index("--input-exclude-file")
+    assert command[idx + 1] == rat._RAT_EXCLUDES_FILENAME
+    assert result.directory == "apache-test-0.2"
 
 
 def test_excludes_none_has_no_exclude_file(rat_available: tuple[bool, bool]):
@@ -87,10 +93,11 @@ def test_excludes_none_has_no_exclude_file(rat_available: tuple[bool, bool]):
     _skip_if_unavailable(rat_available)
     result = rat._synchronous(str(TEST_ARCHIVE), [])
     assert result.excludes_source == "none"
-    assert "--input-exclude-file" not in result.command
+    command = _command_args(result.command)
+    assert "--input-exclude-file" not in command
     # Should have neither excludes file in command
-    assert rat._RAT_EXCLUDES_FILENAME not in result.command
-    assert rat._POLICY_EXCLUDES_FILENAME not in result.command
+    assert rat._RAT_EXCLUDES_FILENAME not in command
+    assert rat._POLICY_EXCLUDES_FILENAME not in command
 
 
 def test_excludes_policy_uses_atr_rat_excludes(rat_available: tuple[bool, bool]):
@@ -99,12 +106,13 @@ def test_excludes_policy_uses_atr_rat_excludes(rat_available: tuple[bool, bool])
     # The second argument to rat._synchronous is a list of exclusions from policy
     result = rat._synchronous(str(TEST_ARCHIVE), ["*.py"])
     assert result.excludes_source == "policy"
-    assert "--input-exclude-file" in result.command
+    command = _command_args(result.command)
+    assert "--input-exclude-file" in command
     # Should use the RAT policy file, not the RAT excludes file
-    idx = result.command.index("--input-exclude-file")
-    assert result.command[idx + 1] == rat._POLICY_EXCLUDES_FILENAME
+    idx = command.index("--input-exclude-file")
+    assert command[idx + 1] == rat._POLICY_EXCLUDES_FILENAME
     # Should therefore NOT have the RAT excludes file in the command
-    assert rat._RAT_EXCLUDES_FILENAME not in result.command
+    assert rat._RAT_EXCLUDES_FILENAME not in command
 
 
 def test_sanitise_command_replaces_absolute_paths():
@@ -123,6 +131,10 @@ def test_sanitise_command_replaces_absolute_paths():
     assert result[2] == "apache-rat-0.17.jar"
     assert result[4] == "rat-report.xml"
     assert result[6] == ".rat-excludes"
+
+
+def _command_args(command: str) -> list[str]:
+    return shlex.split(command)
 
 
 def _skip_if_unavailable(rat_available: tuple[bool, bool]) -> None:
