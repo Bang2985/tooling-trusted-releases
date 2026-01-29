@@ -112,11 +112,18 @@ async def check(
             ),
         )
 
-    empty_form = form.render(
+    fresh_form = form.render(
         model_cls=form.Empty,
         action=util.as_url(post.draft.fresh, project_name=release.project.name, version_name=release.version),
         submit_label="Restart all checks",
         submit_classes="btn btn-primary",
+    )
+    recheck_form = form.render(
+        model_cls=form.Empty,
+        action=util.as_url(post.draft.recheck, project_name=release.project.name, version_name=release.version),
+        submit_label="Recheck all without cache",
+        submit_classes="btn btn-outline-secondary",
+        # confirm="Restart all checks without using cached results? This creates a new revision.",
     )
 
     vote_task_warnings = _warnings_from_vote_result(vote_task)
@@ -152,7 +159,8 @@ async def check(
         vote_task=vote_task,
         archive_url=archive_url,
         vote_task_warnings=vote_task_warnings,
-        empty_form=empty_form,
+        fresh_form=fresh_form,
+        recheck_form=recheck_form,
         csrf_input=str(form.csrf_input()),
         resolve_form=resolve_form,
         has_files=has_files,

@@ -936,6 +936,7 @@ class CheckResult(sqlmodel.SQLModel, table=True):
         sa_column=sqlalchemy.Column(sqlalchemy.JSON), **example({"expected": "...", "found": "..."})
     )
     input_hash: str | None = sqlmodel.Field(default=None, index=True, **example("blake3:7f83b1657ff1fc..."))
+    cached: bool = sqlmodel.Field(default=False, **example(False))
 
 
 class CheckResultIgnore(sqlmodel.SQLModel, table=True):
@@ -1180,6 +1181,7 @@ class Revision(sqlmodel.SQLModel, table=True):
 
     description: str | None = sqlmodel.Field(default=None, **example("This is a description"))
     tag: str | None = sqlmodel.Field(default=None, **example("rc1"))
+    use_check_cache: bool = sqlmodel.Field(default=True, **example(True))
 
     def model_post_init(self, _context):
         if isinstance(self.created, str):

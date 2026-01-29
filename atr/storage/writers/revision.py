@@ -111,6 +111,7 @@ class CommitteeParticipant(FoundationCommitter):
         version_name: str,
         asf_uid: str,
         description: str | None = None,
+        use_check_cache: bool = True,
     ) -> AsyncGenerator[types.Creating]:
         """Manage the creation and symlinking of a mutable release revision."""
         # Get the release
@@ -177,6 +178,7 @@ class CommitteeParticipant(FoundationCommitter):
                     created=datetime.datetime.now(datetime.UTC),
                     phase=release.phase,
                     description=description,
+                    use_check_cache=use_check_cache,
                 )
 
                 # Acquire the write lock and add the row

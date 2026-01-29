@@ -146,6 +146,34 @@ async def hashgen(session: web.Committer, project_name: str, version_name: str, 
     )
 
 
+@post.committer("/draft/recheck/<project_name>/<version_name>")
+@post.empty()
+async def recheck(session: web.Committer, project_name: str, version_name: str) -> web.WerkzeugResponse:
+    """Start a new draft revision to rerun all checks without using caches."""
+    await session.check_access(project_name)
+    if not session.is_admin:
+        raise base.ASFQuartException("Admin access required", errorcode=403)
+
+    description = "Empty revision to restart all checks without cache for the whole release candidate draft"
+    async with storage.write(session) as write:
+        wacp = await write.as_project_committee_participant(project_name)
+        async with wacp.revision.create_and_manage(
+            project_name,
+            version_name,
+            session.uid,
+            description=description,
+            use_check_cache=False,
+        ) as _creating:
+            pass
+
+    return await session.redirect(
+        get.compose.selected,
+        project_name=project_name,
+        version_name=version_name,
+        success="All checks restarted without cache",
+    )
+
+
 @post.committer("/draft/sbomgen/<project_name>/<version_name>/<path:file_path>")
 @post.empty()
 async def sbomgen(session: web.Committer, project_name: str, version_name: str, file_path: str) -> web.WerkzeugResponse:

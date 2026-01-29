@@ -212,9 +212,18 @@
                 {% endif %}
               </td>
               <td class="align-middle text-center atr-sans">
-                <span class="badge rounded-pill {% if primary_result.status.value == "success" %}bg-success {% elif primary_result.status.value == "failure" %}bg-danger {% elif primary_result.status.value == "warning" %}bg-warning {% elif primary_result.status.value == "exception" %}bg-danger {% else %}bg-secondary{% endif %}">
-                  {{ primary_result.status.value|title }}
-                </span>
+                <div class="d-inline-flex flex-column align-items-center gap-1">
+                  <span class="badge rounded-pill {% if primary_result.status.value == "success" %}bg-success {% elif primary_result.status.value == "failure" %}bg-danger {% elif primary_result.status.value == "warning" %}bg-warning {% elif primary_result.status.value == "exception" %}bg-danger {% else %}bg-secondary{% endif %}">
+                    {{ primary_result.status.value|title }}
+                  </span>
+                  {% if primary_result.cached %}
+                    <span class="badge rounded-pill bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle small"
+                          title="Cached result"
+                          aria-label="Cached result">
+                      <i class="bi bi-database me-1"></i>Cached
+                    </span>
+                  {% endif %}
+                </div>
               </td>
             </tr>
           {% endfor %}
@@ -286,9 +295,18 @@
                   {% if member_result.message %}{{ member_result.message }}{% endif %}
                 </td>
                 <td class="align-middle text-center atr-sans">
-                  <span class="badge rounded-pill {% if member_result.status.value == "success" %}bg-success {% elif member_result.status.value == "failure" %}bg-danger {% elif member_result.status.value == "warning" %}bg-warning {% elif member_result.status.value == "exception" %}bg-danger {% else %}bg-secondary{% endif %}">
-                    {{ member_result.status.value|title }}
-                  </span>
+                  <div class="d-inline-flex flex-column align-items-center gap-1">
+                    <span class="badge rounded-pill {% if member_result.status.value == "success" %}bg-success {% elif member_result.status.value == "failure" %}bg-danger {% elif member_result.status.value == "warning" %}bg-warning {% elif member_result.status.value == "exception" %}bg-danger {% else %}bg-secondary{% endif %}">
+                      {{ member_result.status.value|title }}
+                    </span>
+                    {% if member_result.cached %}
+                      <span class="badge rounded-pill bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle small"
+                            title="Cached result"
+                            aria-label="Cached result">
+                        <i class="bi bi-database me-1"></i>Cached
+                      </span>
+                    {% endif %}
+                  </div>
                 </td>
               </tr>
             {% endfor %}

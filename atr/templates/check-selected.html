@@ -198,7 +198,11 @@
     <div class="mb-2">
       <p>The following form is for debugging purposes only. It will create a new revision.</p>
     </div>
-    <div class="mb-3">{{ empty_form|safe }}</div>
+    <div class="mb-2">{{ fresh_form|safe }}</div>
+    {% if is_viewing_as_admin_fn(current_user.uid) %}
+      <div class="mb-2">{{ recheck_form|safe }}</div>
+      <p class="text-muted small mb-3">Rechecks without using cached results.</p>
+    {% endif %}
 
     <h3 id="delete-draft" class="mt-4">Delete this draft</h3>
     <p>Permanently delete this release candidate draft and all associated files. This action cannot be undone.</p>

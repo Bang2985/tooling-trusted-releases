@@ -65,6 +65,7 @@ class Recorder:
     afresh: bool
     __cached: bool
     __input_hash: str | None
+    __use_check_cache: bool | None
 
     def __init__(
         self,
@@ -86,6 +87,7 @@ class Recorder:
         self.member_problems: dict[sql.CheckResultStatus, int] = {}
         self.__cached = False
         self.__input_hash = None
+        self.__use_check_cache = None
 
         self.project_name = project_name
         self.version_name = version_name
@@ -139,6 +141,7 @@ class Recorder:
             status=status,
             message=message,
             data=data,
+            cached=False,
             input_hash=self.__input_hash,
         )
 
@@ -208,6 +211,9 @@ class Recorder:
         if config.get().DISABLE_CHECK_CACHE:
             return False
 
+        if not await self.use_check_cache():
+            return False
+
         no_cache_file = self.abs_path_base() / ".atr-no-cache"
         if await aiofiles.os.path.exists(no_cache_file):
             return False
@@ -245,6 +251,7 @@ class Recorder:
                     status=cached.status,
                     message=cached.message,
                     data=cached.data,
+                    cached=True,
                     input_hash=self.__input_hash,
                 )
                 data.add(new_result)
@@ -301,6 +308,18 @@ class Recorder:
             primary_rel_path=primary_rel_path,
             member_rel_path=member_rel_path,
         )
+
+    async def use_check_cache(self) -> bool:
+        if self.__use_check_cache is not None:
+            return self.__use_check_cache
+
+        async with db.session() as data:
+            revision = await data.revision(release_name=self.release_name, number=self.revision_number).get()
+        if revision is None:
+            self.__use_check_cache = True
+            return True
+        self.__use_check_cache = revision.use_check_cache
+        return self.__use_check_cache
 
     async def warning(
         self, message: str, data: Any, primary_rel_path: str | None = None, member_rel_path: str | None = None
