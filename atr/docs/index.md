@@ -11,6 +11,7 @@ NOTE: This documentation is a work in progress.
   * `2.1.` [Components](components)
   * `2.2.` [Signing artifacts](signing-artifacts)
   * `2.3.` [License checks](license-checks)
+  * `2.4.` [Check ignores](check-ignores)
 * `3.` [Developer guide](developer-guide)
   * `3.1.` [Running the server](running-the-server)
   * `3.2.` [Overview of the code](overview-of-the-code)

@@ -11,6 +11,7 @@
 * `2.1.` [Components](components)
 * `2.2.` [Signing artifacts](signing-artifacts)
 * `2.3.` [License checks](license-checks)
+* `2.4.` [Check ignores](check-ignores)
 
 **Sections**:
 
