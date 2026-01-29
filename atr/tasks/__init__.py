@@ -31,6 +31,7 @@ import atr.tasks.checks.rat as rat
 import atr.tasks.checks.signature as signature
 import atr.tasks.checks.targz as targz
 import atr.tasks.checks.zipformat as zipformat
+import atr.tasks.distribution as distribution
 import atr.tasks.gha as gha
 import atr.tasks.keys as keys
 import atr.tasks.message as message
@@ -78,6 +79,33 @@ async def clear_scheduled(caller_data: db.Session | None = None) -> None:
 
         await data.execute(delete_stmt)
         await data.commit()
+
+
+async def distribution_status_check(
+    asf_uid: str,
+    caller_data: db.Session | None = None,
+    schedule: datetime.datetime | None = None,
+    schedule_next: bool = False,
+) -> sql.Task:
+    """Queue a workflow status update task."""
+    args = distribution.DistributionStatusCheckArgs(next_schedule_seconds=0, asf_uid=asf_uid)
+    if schedule_next:
+        args.next_schedule_seconds = 2 * 60
+    async with db.ensure_session(caller_data) as data:
+        task = sql.Task(
+            status=sql.TaskStatus.QUEUED,
+            task_type=sql.TaskType.DISTRIBUTION_STATUS,
+            task_args=args.model_dump(),
+            asf_uid=asf_uid,
+            revision_number=None,
+            primary_rel_path=None,
+        )
+        if schedule:
+            task.scheduled = schedule
+        data.add(task)
+        await data.commit()
+        await data.flush()
+        return task
 
 
 async def draft_checks(
@@ -222,6 +250,8 @@ def queued(
 
 def resolve(task_type: sql.TaskType) -> Callable[..., Awaitable[results.Results | None]]:  # noqa: C901
     match task_type:
+        case sql.TaskType.DISTRIBUTION_STATUS:
+            return distribution.status_check
         case sql.TaskType.DISTRIBUTION_WORKFLOW:
             return gha.trigger_workflow
         case sql.TaskType.HASHING_CHECK:

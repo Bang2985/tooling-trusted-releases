@@ -190,6 +190,7 @@ class TaskStatus(str, enum.Enum):
 
 
 class TaskType(str, enum.Enum):
+    DISTRIBUTION_STATUS = "distribution_status"
     DISTRIBUTION_WORKFLOW = "distribution_workflow"
     HASHING_CHECK = "hashing_check"
     KEYS_IMPORT_FILE = "keys_import_file"
@@ -970,8 +971,10 @@ class Distribution(sqlmodel.SQLModel, table=True):
     package: str = sqlmodel.Field(primary_key=True, index=True)
     version: str = sqlmodel.Field(primary_key=True, index=True)
     staging: bool = sqlmodel.Field(default=False)
+    pending: bool = sqlmodel.Field(default=False)
+    retries: int = sqlmodel.Field(default=0)
     upload_date: datetime.datetime | None = sqlmodel.Field(default=None)
-    api_url: str
+    api_url: str | None = sqlmodel.Field(default=None)
     web_url: str | None = sqlmodel.Field(default=None)
     # The API response can be huge, e.g. from npm
     # So we do not store it in the database

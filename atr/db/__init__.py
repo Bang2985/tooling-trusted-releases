@@ -289,6 +289,9 @@ class Session(sqlalchemy.ext.asyncio.AsyncSession):
         owner_namespace: Opt[str] = NOT_SET,
         package: Opt[str] = NOT_SET,
         version: Opt[str] = NOT_SET,
+        pending: Opt[bool] = NOT_SET,
+        _with_release: bool = False,
+        _with_release_project: bool = False,
     ) -> Query[sql.Distribution]:
         query = sqlmodel.select(sql.Distribution)
         if is_defined(release_name):
@@ -301,6 +304,12 @@ class Session(sqlalchemy.ext.asyncio.AsyncSession):
             query = query.where(sql.Distribution.package == package)
         if is_defined(version):
             query = query.where(sql.Distribution.version == version)
+        if is_defined(pending):
+            query = query.where(sql.Distribution.pending == pending)
+        if _with_release_project:
+            query = query.options(joined_load_nested(sql.Distribution.release, sql.Release.project))
+        elif _with_release:
+            query = query.options(joined_load(sql.Distribution.release))
         return Query(self, query)
 
     async def execute_query(self, query: sqlalchemy.sql.expression.Executable) -> sqlalchemy.engine.Result:

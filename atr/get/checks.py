@@ -162,7 +162,7 @@ async def selected_revision(
 
     ongoing_count = await interaction.tasks_ongoing(project_name, version_name, revision_number)
 
-    checks_summary_elem = shared._render_checks_summary(info, project_name, version_name)
+    checks_summary_elem = shared.web._render_checks_summary(info, project_name, version_name)
     checks_summary_html = str(checks_summary_elem) if checks_summary_elem else ""
 
     delete_file_forms: dict[str, str] = {}

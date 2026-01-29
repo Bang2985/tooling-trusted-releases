@@ -39,4 +39,4 @@ async def selected(session: web.Committer, project_name: str, version_name: str)
         ).demand(base.ASFQuartException("Release does not exist", errorcode=404))
     if release.phase != sql.ReleasePhase.RELEASE_CANDIDATE_DRAFT:
         return await mapping.release_as_redirect(session, release)
-    return await shared.check(session, release)
+    return await shared.web.check(session, release)

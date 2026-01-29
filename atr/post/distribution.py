@@ -176,6 +176,7 @@ async def record_form_process_page(
                 release_name=release.name,
                 staging=staging,
                 dd=dd,
+                allow_retries=True,
             )
         except storage.AccessError as e:
             # Instead of calling record_form_page_new, redirect with error message
