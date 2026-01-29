@@ -101,28 +101,24 @@ def _structure_check_core_logic(artifact_path: str) -> dict[str, Any]:
                 return {"error": "Archive is empty"}
 
             base_name = os.path.basename(artifact_path)
-            name_part = base_name.removesuffix(".zip")
-            # # TODO: Airavata has e.g. "-source-release"
-            # # It would be useful if there were a function in analysis.py for stripping these
-            # # But the root directory should probably always match the name of the file sans suffix
-            # # (This would also be easier to implement)
-            # if name_part.endswith(("-src", "-bin", "-dist")):
-            #     name_part = "-".join(name_part.split("-")[:-1])
-            expected_root = name_part
+            basename_from_filename = base_name.removesuffix(".zip")
+            expected_roots = util.permitted_archive_roots(basename_from_filename)
 
             root_dirs, non_rooted_files = _structure_check_core_logic_find_roots(members)
             member_names = [m.name for m in members]
             actual_root, error_msg = _structure_check_core_logic_validate_root(
-                member_names, root_dirs, non_rooted_files, expected_root
+                member_names, root_dirs, non_rooted_files, expected_roots
             )
 
             if error_msg:
+                result_data: dict[str, Any] = {"expected_roots": expected_roots}
                 if error_msg.startswith("Root directory mismatch"):
-                    return {"warning": error_msg}
+                    result_data["warning"] = error_msg
                 else:
-                    return {"error": error_msg}
+                    result_data["error"] = error_msg
+                return result_data
             if actual_root:
-                return {"root_dir": actual_root}
+                return {"root_dir": actual_root, "expected_roots": expected_roots}
             return {"error": "Unknown structure validation error"}
 
     except tarzip.ArchiveMemberLimitExceededError as e:
@@ -148,7 +144,7 @@ def _structure_check_core_logic_find_roots(members: list[tarzip.Member]) -> tupl
 
 
 def _structure_check_core_logic_validate_root(
-    members: list[str], root_dirs: set[str], non_rooted_files: list[str], expected_root: str
+    members: list[str], root_dirs: set[str], non_rooted_files: list[str], expected_roots: list[str]
 ) -> tuple[str | None, str | None]:
     """Validate the identified root structure against expectations."""
     if non_rooted_files:
@@ -159,14 +155,16 @@ def _structure_check_core_logic_validate_root(
         return None, f"Multiple root directories found: {sorted(list(root_dirs))}"
 
     actual_root = next(iter(root_dirs))
-    if actual_root != expected_root:
-        return None, f"Root directory mismatch. Expected '{expected_root}', found '{actual_root}'"
+    if actual_root not in expected_roots:
+        expected_roots_display = "', '".join(expected_roots)
+        return None, f"Root directory mismatch. Expected one of '{expected_roots_display}', found '{actual_root}'"
 
     # Check whether all members are under the correct root directory
+    expected_prefix = f"{actual_root.rstrip('/')}/"
     for member in members:
         if member == actual_root.rstrip("/"):
             continue
-        if not member.startswith(expected_root):
+        if not member.startswith(expected_prefix):
             return None, f"Member found outside expected root directory: {member}"
 
     return actual_root, None

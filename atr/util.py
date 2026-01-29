@@ -57,7 +57,7 @@ import atr.user as user
 
 T = TypeVar("T")
 
-USER_TESTS_ADDRESS: Final[str] = "user-tests@tooling.apache.org"
+ARCHIVE_ROOT_SUFFIXES: Final[tuple[str, ...]] = ("-source", "-src")
 DEV_TEST_MID: Final[str] = "CAH5JyZo8QnWmg9CwRSwWY=GivhXW4NiLyeNJO71FKdK81J5-Uw@mail.gmail.com"
 DEV_THREAD_URLS: Final[dict[str, str]] = {
     "CAH5JyZo8QnWmg9CwRSwWY=GivhXW4NiLyeNJO71FKdK81J5-Uw@mail.gmail.com": "https://lists.apache.org/thread/z0o7xnjnyw2o886rxvvq2ql4rdfn754w",
@@ -70,6 +70,7 @@ DEV_THREAD_URLS: Final[dict[str, str]] = {
     "CADL1oArKFcXvNb1MJfjN=10-yRfKxgpLTRUrdMM1R7ygaTkdYQ@mail.gmail.com": "https://lists.apache.org/thread/d7119h2qm7jrd5zsbp8ghkk0lpvnnxnw",
     "a1507118-88b1-4b7b-923e-7f2b5330fc01@apache.org": "https://lists.apache.org/thread/gzjd2jv7yod5sk5rgdf4x33g5l3fdf5o",
 }
+USER_TESTS_ADDRESS: Final[str] = "user-tests@tooling.apache.org"
 
 
 class SshFingerprintError(ValueError):
@@ -742,6 +743,15 @@ def permitted_announce_recipients(asf_uid: str) -> list[str]:
         USER_TESTS_ADDRESS,
         f"{asf_uid}@apache.org",
     ]
+
+
+def permitted_archive_roots(basename_from_filename: str) -> list[str]:
+    # TODO: Airavata uses "-source-release"
+    for suffix in ARCHIVE_ROOT_SUFFIXES:
+        if basename_from_filename.endswith(suffix):
+            expected_root_base = basename_from_filename.removesuffix(suffix)
+            return [expected_root_base, f"{expected_root_base}{suffix}"]
+    return [basename_from_filename]
 
 
 def permitted_voting_recipients(asf_uid: str, committee_name: str) -> list[str]:

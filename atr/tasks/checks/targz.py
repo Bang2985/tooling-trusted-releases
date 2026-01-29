@@ -23,6 +23,7 @@ import atr.log as log
 import atr.models.results as results
 import atr.tarzip as tarzip
 import atr.tasks.checks as checks
+import atr.util as util
 
 
 class RootDirectoryError(Exception):
@@ -82,24 +83,27 @@ async def structure(args: checks.FunctionArguments) -> results.Results | None:
         return None
 
     filename = artifact_abs_path.name
-    expected_root: Final[str] = (
+    basename_from_filename: Final[str] = (
         filename.removesuffix(".tar.gz") if filename.endswith(".tar.gz") else filename.removesuffix(".tgz")
     )
+    expected_roots: Final[list[str]] = util.permitted_archive_roots(basename_from_filename)
+    expected_roots_display = ", ".join(expected_roots)
     log.info(
-        f"Checking structure for {artifact_abs_path} (expected root: {expected_root}) (rel: {args.primary_rel_path})"
+        "Checking structure for "
+        f"{artifact_abs_path} (expected roots: {expected_roots_display}) (rel: {args.primary_rel_path})"
     )
 
     try:
         root = await asyncio.to_thread(root_directory, str(artifact_abs_path))
-        if root == expected_root:
+        if root in expected_roots:
             await recorder.success(
-                "Archive contains exactly one root directory matching the expected name",
-                {"root": root, "expected": expected_root},
+                "Archive contains exactly one root directory matching an expected name",
+                {"root": root, "basename_from_filename": basename_from_filename, "expected_roots": expected_roots},
             )
         else:
             await recorder.warning(
-                f"Root directory '{root}' does not match expected name '{expected_root}'",
-                {"root": root, "expected": expected_root},
+                f"Root directory '{root}' does not match expected names '{expected_roots_display}'",
+                {"root": root, "basename_from_filename": basename_from_filename, "expected_roots": expected_roots},
             )
     except tarzip.ArchiveMemberLimitExceededError as e:
         await recorder.failure(f"Archive has too many members: {e}", {"error": str(e)})
