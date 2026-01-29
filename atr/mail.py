@@ -16,6 +16,9 @@
 # under the License.
 
 import dataclasses
+import email.headerregistry as headerregistry
+import email.message as message
+import email.policy as policy
 import email.utils as utils
 import ssl
 import time
@@ -47,40 +50,46 @@ class Message:
     in_reply_to: str | None = None
 
 
-async def send(message: Message) -> tuple[str, list[str]]:
+async def send(msg_data: Message) -> tuple[str, list[str]]:
     """Send an email notification about an artifact or a vote."""
-    log.info(f"Sending email for event: {message}")
-    from_addr = message.email_sender
+    log.info(f"Sending email for event: {msg_data}")
+    from_addr = msg_data.email_sender
     if not from_addr.endswith(f"@{global_domain}"):
         raise ValueError(f"from_addr must end with @{global_domain}, got {from_addr}")
-    to_addr = message.email_recipient
+    to_addr = msg_data.email_recipient
     _validate_recipient(to_addr)
 
     # UUID4 is entirely random, with no timestamp nor namespace
     # It does have 6 version and variant bits, so only 122 bits are random
     mid = f"{uuid.uuid4()}@{global_domain}"
-    headers = [
-        f"From: {from_addr}",
-        f"To: {to_addr}",
-        f"Subject: {message.subject}",
-        f"Date: {utils.formatdate(localtime=True)}",
-        f"Message-ID: <{mid}>",
-    ]
-    if message.in_reply_to is not None:
-        headers.append(f"In-Reply-To: <{message.in_reply_to}>")
-        # TODO: Add message.references if necessary
-        headers.append(f"References: <{message.in_reply_to}>")
 
-    # Normalise the body padding and ensure that line endings are CRLF
-    body = message.body.strip()
-    body = body.replace("\r\n", "\n")
-    body = body.replace("\n", "\r\n")
-    body = body + "\r\n"
+    # Use EmailMessage with Address objects for CRLF injection protection
+    msg = message.EmailMessage(policy=policy.SMTPUTF8)
 
-    # Construct the message
-    msg_text = "\r\n".join(headers) + "\r\n\r\n" + body
+    try:
+        from_local, from_domain = _split_address(from_addr)
+        to_local, to_domain = _split_address(to_addr)
+
+        msg["From"] = headerregistry.Address(username=from_local, domain=from_domain)
+        msg["To"] = headerregistry.Address(username=to_local, domain=to_domain)
+        msg["Subject"] = msg_data.subject
+        msg["Date"] = utils.formatdate(usegmt=True)
+        msg["Message-ID"] = f"<{mid}>"
+
+        if msg_data.in_reply_to is not None:
+            msg["In-Reply-To"] = f"<{msg_data.in_reply_to}>"
+            # TODO: Add message.references if necessary
+            msg["References"] = f"<{msg_data.in_reply_to}>"
+    except ValueError as e:
+        log.error(f"SECURITY: CRLF injection attempt detected in email headers: {e}")
+        return mid, [f"CRLF injection detected: {e}"]
+
+    # Set the email body (handles RFC-compliant line endings automatically)
+    msg.set_content(msg_data.body.strip())
 
     start = time.perf_counter()
+    # Convert to string to satisfy the existing _send_many function signature
+    msg_text = msg.as_string()
     log.info(f"sending message: {msg_text}")
 
     errors = await _send_many(from_addr, [to_addr], msg_text)
