@@ -44,7 +44,7 @@ FORBIDDEN_PROJECT_CATEGORIES: Final[set[str]] = {
 # are allowed to start project release.
 # Copied from https://github.com/apache/infrastructure-svnauthzblob/master/gen.py
 # Changed roughly once a year.
-COMMITTERS_MAY_RELEASE_COMMITTEES: Final[frozenset[str] = frozenset(
+COMMITTERS_MAY_RELEASE_COMMITTEES: Final[frozenset[str]] = frozenset(
     {
         'bookkeeper',
         'calcite',
