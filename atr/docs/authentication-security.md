@@ -4,7 +4,7 @@
 
 **Prev**: `3.10.` [How to contribute](how-to-contribute)
 
-**Next**: `3.12.` [Authorization security](security-authorization)
+**Next**: `3.12.` [Authorization security](authorization-security)
 
 **Sections**:
 
@@ -23,7 +23,7 @@ ATR uses two authentication mechanisms depending on the access method:
 * **Web interface**: ASF OAuth provides browser-based sessions
 * **API**: Personal Access Tokens (PATs) authenticate users to obtain short-lived JSON Web Tokens (JWTs), which then authenticate API requests
 
-Both mechanisms require HTTPS. Authentication verifies the identity of users, while authorization (covered in [Authorization security](security-authorization)) determines what actions they can perform.
+Both mechanisms require HTTPS. Authentication verifies the identity of users, while authorization (covered in [Authorization security](authorization-security)) determines what actions they can perform.
 
 ## Transport security
 

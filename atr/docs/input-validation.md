@@ -2,7 +2,7 @@
 
 **Up**: `3.` [Developer guide](developer-guide)
 
-**Prev**: `3.12.` [Authorization security](security-authorization)
+**Prev**: `3.12.` [Authorization security](authorization-security)
 
 **Next**: (none)
 

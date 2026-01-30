@@ -9,7 +9,7 @@
 **Sections**:
 
 * [Python code](#python-code)
-* [Documentation and interfaces](#documentation-and-interfaces)
+* [Documentation and user interfaces](#documentation-and-user-interfaces)
 * [HTML](#html)
 * [Markdown](#markdown)
 * [JavaScript](#javascript)
@@ -258,7 +258,11 @@ This should be adhered to even in contexts where printf style is usually expecte
 
 This convention is not enforced by any checks. Enforcement is via code review. See [issue #339](https://github.com/apache/tooling-trusted-releases/issues/339) for a discussion.
 
-## Documentation and interfaces
+## Documentation and user interfaces
+
+### Keep documentation filenames consistent with the top level heading
+
+For example, a page with the title "This is an example" should be named `this-is-an-example.md`.
 
 ### Use sentence case for headings, form labels, and submission buttons
 

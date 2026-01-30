@@ -2,7 +2,7 @@
 
 **Up**: `3.` [Developer guide](developer-guide)
 
-**Prev**: `3.11.` [Authentication security](security-authentication)
+**Prev**: `3.11.` [Authentication security](authentication-security)
 
 **Next**: `3.13.` [Input validation](input-validation)
 
@@ -20,7 +20,7 @@
 
 ## Overview
 
-ATR uses role-based access control (RBAC) where roles are derived from ASF LDAP group memberships. Authentication (covered in [Authentication security](security-authentication)) establishes *who* a user is; authorization determines *what* they can do.
+ATR uses role-based access control (RBAC) where roles are derived from ASF LDAP group memberships. Authentication (covered in [Authentication security](authentication-security)) establishes *who* a user is; authorization determines *what* they can do.
 
 The authorization model is committee-centric: most permissions are granted based on a user's relationship to a committee (PMC membership) or project (committer status).
 

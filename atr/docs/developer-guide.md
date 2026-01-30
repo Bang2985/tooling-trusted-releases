@@ -18,8 +18,8 @@
 * `3.8.` [Running and creating tests](running-and-creating-tests)
 * `3.9.` [Code conventions](code-conventions)
 * `3.10.` [How to contribute](how-to-contribute)
-* `3.11.` [Authentication security](security-authentication)
-* `3.12.` [Authorization security](security-authorization)
+* `3.11.` [Authentication security](authentication-security)
+* `3.12.` [Authorization security](authorization-security)
 * `3.13.` [Input validation](input-validation)
 
 **Sections**:
@@ -35,8 +35,8 @@ This is a guide for developers of ATR, explaining how to make changes to the ATR
 
 ATR is security-critical infrastructure for the Apache Software Foundation. Before contributing, you should familiarize yourself with our security practices:
 
-* [Authentication security](security-authentication) - How users authenticate to ATR via ASF OAuth and API tokens
-* [Authorization security](security-authorization) - The role-based access control model and LDAP integration
+* [Authentication security](authentication-security) - How users authenticate to ATR via ASF OAuth and API tokens
+* [Authorization security](authorization-security) - The role-based access control model and LDAP integration
 * [Input validation](input-validation) - Data validation patterns and injection prevention
 
 For reporting security vulnerabilities, see [SECURITY.md](https://github.com/apache/tooling-trusted-releases/blob/main/SECURITY.md) in the repository root.
