@@ -20,9 +20,10 @@ import pydantic
 
 import atr.db as db
 import atr.log as log
-import atr.models.distribution as distribution
+import atr.models as models
 import atr.models.results as results
 import atr.models.schema as schema
+import atr.shared.distribution as distribution
 import atr.storage as storage
 import atr.tasks as tasks
 import atr.tasks.checks as checks
@@ -45,7 +46,7 @@ async def status_check(args: DistributionStatusCheckArgs, *, task_id: int | None
         dists = await data.distribution(pending=True, _with_release=True, _with_release_project=True).all()
     for dist in dists:
         name = f"{dist.platform} {dist.owner_namespace} {dist.package} {dist.version}"
-        dd = distribution.Data(
+        dd = models.distribution.Data(
             platform=dist.platform,
             owner_namespace=dist.owner_namespace,
             package=dist.package,
@@ -73,10 +74,9 @@ async def status_check(args: DistributionStatusCheckArgs, *, task_id: int | None
                     dd,
                     allow_retries=True,
                 )
-        except storage.AccessError as e:
+        except (distribution.DistributionError, storage.AccessError) as e:
             msg = f"Failed to record distribution: {e}"
             log.error(msg)
-            raise RuntimeError(msg)
         finally:
             if args.next_schedule_seconds:
                 next_schedule = datetime.datetime.now(datetime.UTC) + datetime.timedelta(
