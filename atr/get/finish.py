@@ -557,7 +557,7 @@ def _render_release_card(release: sql.Release, announce_disable_message: str) ->
                         project_name=release.project.name,
                         version_name=release.version,
                     )
-                    if not announce_disable_message
+                    if (not announce_disable_message)
                     else None,
                 )[
                     htm.icon("check-circle"),

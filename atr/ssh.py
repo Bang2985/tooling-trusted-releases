@@ -357,7 +357,7 @@ def _step_05a_command_path_validate_read(path: str) -> tuple[str, str, str | Non
     if "//" in path:
         raise RsyncArgsError("The path argument should not contain //")
 
-    if path.count("/") < 3 or path.count("/") > 4:
+    if (path.count("/") < 3) or (path.count("/") > 4):
         raise RsyncArgsError("The path argument should be a /PROJECT/VERSION/(tag)/ directory path")
 
     path_project, path_version, *rest = path.strip("/").split("/", 2)
@@ -452,7 +452,7 @@ async def _step_06a_validate_read_permissions(
         )
 
     if tag:
-        if not release.project.release_policy or (not release.project.release_policy.file_tag_mappings):
+        if (not release.project.release_policy) or (not release.project.release_policy.file_tag_mappings):
             raise RsyncArgsError(f"Release '{release.name}' does not support tags")
         tags = release.project.release_policy.file_tag_mappings.keys()
         if tag not in tags:
