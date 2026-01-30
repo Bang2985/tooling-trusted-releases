@@ -33,6 +33,9 @@ import atr.util as util
 from atr.storage import outcome
 
 
+class DistributionError(RuntimeError): ...
+
+
 class DistributionPlatform(enum.Enum):
     """Wrapper enum for distribution platforms."""
 
@@ -150,7 +153,7 @@ async def json_from_distribution_platform(
     match platform:
         case sql.DistributionPlatform.NPM | sql.DistributionPlatform.NPM_SCOPED:
             if version not in distribution.NpmResponse.model_validate(result).time:
-                e = RuntimeError(f"Version '{version}' not found")
+                e = DistributionError(f"Version '{version}' not found")
                 return outcome.Error(e)
     return outcome.Result(result)
 
@@ -240,13 +243,13 @@ async def json_from_maven_xml(api_url: str, version: str) -> outcome.Outcome[bas
         artifact = root.find("artifactId")
         versioning = root.find("versioning")
         if versioning is None:
-            e = RuntimeError("No versioning element found in Maven metadata")
+            e = DistributionError("No versioning element found in Maven metadata")
             return outcome.Error(e)
 
         # Get lastUpdated timestamp (format: yyyyMMddHHmmss)
         last_updated_elem = versioning.find("lastUpdated")
         if (last_updated_elem is None) or (not last_updated_elem.text):
-            e = RuntimeError("No lastUpdated timestamp found in Maven metadata")
+            e = DistributionError("No lastUpdated timestamp found in Maven metadata")
             return outcome.Error(e)
 
         # Convert lastUpdated string to Unix timestamp in milliseconds
@@ -260,7 +263,7 @@ async def json_from_maven_xml(api_url: str, version: str) -> outcome.Outcome[bas
         if versions_elem is not None:
             versions = [v.text for v in versions_elem.findall("version") if v.text]
             if version not in versions:
-                e = RuntimeError(f"Version '{version}' not found in Maven metadata")
+                e = DistributionError(f"Version '{version}' not found in Maven metadata")
                 return outcome.Error(e)
 
         # Convert to dict matching MavenResponse structure
@@ -279,7 +282,7 @@ async def json_from_maven_xml(api_url: str, version: str) -> outcome.Outcome[bas
         }
         result = basic.as_json(result_dict)
         return outcome.Result(result)
-    except aiohttp.ClientError as e:
+    except (aiohttp.ClientError, DistributionError) as e:
         return outcome.Error(e)
     except ET.ParseError as e:
         return outcome.Error(RuntimeError(f"Failed to parse Maven XML: {e}"))
