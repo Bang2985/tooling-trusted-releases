@@ -71,7 +71,7 @@ async def selected(
     if policy and policy.file_tag_mappings:
         missing = []
         tags = policy.file_tag_mappings.keys()
-        distributions = [d.platform.value.gh_slug for d in release.distributions if (not d.staging)]
+        distributions = [d.platform.value.gh_slug for d in release.distributions if (not d.staging) and (not d.pending)]
         for tag in tags:
             if tag not in distributions:
                 missing.append(tag)
