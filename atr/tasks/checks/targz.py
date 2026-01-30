@@ -51,9 +51,10 @@ async def integrity(args: checks.FunctionArguments) -> results.Results | None:
     return None
 
 
-def root_directory(tgz_path: str) -> str:
-    """Find the root directory in a tar archive and validate that it has only one root dir."""
+def root_directory(tgz_path: str) -> tuple[str, bytes | None]:  # noqa: C901
+    """Find root directory and extract package/package.json if found."""
     root = None
+    package_json: bytes | None = None
 
     with tarzip.open_archive(tgz_path) as archive:
         for member in archive:
@@ -63,18 +64,30 @@ def root_directory(tgz_path: str) -> str:
 
             parts = member.name.split("/", 1)
             if len(parts) >= 1:
-                if not root:
+                if root is None:
                     root = parts[0]
                 elif parts[0] != root:
                     raise RootDirectoryError(f"Multiple root directories found: {root}, {parts[0]}")
 
+            if (root == "package") and (package_json is None):
+                member_name = member.name.lstrip("./")
+                if (member_name == "package/package.json") and member.isfile():
+                    size = member.size if hasattr(member, "size") else 0
+                    if (size > 0) and (size <= util.NPM_PACKAGE_JSON_MAX_SIZE):
+                        f = archive.extractfile(member)
+                        if f is not None:
+                            try:
+                                package_json = f.read()
+                            finally:
+                                f.close()
+
     if not root:
         raise RootDirectoryError("No root directory found in archive")
 
-    return root
+    return root, package_json
 
 
-async def structure(args: checks.FunctionArguments) -> results.Results | None:
+async def structure(args: checks.FunctionArguments) -> results.Results | None:  # noqa: C901
     """Check the structure of a .tar.gz file."""
     recorder = await args.recorder()
     if not (artifact_abs_path := await recorder.abs_path()):
@@ -94,16 +107,42 @@ async def structure(args: checks.FunctionArguments) -> results.Results | None:
     )
 
     try:
-        root = await asyncio.to_thread(root_directory, str(artifact_abs_path))
+        root, package_json = await asyncio.to_thread(root_directory, str(artifact_abs_path))
+        data: dict[str, object] = {
+            "root": root,
+            "basename_from_filename": basename_from_filename,
+            "expected_roots": expected_roots,
+        }
         if root in expected_roots:
-            await recorder.success(
-                "Archive contains exactly one root directory matching an expected name",
-                {"root": root, "basename_from_filename": basename_from_filename, "expected_roots": expected_roots},
-            )
+            await recorder.success("Archive contains exactly one root directory matching an expected name", data)
+        elif root == "package":
+            if package_json is not None:
+                npm_info, npm_error = util.parse_npm_pack_info(package_json, basename_from_filename)
+                if npm_info is not None:
+                    data["npm_pack"] = {
+                        "name": npm_info.name,
+                        "version": npm_info.version,
+                        "filename_match": npm_info.filename_match,
+                    }
+                    if npm_info.filename_match is False:
+                        await recorder.warning(
+                            "npm pack layout detected but filename does not match package.json", data
+                        )
+                    else:
+                        await recorder.success("npm pack layout detected, allowing package/ root", data)
+                else:
+                    if npm_error is not None:
+                        data["npm_pack_error"] = npm_error
+                    await recorder.warning(
+                        f"Root directory '{root}' does not match expected names '{expected_roots_display}'", data
+                    )
+            else:
+                await recorder.warning(
+                    f"Root directory '{root}' does not match expected names '{expected_roots_display}'", data
+                )
         else:
             await recorder.warning(
-                f"Root directory '{root}' does not match expected names '{expected_roots_display}'",
-                {"root": root, "basename_from_filename": basename_from_filename, "expected_roots": expected_roots},
+                f"Root directory '{root}' does not match expected names '{expected_roots_display}'", data
             )
     except tarzip.ArchiveMemberLimitExceededError as e:
         await recorder.failure(f"Archive has too many members: {e}", {"error": str(e)})

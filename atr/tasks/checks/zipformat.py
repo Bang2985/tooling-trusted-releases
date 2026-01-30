@@ -92,11 +92,27 @@ def _integrity_check_core_logic(artifact_path: str) -> dict[str, Any]:
         return {"error": f"Unexpected error: {e}"}
 
 
-def _structure_check_core_logic(artifact_path: str) -> dict[str, Any]:
+def _structure_check_core_logic(artifact_path: str) -> dict[str, Any]:  # noqa: C901
     """Verify the internal structure of the zip archive."""
     try:
         with tarzip.open_archive(artifact_path) as archive:
-            members: list[tarzip.Member] = list(archive)
+            members: list[tarzip.Member] = []
+            package_json: bytes | None = None
+
+            for member in archive:
+                members.append(member)
+                if package_json is None:
+                    member_name = member.name.lstrip("./")
+                    if (member_name == "package/package.json") and member.isfile():
+                        size = member.size if hasattr(member, "size") else 0
+                        if (size > 0) and (size <= util.NPM_PACKAGE_JSON_MAX_SIZE):
+                            f = archive.extractfile(member)
+                            if f is not None:
+                                try:
+                                    package_json = f.read()
+                                finally:
+                                    f.close()
+
             if not members:
                 return {"error": "Archive is empty"}
 
@@ -110,7 +126,22 @@ def _structure_check_core_logic(artifact_path: str) -> dict[str, Any]:
                 member_names, root_dirs, non_rooted_files, expected_roots
             )
 
-            if error_msg:
+            if error_msg is not None:
+                if (actual_root == "package") and (package_json is not None):
+                    npm_info, _ = util.parse_npm_pack_info(package_json, basename_from_filename)
+                    if npm_info is not None:
+                        npm_data: dict[str, Any] = {
+                            "root_dir": actual_root,
+                            "expected_roots": expected_roots,
+                            "npm_pack": {
+                                "name": npm_info.name,
+                                "version": npm_info.version,
+                                "filename_match": npm_info.filename_match,
+                            },
+                        }
+                        if npm_info.filename_match is False:
+                            npm_data["warning"] = "npm pack layout detected but filename does not match package.json"
+                        return npm_data
                 result_data: dict[str, Any] = {"expected_roots": expected_roots}
                 if error_msg.startswith("Root directory mismatch"):
                     result_data["warning"] = error_msg
@@ -157,7 +188,10 @@ def _structure_check_core_logic_validate_root(
     actual_root = next(iter(root_dirs))
     if actual_root not in expected_roots:
         expected_roots_display = "', '".join(expected_roots)
-        return None, f"Root directory mismatch. Expected one of '{expected_roots_display}', found '{actual_root}'"
+        return (
+            actual_root,
+            f"Root directory mismatch. Expected one of '{expected_roots_display}', found '{actual_root}'",
+        )
 
     # Check whether all members are under the correct root directory
     expected_prefix = f"{actual_root.rstrip('/')}/"

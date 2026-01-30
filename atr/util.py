@@ -70,7 +70,15 @@ DEV_THREAD_URLS: Final[dict[str, str]] = {
     "CADL1oArKFcXvNb1MJfjN=10-yRfKxgpLTRUrdMM1R7ygaTkdYQ@mail.gmail.com": "https://lists.apache.org/thread/d7119h2qm7jrd5zsbp8ghkk0lpvnnxnw",
     "a1507118-88b1-4b7b-923e-7f2b5330fc01@apache.org": "https://lists.apache.org/thread/gzjd2jv7yod5sk5rgdf4x33g5l3fdf5o",
 }
+NPM_PACKAGE_JSON_MAX_SIZE: Final[int] = 512 * 1024
 USER_TESTS_ADDRESS: Final[str] = "user-tests@tooling.apache.org"
+
+
+@dataclasses.dataclass(frozen=True)
+class NpmPackInfo:
+    name: str
+    version: str
+    filename_match: bool | None
 
 
 class SshFingerprintError(ValueError):
@@ -701,6 +709,20 @@ def parse_key_blocks_bytes(keys_data: bytes) -> list[str]:
     return key_blocks
 
 
+def parse_npm_pack_info(raw: bytes, filename_basename: str | None = None) -> tuple[NpmPackInfo | None, str | None]:
+    """Parse npm pack info from package.json content."""
+    parsed, error = _npm_pack_parse_package_json(raw)
+    if (error is not None) or (parsed is None):
+        return None, error
+
+    name, version, error = _npm_pack_extract_name_version(parsed)
+    if (error is not None) or (name is None) or (version is None):
+        return None, error
+
+    filename_match = _npm_pack_filename_match(filename_basename, name, version)
+    return NpmPackInfo(name=name, version=version, filename_match=filename_match), None
+
+
 async def paths_recursive(base_path: pathlib.Path) -> AsyncGenerator[pathlib.Path]:
     """Yield all file paths recursively within a base path, relative to the base path."""
     if (resolved_base_path := await is_dir_resolve(base_path)) is None:
@@ -1157,6 +1179,43 @@ def _generate_hexdump(data: bytes) -> str:
         line_num = f"{i:08x}"
         hex_lines.append(f"{line_num}  {hex_part_spaced}  |{ascii_part}|")
     return "\n".join(hex_lines)
+
+
+def _npm_pack_extract_name_version(parsed: dict[str, Any]) -> tuple[str | None, str | None, str | None]:
+    name = parsed.get("name")
+    version = parsed.get("version")
+
+    if (not isinstance(name, str)) or (not name.strip()):
+        return None, None, "package/package.json missing or invalid 'name'"
+    if (not isinstance(version, str)) or (not version.strip()):
+        return None, None, "package/package.json missing or invalid 'version'"
+
+    return name.strip(), version.strip(), None
+
+
+def _npm_pack_filename_match(filename_basename: str | None, name: str, version: str) -> bool | None:
+    if not filename_basename:
+        return None
+    if "/" in name:
+        return None
+    return filename_basename == f"{name}-{version}"
+
+
+def _npm_pack_parse_package_json(raw: bytes) -> tuple[dict[str, Any] | None, str | None]:
+    try:
+        payload = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return None, "package/package.json is not valid UTF-8"
+
+    try:
+        parsed = json.loads(payload)
+    except json.JSONDecodeError as exc:
+        return None, f"package/package.json is not valid JSON: {exc}"
+
+    if not isinstance(parsed, dict):
+        return None, "package/package.json is not a JSON object"
+
+    return parsed, None
 
 
 def _thread_messages_walk(node: dict[str, Any] | None, message_ids: set[str]) -> None:
