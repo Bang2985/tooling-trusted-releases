@@ -14,7 +14,7 @@
 
 ## Overview
 
-Check ignores let committee members hide specific check results in the UI. Ignored checks are removed from the warning and error counts shown on the checks pages and are shown separately in _Ignored checks_ sections.
+Check ignores let project committee members hide specific check results in the UI. Ignored checks are removed from the warning and error counts shown on the checks pages and are shown separately in _Ignored checks_ sections.
 
 ### Where to manage ignores
 
@@ -22,7 +22,7 @@ You can manage ignores from the release checks page by selecting _Manage check i
 
 ### Permissions and visibility
 
-Any committer can view the ignores page for a committee, but only committee members can add, update, or delete ignores. Ignores are stored per committee and apply only to that committee's releases. (We intend to update this so that ignores are stored per project instead.)
+Any committer can view the ignores page for a project, but only committee members can add, update, or delete ignores. Ignores are stored per project and apply only to that project's releases.
 
 Please note that on the release checks page, the _Ignored checks_ list includes primary check results only; archive member checks are not shown there. On the per-file report page, the _Ignored checks_ list can include member checks for that file.
 
@@ -58,7 +58,7 @@ Negation and missing values are handled with a leading exclamation mark. Prefix 
 
 ## Examples
 
-To ignore all RAT warnings for your committee, set the checker pattern to `atr.tasks.checks.rat.check` and the status to `Warning`.
+To ignore all RAT warnings for your project, set the checker pattern to `atr.tasks.checks.rat.check` and the status to `Warning`.
 
 To ignore license header failures for a specific release series, set the release pattern to `apache-example-1.2.*`, the checker pattern to `atr.tasks.checks.license.headers`, and the status to `Failure`.
 

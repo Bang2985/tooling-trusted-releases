@@ -46,6 +46,8 @@ The write session takes an optional [`Committer`](/ref/atr/web.py:Committer) or 
 
 Because projects belong to committees, we provide [`write.as_project_committee_member(project_name)`](/ref/atr/storage/__init__.py:as_project_committee_member) and [`write.as_project_committee_participant(project_name)`](/ref/atr/storage/__init__.py:as_project_committee_participant), which look up the project's committee and authenticate the user as a member or participant of that committee. This is convenient when, for example, the URL provides a project name.
 
+Some storage writers perform additional authorization validation beyond what `as_project_committee_member` provides. The check ignores writer, for example, validates that the target project belongs to the committee for which the user is authorized. Therefore even if a caller mistakenly passes an incorrect project name, the writer will reject the operation.
+
 Here is a more complete example from [`api/__init__.py`](/ref/atr/api/__init__.py) that shows the classic three step pattern:
 
 ```python
