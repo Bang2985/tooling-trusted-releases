@@ -1,10 +1,10 @@
-# 2.3. License checks
+# 2.4. License checks
 
 **Up**: `2.` [User guide](user-guide)
 
-**Prev**: `2.2.` [Signing artifacts](signing-artifacts)
+**Prev**: `2.3.` [Checks](checks)
 
-**Next**: `2.4.` [Check ignores](check-ignores)
+**Next**: `2.5.` [Check ignores](check-ignores)
 
 **Sections**:
 

@@ -1,8 +1,8 @@
-# 2.4. Check ignores
+# 2.5. Check ignores
 
 **Up**: `2.` [User guide](user-guide)
 
-**Prev**: `2.3.` [License checks](license-checks)
+**Prev**: `2.4.` [License checks](license-checks)
 
 **Next**: `3.1.` [Running the server](running-the-server)
 

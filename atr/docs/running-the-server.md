@@ -2,7 +2,7 @@
 
 **Up**: `3.` [Developer guide](developer-guide)
 
-**Prev**: `2.4.` [Check ignores](check-ignores)
+**Prev**: `2.5.` [Check ignores](check-ignores)
 
 **Next**: `3.2.` [Overview of the code](overview-of-the-code)
 
