@@ -85,15 +85,12 @@ class FileStats(NamedTuple):
 
 async def get_file_totals(release: sql.Release, session: web.Committer | None) -> FileStats:
     """Get file level check totals after ignores are applied."""
-    if release.committee is None:
-        raise ValueError("Release has no committee")
-
     base_path = util.release_directory(release)
     paths = [path async for path in util.paths_recursive(base_path)]
 
     async with storage.read(session) as read:
         ragp = read.as_general_public()
-        match_ignore = await ragp.checks.ignores_matcher(release.committee.name)
+        match_ignore = await ragp.checks.ignores_matcher(release.project_name)
 
     _, totals = await _compute_stats(release, paths, match_ignore)
     return totals
@@ -119,7 +116,7 @@ async def selected(session: web.Committer | None, project_name: str, version_nam
 
     async with storage.read(session) as read:
         ragp = read.as_general_public()
-        match_ignore = await ragp.checks.ignores_matcher(release.committee.name)
+        match_ignore = await ragp.checks.ignores_matcher(release.project_name)
 
     per_file_stats, totals = await _compute_stats(release, paths, match_ignore)
 
@@ -510,16 +507,13 @@ def _render_header(page: htm.Block, release: sql.Release) -> None:
 
 
 def _render_ignores_section(page: htm.Block, release: sql.Release) -> None:
-    if release.committee is None:
-        return
-
     # TODO: We should choose a consistent " ..." or "... " style
     page.h2["Check ignores"]
     page.p[
-        "Committee members can configure rules to ignore specific check results. "
+        "Project committee members can configure rules to ignore specific check results. "
         "Ignored checks are excluded from the counts shown above.",
     ]
-    ignores_url = util.as_url(ignores.ignores, committee_name=release.committee.name)
+    ignores_url = util.as_url(ignores.ignores, project_name=release.project.name)
     page.div[htpy.a(".btn.btn-outline-primary", href=ignores_url)["Manage check ignores"],]
 
 

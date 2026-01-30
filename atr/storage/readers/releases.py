@@ -115,10 +115,7 @@ class GeneralPublic:
     async def __successes_errors_warnings(
         self, release: sql.Release, latest_revision_number: str, info: types.PathInfo
     ) -> None:
-        if release.committee is None:
-            raise ValueError("Release has no committee - Invalid state")
-
-        match_ignore = await self.__read_as.checks.ignores_matcher(release.committee.name)
+        match_ignore = await self.__read_as.checks.ignores_matcher(release.project_name)
 
         cs = types.ChecksSubset(
             release=release,

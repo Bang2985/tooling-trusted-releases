@@ -45,8 +45,6 @@ class GeneralPublic:
         self.__asf_uid = read.authorisation.asf_uid
 
     async def by_release_path(self, release: sql.Release, rel_path: pathlib.Path) -> types.CheckResults:
-        if release.committee is None:
-            raise ValueError("Release has no committee - Invalid state")
         if release.latest_revision_number is None:
             raise ValueError("Release has no revision - Invalid state")
 
@@ -63,7 +61,7 @@ class GeneralPublic:
         # Filter out any results that are ignored
         unignored_checks = []
         ignored_checks = []
-        match_ignore = await self.ignores_matcher(release.committee.name)
+        match_ignore = await self.ignores_matcher(release.project_name)
         for cr in all_check_results:
             if not match_ignore(cr):
                 unignored_checks.append(cr)
@@ -87,18 +85,18 @@ class GeneralPublic:
             member_results_list[member_rel_path].sort(key=lambda r: r.checker)
         return types.CheckResults(primary_results_list, member_results_list, ignored_checks)
 
-    async def ignores(self, committee_name: str) -> list[sql.CheckResultIgnore]:
+    async def ignores(self, project_name: str) -> list[sql.CheckResultIgnore]:
         results = await self.__data.check_result_ignore(
-            committee_name=committee_name,
+            project_name=project_name,
         ).all()
         return list(results)
 
     async def ignores_matcher(
         self,
-        committee_name: str,
+        project_name: str,
     ) -> Callable[[sql.CheckResult], bool]:
         ignores = await self.__data.check_result_ignore(
-            committee_name=committee_name,
+            project_name=project_name,
         ).all()
 
         def match(cr: sql.CheckResult) -> bool:
@@ -111,7 +109,7 @@ class GeneralPublic:
         return match
 
     def __check_ignore_match(self, cr: sql.CheckResult, cri: sql.CheckResultIgnore) -> bool:
-        # Does not check that the committee name matches
+        # Does not check that the project name matches
         if cr.status == sql.CheckResultStatus.SUCCESS:
             # Successes are never ignored
             return False

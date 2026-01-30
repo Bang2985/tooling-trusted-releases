@@ -396,8 +396,9 @@ async def ignore_add(data: models.api.IgnoreAddArgs) -> DictResponse:
     if not any(data.model_dump().values()):
         raise exceptions.BadRequest("At least one field must be provided")
     async with storage.write(asf_uid) as write:
-        wacm = write.as_committee_member(data.committee_name)
+        wacm = await write.as_project_committee_member(data.project_name)
         await wacm.checks.ignore_add(
+            data.project_name,
             data.release_glob,
             data.revision_number,
             data.checker_glob,
@@ -425,7 +426,7 @@ async def ignore_delete(data: models.api.IgnoreDeleteArgs) -> DictResponse:
     if not any(data.model_dump().values()):
         raise exceptions.BadRequest("At least one field must be provided")
     async with storage.write(asf_uid) as write:
-        wacm = write.as_committee_member(data.committee)
+        wacm = await write.as_project_committee_member(data.project_name)
         # TODO: This is more like discard
         # Should potentially check for rowcount, and raise an error if it's 0
         await wacm.checks.ignore_delete(data.id)
@@ -436,15 +437,15 @@ async def ignore_delete(data: models.api.IgnoreDeleteArgs) -> DictResponse:
 
 
 # TODO: Rename to ignores
-@api.route("/ignore/list/<committee_name>")
+@api.route("/ignore/list/<project_name>")
 @quart_schema.validate_response(models.api.IgnoreListResults, 200)
-async def ignore_list(committee_name: str) -> DictResponse:
+async def ignore_list(project_name: str) -> DictResponse:
     """
-    List ignores by committee name.
+    List ignores by project name.
     """
-    _simple_check(committee_name)
+    _simple_check(project_name)
     async with db.session() as data:
-        ignores = await data.check_result_ignore(committee_name=committee_name).all()
+        ignores = await data.check_result_ignore(project_name=project_name).all()
     return models.api.IgnoreListResults(
         endpoint="/ignore/list",
         ignores=ignores,

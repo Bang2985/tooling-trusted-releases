@@ -164,7 +164,7 @@ class DistributionRecordResults(schema.Strict):
 
 
 class IgnoreAddArgs(schema.Strict):
-    committee_name: str = schema.example("example")
+    project_name: str = schema.example("example")
     release_glob: str | None = schema.default_example(None, "example-0.0.*")
     revision_number: str | None = schema.default_example(None, "00001")
     checker_glob: str | None = schema.default_example(None, "atr.tasks.checks.license.files")
@@ -194,7 +194,7 @@ class IgnoreAddResults(schema.Strict):
 
 
 class IgnoreDeleteArgs(schema.Strict):
-    committee: str = schema.example("example")
+    project_name: str = schema.example("example")
     id: int = schema.example(1)
 
 

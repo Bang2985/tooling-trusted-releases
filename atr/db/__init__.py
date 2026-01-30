@@ -196,7 +196,7 @@ class Session(sqlalchemy.ext.asyncio.AsyncSession):
 
     def check_result_ignore(
         self,
-        committee_name: Opt[str] = NOT_SET,
+        project_name: Opt[str] = NOT_SET,
         release_glob: Opt[str] = NOT_SET,
         revision_number: Opt[str] = NOT_SET,
         checker_glob: Opt[str] = NOT_SET,
@@ -207,8 +207,8 @@ class Session(sqlalchemy.ext.asyncio.AsyncSession):
     ) -> Query[sql.CheckResultIgnore]:
         query = sqlmodel.select(sql.CheckResultIgnore)
 
-        if is_defined(committee_name):
-            query = query.where(sql.CheckResultIgnore.committee_name == committee_name)
+        if is_defined(project_name):
+            query = query.where(sql.CheckResultIgnore.project_name == project_name)
         if is_defined(release_glob):
             query = query.where(sql.CheckResultIgnore.release_glob == release_glob)
         if is_defined(revision_number):

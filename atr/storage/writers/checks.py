@@ -99,6 +99,7 @@ class CommitteeMember(CommitteeParticipant):
 
     async def ignore_add(
         self,
+        project_name: str,
         release_glob: str | None = None,
         revision_number: str | None = None,
         checker_glob: str | None = None,
@@ -107,6 +108,7 @@ class CommitteeMember(CommitteeParticipant):
         status: sql.CheckResultStatusIgnore | None = None,
         message_glob: str | None = None,
     ) -> None:
+        await self.__validate_project_in_committee(project_name)
         _validate_ignore_patterns(
             release_glob,
             checker_glob,
@@ -117,7 +119,7 @@ class CommitteeMember(CommitteeParticipant):
         cri = sql.CheckResultIgnore(
             asf_uid=self.__asf_uid,
             created=datetime.datetime.now(datetime.UTC),
-            committee_name=self.__committee_name,
+            project_name=project_name,
             release_glob=release_glob,
             revision_number=revision_number,
             checker_glob=checker_glob,
@@ -134,6 +136,10 @@ class CommitteeMember(CommitteeParticipant):
         )
 
     async def ignore_delete(self, id: int) -> None:
+        cri = await self.__data.get(sql.CheckResultIgnore, id)
+        if cri is None:
+            raise storage.AccessError(f"Ignore {id} not found")
+        await self.__validate_project_in_committee(cri.project_name)
         via = sql.validate_instrumented_attribute
         await self.__data.execute(sqlmodel.delete(sql.CheckResultIgnore).where(via(sql.CheckResultIgnore.id) == id))
         await self.__data.commit()
@@ -153,6 +159,10 @@ class CommitteeMember(CommitteeParticipant):
         status: sql.CheckResultStatusIgnore | None = None,
         message_glob: str | None = None,
     ) -> None:
+        cri = await self.__data.get(sql.CheckResultIgnore, id)
+        if cri is None:
+            raise storage.AccessError(f"Ignore {id} not found")
+        await self.__validate_project_in_committee(cri.project_name)
         _validate_ignore_patterns(
             release_glob,
             checker_glob,
@@ -160,9 +170,6 @@ class CommitteeMember(CommitteeParticipant):
             member_rel_path_glob,
             message_glob,
         )
-        cri = await self.__data.get(sql.CheckResultIgnore, id)
-        if cri is None:
-            raise storage.AccessError(f"Ignore {id} not found")
         # The updating ASF UID is now responsible for the whole ignore
         cri.asf_uid = self.__asf_uid
         cri.release_glob = release_glob
@@ -177,3 +184,10 @@ class CommitteeMember(CommitteeParticipant):
             asf_uid=self.__asf_uid,
             cri=cri.model_dump_json(exclude_none=True),
         )
+
+    async def __validate_project_in_committee(self, project_name: str) -> None:
+        project = await self.__data.project(project_name, _committee=True).get()
+        if project is None:
+            raise storage.AccessError(f"Project {project_name} not found")
+        if project.committee_name != self.__committee_name:
+            raise storage.AccessError(f"Project {project_name} is not in committee {self.__committee_name}")

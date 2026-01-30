@@ -27,24 +27,24 @@ import atr.util as util
 import atr.web as web
 
 
-@get.committer("/ignores/<committee_name>")
-async def ignores(session: web.Committer, committee_name: str) -> str | web.WerkzeugResponse:
+@get.committer("/ignores/<project_name>")
+async def ignores(session: web.Committer, project_name: str) -> str | web.WerkzeugResponse:
     async with storage.read() as read:
         ragp = read.as_general_public()
-        ignores = await ragp.checks.ignores(committee_name)
+        ignores = await ragp.checks.ignores(project_name)
 
     content = htm.div[
         htm.h1["Ignored checks"],
-        htm.p[f"Manage ignored checks for committee {committee_name}."],
-        _add_ignore(committee_name),
+        htm.p[f"Manage ignored checks for project {project_name}."],
+        _add_ignore(project_name),
         _existing_ignores(ignores),
     ]
 
     return await template.blank("Ignored checks", content, javascripts=["ignore-form-change"])
 
 
-def _add_ignore(committee_name: str) -> htm.Element:
-    form_path = util.as_url(post.ignores.ignores, committee_name=committee_name)
+def _add_ignore(project_name: str) -> htm.Element:
+    form_path = util.as_url(post.ignores.ignores, project_name=project_name)
     block = htm.Block(htm.div)
     block.h2["Add ignore"]
     block.p["Add a new ignore for a check result."]
@@ -65,7 +65,7 @@ def _check_result_ignore_card(cri: sql.CheckResultIgnore) -> htm.Element:
 
     # Update form
     update_form_block = htm.Block(htm.div)
-    form_path_update = util.as_url(post.ignores.ignores, committee_name=cri.committee_name)
+    form_path_update = util.as_url(post.ignores.ignores, project_name=cri.project_name)
     status = shared.ignores.sql_to_ignore_status(cri.status)
     form.render_block(
         update_form_block,

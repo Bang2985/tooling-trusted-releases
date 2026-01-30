@@ -946,7 +946,7 @@ class CheckResultIgnore(sqlmodel.SQLModel, table=True):
         sa_column=sqlalchemy.Column(UTCDateTime),
         **example(datetime.datetime(2025, 5, 1, 1, 2, 3, tzinfo=datetime.UTC)),
     )
-    committee_name: str = sqlmodel.Field(**example("example"))
+    project_name: str = sqlmodel.Field(foreign_key="project.name", **example("example"))
     release_glob: str | None = sqlmodel.Field(**example("example-0.0.*"))
     revision_number: str | None = sqlmodel.Field(**example("00001"))
     checker_glob: str | None = sqlmodel.Field(**example("atr.tasks.checks.license.files"))
