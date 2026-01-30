@@ -174,6 +174,7 @@ class CommitteeMember(CommitteeParticipant):
                 owner_namespace,
                 package,
                 version,
+                pending,
                 upload_date,
                 api_url,
                 web_url,
@@ -221,8 +222,7 @@ class CommitteeMember(CommitteeParticipant):
                         api_url=None,
                         web_url=None,
                     )
-                    if added:
-                        return dist, added, None
+                    return dist, added, None
                 raise storage.AccessError(f"Failed to get API response from distribution platform: {error}")
         upload_date = distribution.distribution_upload_date(dd.platform, result, dd.version)
         if upload_date is None:
@@ -255,6 +255,7 @@ class CommitteeMember(CommitteeParticipant):
         owner_namespace: str | None,
         package: str,
         version: str,
+        pending: bool,
         upload_date: datetime.datetime | None,
         api_url: str | None,
         web_url: str | None,
@@ -269,6 +270,7 @@ class CommitteeMember(CommitteeParticipant):
         ).demand(RuntimeError(f"Distribution {tag} not found"))
         if existing.staging:
             existing.staging = False
+            existing.pending = pending
             existing.upload_date = upload_date
             existing.api_url = api_url
             existing.web_url = web_url
