@@ -332,11 +332,13 @@ async def distribution_record(data: models.api.DistributionRecordArgs) -> DictRe
     )
     async with storage.write(asf_uid) as write:
         wacm = write.as_committee_member(release.committee.name)
-        await wacm.distributions.record_from_data(
+        _dist, _added, metadata = await wacm.distributions.record_from_data(
             release.name,
             data.staging,
             dd,
         )
+        if metadata is None:
+            raise exceptions.FailedDependency("Distribution could not be found, ATR will retry this automatically")
 
     return models.api.DistributionRecordResults(
         endpoint="/distribution/record",
@@ -368,13 +370,12 @@ async def distribution_record_from_workflow(data: models.api.DistributionRecordF
         version=data.distribution_version,
         details=data.details,
     )
-    async with storage.write(asf_uid) as write:
-        wacm = write.as_committee_member(release.committee.name)
-        await wacm.distributions.record_from_data(
-            release.name,
-            data.staging,
-            dd,
+    async with storage.write_as_committee_member(release.committee.name, asf_uid) as wacm:
+        _dist, _added, metadata = await wacm.distributions.record_from_data(
+            release.name, data.staging, dd, allow_retries=True
         )
+        if metadata is None:
+            log.warning("Distribution could not be found, ATR will retry this automatically")
 
     return models.api.DistributionRecordFromWorkflowResults(
         endpoint="/distribute/record_from_workflow",

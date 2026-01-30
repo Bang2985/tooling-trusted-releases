@@ -197,7 +197,7 @@ class CommitteeMember(CommitteeParticipant):
         staging: bool,
         dd: models.distribution.Data,
         allow_retries: bool = False,
-    ) -> tuple[models.sql.Distribution, bool, models.distribution.Metadata]:
+    ) -> tuple[models.sql.Distribution, bool, models.distribution.Metadata | None]:
         api_url = distribution.get_api_url(dd, staging)
         if dd.platform == models.sql.DistributionPlatform.MAVEN:
             api_oc = await distribution.json_from_maven_xml(api_url, dd.version)
@@ -222,7 +222,7 @@ class CommitteeMember(CommitteeParticipant):
                         web_url=None,
                     )
                     if added:
-                        raise storage.AccessError("Distribution could not be found, ATR will retry this automatically")
+                        return dist, added, None
                 raise storage.AccessError(f"Failed to get API response from distribution platform: {error}")
         upload_date = distribution.distribution_upload_date(dd.platform, result, dd.version)
         if upload_date is None:
