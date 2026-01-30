@@ -27,6 +27,14 @@ def compose_form_save_button(page: Page) -> Locator:
     return page.locator('form.atr-canary button[type="submit"]').first
 
 
+def input_github_repository_branch(page: Page) -> Locator:
+    return page.locator('input[name="github_repository_branch"]')
+
+
+def input_github_repository_name(page: Page) -> Locator:
+    return page.locator('input[name="github_repository_name"]')
+
+
 def textarea_source_excludes_lightweight(page: Page) -> Locator:
     return page.locator('textarea[name="source_excludes_lightweight"]')
 

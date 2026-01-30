@@ -340,6 +340,7 @@ def _render_compose_form(project: sql.Project) -> htm.Element:
                 "source_excludes_rat": "\n".join(project.policy_source_excludes_rat),
                 "binary_artifact_paths": "\n".join(project.policy_binary_artifact_paths),
                 "github_repository_name": project.policy_github_repository_name or "",
+                "github_repository_branch": project.policy_github_repository_branch or "",
                 "github_compose_workflow_path": "\n".join(project.policy_github_compose_workflow_path),
                 "file_tag_mappings": atr_tag_yaml,
                 "strict_checking": project.policy_strict_checking,

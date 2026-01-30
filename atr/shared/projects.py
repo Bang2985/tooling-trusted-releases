@@ -136,6 +136,10 @@ class ComposePolicyForm(form.Form):
         "GitHub repository name",
         "The name of the GitHub repository to use for the release, excluding the apache/ prefix.",
     )
+    github_repository_branch: str = form.label(
+        "GitHub repository branch",
+        "Branch used for release builds (for example, main or 2.5.x). Optional.",
+    )
     github_compose_workflow_path: str = form.label(
         "GitHub compose workflow paths",
         "The full paths to the GitHub workflows to use for the release, including the .github/workflows/ prefix.",
@@ -154,11 +158,15 @@ class ComposePolicyForm(form.Form):
     @pydantic.model_validator(mode="after")
     def validate_github_fields(self) -> ComposePolicyForm:
         github_repository_name = self.github_repository_name.strip()
+        github_repository_branch = self.github_repository_branch.strip()
         compose_raw = self.github_compose_workflow_path or ""
         compose = [p.strip() for p in compose_raw.split("\n") if p.strip()]
 
         if compose and (not github_repository_name):
             raise ValueError("GitHub repository name is required when any workflow path is set.")
+
+        if github_repository_branch and (not github_repository_name):
+            raise ValueError("GitHub repository name is required when a GitHub branch is set.")
 
         if github_repository_name and ("/" in github_repository_name):
             raise ValueError("GitHub repository name must not contain a slash.")

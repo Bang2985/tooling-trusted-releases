@@ -124,6 +124,7 @@ class CommitteeMember(CommitteeParticipant):
         release_policy.source_excludes_rat = _split_lines_verbatim(form.source_excludes_rat)
         release_policy.binary_artifact_paths = _split_lines(form.binary_artifact_paths)
         release_policy.github_repository_name = form.github_repository_name.strip()
+        release_policy.github_repository_branch = form.github_repository_branch.strip()
         release_policy.github_compose_workflow_path = _split_lines(form.github_compose_workflow_path)
         release_policy.file_tag_mappings = atr_tags_dict
         release_policy.strict_checking = form.strict_checking

@@ -295,6 +295,7 @@ class ProjectPolicyResults(schema.Strict):
     policy_binary_artifact_paths: list[str]
     policy_github_compose_workflow_path: list[str]
     policy_github_finish_workflow_path: list[str]
+    policy_github_repository_branch: str
     policy_github_repository_name: str
     policy_github_vote_workflow_path: list[str]
     policy_license_check_mode: sql.LicenseCheckMode

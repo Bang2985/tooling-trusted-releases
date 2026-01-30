@@ -283,28 +283,6 @@ async def distribute_ssh_register(data: models.api.DistributeSshRegisterArgs) ->
     ).model_dump(), 200
 
 
-@api.route("/distribute/task/status", methods=["POST"])
-@quart_schema.validate_request(models.api.DistributeStatusUpdateArgs)
-async def update_distribution_task_status(data: models.api.DistributeStatusUpdateArgs) -> DictResponse:
-    """
-    Update the status of a distribution task
-    """
-    _payload, _asf_uid = await interaction.validate_trusted_jwt(data.publisher, data.jwt)
-    async with db.session() as db_data:
-        status = await db_data.workflow_status(
-            workflow_id=data.workflow,
-            project_name=data.project_name,
-            run_id=int(data.run_id),
-        ).demand(exceptions.NotFound(f"Workflow {data.workflow} not found"))
-        status.status = data.status
-        status.message = data.message
-        await db_data.commit()
-    return models.api.DistributeStatusUpdateResults(
-        endpoint="/distribute/task/status",
-        success=True,
-    ).model_dump(), 200
-
-
 @api.route("/distribution/record", methods=["POST"])
 @jwtoken.require
 @quart_schema.security_scheme([{"BearerAuth": []}])
@@ -673,6 +651,7 @@ async def project_policy(name: str) -> DictResponse:
         policy_binary_artifact_paths=project.policy_binary_artifact_paths,
         policy_github_compose_workflow_path=project.policy_github_compose_workflow_path,
         policy_github_finish_workflow_path=project.policy_github_finish_workflow_path,
+        policy_github_repository_branch=project.policy_github_repository_branch,
         policy_github_repository_name=project.policy_github_repository_name,
         policy_github_vote_workflow_path=project.policy_github_vote_workflow_path,
         policy_license_check_mode=project.policy_license_check_mode,
@@ -1234,6 +1213,28 @@ async def tasks_list(query_args: models.api.TasksListQuery) -> DictResponse:
         endpoint="/tasks/list",
         data=paged_tasks,
         count=count,
+    ).model_dump(), 200
+
+
+@api.route("/distribute/task/status", methods=["POST"])
+@quart_schema.validate_request(models.api.DistributeStatusUpdateArgs)
+async def update_distribution_task_status(data: models.api.DistributeStatusUpdateArgs) -> DictResponse:
+    """
+    Update the status of a distribution task
+    """
+    _payload, _asf_uid = await interaction.validate_trusted_jwt(data.publisher, data.jwt)
+    async with db.session() as db_data:
+        status = await db_data.workflow_status(
+            workflow_id=data.workflow,
+            project_name=data.project_name,
+            run_id=int(data.run_id),
+        ).demand(exceptions.NotFound(f"Workflow {data.workflow} not found"))
+        status.status = data.status
+        status.message = data.message
+        await db_data.commit()
+    return models.api.DistributeStatusUpdateResults(
+        endpoint="/distribute/task/status",
+        success=True,
     ).model_dump(), 200
 
 
