@@ -100,6 +100,8 @@ repos:
   rev: v2.10.0
   hooks:
     - id: pip-audit
+      # TODO: remove when GitHub Actions has pip 26.0+
+      args: ["--ignore-vuln", "CVE-2026-1703"]
 - repo: https://github.com/oxc-project/mirrors-oxlint
   rev: v1.42.0
   hooks:
