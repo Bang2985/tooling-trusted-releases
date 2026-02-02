@@ -16,7 +16,6 @@
 # under the License.
 
 import asfquart.base as base
-import asfquart.session
 
 import atr.blueprints.get as get
 import atr.config as config
@@ -24,9 +23,11 @@ import atr.form as form
 import atr.get.root as root
 import atr.get.vote as vote
 import atr.htm as htm
+import atr.models.session
 import atr.models.sql as sql
 import atr.shared as shared
 import atr.template as template
+import atr.util as util
 import atr.web as web
 
 
@@ -52,18 +53,18 @@ async def test_login(session: web.Committer | None) -> web.WerkzeugResponse:
     if not config.get().ALLOW_TESTS:
         raise base.ASFQuartException("Test login not enabled", errorcode=404)
 
-    session_data = {
-        "uid": "test",
-        "fullname": "Test User",
-        "committees": ["test"],
-        "projects": ["test"],
-        "isMember": False,
-        "isChair": False,
-        "isRole": False,
-        "metadata": {},
-    }
+    session_data = atr.models.session.CookieData(
+        uid="test",
+        fullname="Test User",
+        pmcs=["test"],
+        projects=["test"],
+        isMember=False,
+        isChair=False,
+        roleaccount=False,
+        metadata={},
+    )
 
-    asfquart.session.write(session_data)
+    util.write_quart_session_cookie(session_data)
     return await web.redirect(root.index)
 
 

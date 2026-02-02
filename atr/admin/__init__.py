@@ -49,6 +49,7 @@ import atr.htm as htm
 import atr.ldap as ldap
 import atr.log as log
 import atr.mapping as mapping
+import atr.models.session
 import atr.models.sql as sql
 import atr.principal as principal
 import atr.storage as storage
@@ -164,7 +165,22 @@ async def browse_as_post(session: web.Committer, browse_form: BrowseAsUserForm) 
     )
     log.info(f"New Quart cookie (not ASFQuart session) data: {log_safe_data}")
     asfquart.session.clear()
-    asfquart.session.write(new_session_data)
+    # TODO: Make this safer
+    session_cookie = atr.models.session.CookieData(
+        uid=new_session_data["uid"],
+        dn=new_session_data.get("dn"),
+        fullname=new_session_data.get("fullname"),
+        email=new_session_data.get("email"),
+        isMember=new_session_data.get("isMember", False),
+        isChair=new_session_data.get("isChair", False),
+        isRoot=new_session_data.get("isRoot", False),
+        pmcs=new_session_data.get("pmcs", []),
+        projects=new_session_data.get("projects", []),
+        mfa=new_session_data.get("mfa", False),
+        roleaccount=new_session_data.get("roleaccount", new_session_data.get("isRole", False)),
+        metadata=new_session_data.get("metadata", {}),
+    )
+    util.write_quart_session_cookie(session_cookie)
 
     await quart.flash(
         f"You are now browsing as '{new_uid}'. To return to your own account, please log out and log back in.",

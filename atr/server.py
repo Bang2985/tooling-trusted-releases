@@ -435,7 +435,9 @@ def _app_setup_request_lifecycle(app: base.QuartApp) -> None:
         if created_at_str is None:
             # First time seeing this session, record creation time
             session.metadata["created_at"] = datetime.datetime.now(datetime.UTC).isoformat()
-            asfquart.session.write(session)
+            pmcs = util.cookie_pmcs_or_session_pmcs(session)
+            session_data = util.session_cookie_data_from_client(session, pmcs)
+            util.write_quart_session_cookie(session_data)
             return
 
         # Parse the creation timestamp and check session age
