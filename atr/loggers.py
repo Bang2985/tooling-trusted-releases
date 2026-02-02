@@ -49,6 +49,7 @@ def create_json_formatter(
         processors=[
             structlog.stdlib.ProcessorFormatter.remove_processors_meta,
             _parse_json_event,
+            structlog.processors.format_exc_info,
             structlog.processors.JSONRenderer(),
         ],
         foreign_pre_chain=list(shared_processors),
