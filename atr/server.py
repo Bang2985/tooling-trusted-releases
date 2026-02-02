@@ -326,12 +326,14 @@ def _app_setup_logging(app: base.QuartApp, config_mode: config.Mode, app_config:
 
     # Output handler: pretty console for dev (Debug and Allow Tests), JSON for non-dev (Docker, etc.)
     output_handler = logging.StreamHandler(sys.stderr)
-    if util.is_dev_environment():
-        renderer: structlog.types.Processor = structlog.dev.ConsoleRenderer(colors=True)
+    use_json_output = app_config.LOG_JSON or (not util.is_dev_environment())
+    if use_json_output:
+        # JSON output should include rendered exceptions
+        output_handler.setFormatter(loggers.create_json_formatter(shared_processors))
     else:
-        renderer = structlog.processors.JSONRenderer()
-    # Queue-based logging for thread safety
-    output_handler.setFormatter(loggers.create_output_formatter(shared_processors, renderer))
+        renderer: structlog.types.Processor = structlog.dev.ConsoleRenderer(colors=True)
+        # Queue-based logging for thread safety
+        output_handler.setFormatter(loggers.create_output_formatter(shared_processors, renderer))
 
     log_queue: queue.Queue[logging.LogRecord] = queue.Queue(-1)
     handlers: list[logging.Handler] = [output_handler]
@@ -820,7 +822,8 @@ def _register_routes(app: base.QuartApp) -> None:  # noqa: C901
             status_code = getattr(error, "code", 500) if isinstance(error, Exception) else 500
             return quart.jsonify({"error": str(error)}), status_code
 
-        log.exception("Unhandled exception")
+        exc_info = (type(error), error, error.__traceback__)
+        log.error("Unhandled exception", exc_info=exc_info)
         if util.is_dev_environment():
             return await template.render(
                 "error.html",
