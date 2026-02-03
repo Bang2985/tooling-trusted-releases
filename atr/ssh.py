@@ -25,7 +25,7 @@ import os
 import stat
 import string
 import time
-from typing import Final, TypeVar
+from typing import Final
 
 import aiofiles
 import aiofiles.os
@@ -41,8 +41,6 @@ import atr.user as user
 import atr.util as util
 
 _CONFIG: Final = config.get()
-
-T = TypeVar("T")
 
 
 class RsyncArgsError(Exception):
@@ -184,13 +182,6 @@ async def server_stop(server: asyncssh.SSHAcceptor) -> None:
     log.info("SSH server stopped")
 
 
-def _fail[T](process: asyncssh.SSHServerProcess, message: str, return_value: T) -> T:
-    _output_stderr(process, message)
-    if not process.is_closing():
-        process.exit(1)
-    return return_value
-
-
 def _output_stderr(process: asyncssh.SSHServerProcess, message: str) -> None:
     """Output a message to the client's stderr."""
     message = f"ATR SSH: {message}"
@@ -209,10 +200,16 @@ async def _step_01_handle_client(process: asyncssh.SSHServerProcess, server: SSH
     try:
         await _step_02_handle_safely(process, server)
     except RsyncArgsError as e:
-        return _fail(process, f"Error: {e}", None)
+        _output_stderr(process, f"Error: {e}")
+        if not process.is_closing():
+            process.exit(1)
     except Exception as e:
         log.exception(f"Error during client command processing: {e}")
-        return _fail(process, f"Exception: {e}", None)
+        _output_stderr(process, f"Exception: {e}")
+        if not process.is_closing():
+            process.exit(1)
+    finally:
+        await _wait_for_process_to_close(process)
 
 
 async def _step_02_handle_safely(process: asyncssh.SSHServerProcess, server: SSHServer) -> None:
@@ -644,3 +641,13 @@ async def _step_08_execute_rsync(process: asyncssh.SSHServerProcess, argv: list[
     exit_status = await proc.wait()
     log.info(f"Rsync finished with exit status {exit_status}")
     return exit_status
+
+
+async def _wait_for_process_to_close(process: asyncssh.SSHServerProcess) -> None:
+    """Ensure that SSH process cleanup tasks run to avoid unawaited coroutines."""
+    try:
+        await process.wait_closed()
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        log.exception("Error while waiting for SSH process to close")
