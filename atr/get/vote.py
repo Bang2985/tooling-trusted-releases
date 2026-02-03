@@ -497,22 +497,8 @@ async def _render_vote_authenticated(
     if session is None:
         raise ValueError("Session required for authenticated vote")
 
-    # Determine vote potency based on user category
-    # For podlings, incubator PMC membership grants binding status always
-    # This breaks the test route though
     is_pmc_member = user_category in (UserCategory.PMC_MEMBER, UserCategory.PMC_MEMBER_RM)
-
-    if release.committee.is_podling:
-        async with storage.write() as write:
-            try:
-                _wacm = write.as_committee_member("incubator")
-                is_binding = True
-            except storage.AccessError:
-                is_binding = False
-        binding_committee = "Incubator"
-    else:
-        is_binding = is_pmc_member
-        binding_committee = release.committee.display_name
+    is_binding, binding_committee = await shared.vote.is_binding(release.committee, is_pmc_member)
 
     potency = "Binding" if is_binding else "Non-binding"
     if is_binding:

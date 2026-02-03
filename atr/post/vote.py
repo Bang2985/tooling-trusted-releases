@@ -41,20 +41,8 @@ async def selected_post(
     vote = cast_vote_form.decision
     comment = cast_vote_form.comment
 
-    # Determine if the vote is binding based on committee membership
-    # This logic mirrors atr/get/vote.py _render_vote_authenticated()
     is_pmc_member = user.is_committee_member(release.committee, session.uid)
-
-    if release.committee.is_podling:
-        # For podlings, Incubator PMC membership grants binding status
-        async with storage.write() as write:
-            try:
-                _wacm = write.as_committee_member("incubator")
-                is_binding = True
-            except storage.AccessError:
-                is_binding = False
-    else:
-        is_binding = is_pmc_member
+    is_binding, _binding_committee = await shared.vote.is_binding(release.committee, is_pmc_member)
 
     async with storage.write_as_committee_participant(release.committee.name) as wacm:
         email_recipient, error_message = await wacm.vote.send_user_vote(
