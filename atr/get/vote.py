@@ -79,7 +79,7 @@ async def category_and_release(
     if session is None:
         return UserCategory.UNAUTHENTICATED, release, latest_vote_task
 
-    is_pmc_member = (user.is_committee_member(release.committee, session.uid)) or session.is_admin
+    is_pmc_member = user.is_committee_member(release.committee, session.uid)
     is_release_manager = (vote_initiator_uid is not None) and (session.uid == vote_initiator_uid)
 
     if is_pmc_member and is_release_manager:
