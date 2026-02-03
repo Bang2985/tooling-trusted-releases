@@ -18,7 +18,7 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Any, Final
 
 import aiofiles
 import aiofiles.os
@@ -45,6 +45,17 @@ async def compute_file_hash(path: pathlib.Path) -> str:
         while chunk := await f.read(_HASH_CHUNK_SIZE):
             hasher.update(chunk)
     return f"blake3:{hasher.hexdigest()}"
+
+
+def github_tp_payload_path(project_name: str, version_name: str, revision_number: str) -> pathlib.Path:
+    return util.get_attestable_dir() / project_name / version_name / f"{revision_number}.github-tp.json"
+
+
+async def github_tp_payload_write(
+    project_name: str, version_name: str, revision_number: str, github_payload: dict[str, Any]
+) -> None:
+    payload_path = github_tp_payload_path(project_name, version_name, revision_number)
+    await util.atomic_write_file(payload_path, json.dumps(github_payload, indent=2))
 
 
 async def load(

@@ -9,6 +9,7 @@ __pycache__/
 .venv-uv/
 .vscode/
 *.pyc
+*.tmp.py
 apptoken.txt
 atr/_version.py
 bootstrap/build/

@@ -442,6 +442,9 @@ class WorkflowSSHKey(sqlmodel.SQLModel, table=True):
     asf_uid: str = sqlmodel.Field(index=True)
     github_uid: str = sqlmodel.Field(index=True)
     github_nid: int = sqlmodel.Field(index=True)
+    github_payload: dict[str, Any] = sqlmodel.Field(
+        default_factory=dict, sa_column=sqlalchemy.Column(sqlalchemy.JSON, nullable=False)
+    )
     expires: int = sqlmodel.Field()
 
 

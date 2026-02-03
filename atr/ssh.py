@@ -25,12 +25,13 @@ import os
 import stat
 import string
 import time
-from typing import Final
+from typing import Any, Final
 
 import aiofiles
 import aiofiles.os
 import asyncssh
 
+import atr.attestable as attestable
 import atr.config as config
 import atr.db as db
 import atr.log as log
@@ -57,6 +58,7 @@ class SSHServer(asyncssh.SSHServer):
         # Store connection for use in begin_auth
         self._conn = conn
         self._github_asf_uid: str | None = None
+        self._github_payload: dict[str, Any] | None = None
         peer_addr = conn.get_extra_info("peername")[0]
         log.info(f"SSH connection received from {peer_addr}")
 
@@ -130,6 +132,7 @@ class SSHServer(asyncssh.SSHServer):
                 return False
 
             self._github_asf_uid = workflow_key.asf_uid
+            self._github_payload = workflow_key.github_payload
             return True
 
     def _get_asf_uid(self, process: asyncssh.SSHServerProcess) -> str:
@@ -139,6 +142,12 @@ class SSHServer(asyncssh.SSHServer):
                 raise RsyncArgsError("GitHub authentication did not resolve ASF UID")
             return self._github_asf_uid
         return username
+
+    def _get_github_payload(self, process: asyncssh.SSHServerProcess) -> dict[str, Any] | None:
+        username = process.get_extra_info("username")
+        if username != "github":
+            return None
+        return self._github_payload
 
 
 async def server_start() -> asyncssh.SSHAcceptor:
@@ -580,6 +589,11 @@ async def _step_07b_process_validated_rsync_write(
                 raise types.FailedError(f"rsync upload failed with exit status {exit_status} for {for_revision}")
 
         if creating.new is not None:
+            github_payload = server._get_github_payload(process)
+            if github_payload is not None:
+                await attestable.github_tp_payload_write(
+                    project_name, version_name, creating.new.number, github_payload
+                )
             log.info(f"rsync upload successful for revision {creating.new.number}")
             host = config.get().APP_HOST
             message = f"\nATR: Created revision {creating.new.number} of {project_name} {version_name}\n"

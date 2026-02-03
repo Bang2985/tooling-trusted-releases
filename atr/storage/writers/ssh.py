@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import time
+from typing import Any
 
 import atr.db as db
 import atr.models.sql as sql
@@ -83,7 +84,9 @@ class CommitteeParticipant(FoundationCommitter):
         self.__asf_uid = asf_uid
         self.__committee_name = committee_name
 
-    async def add_workflow_key(self, github_uid: str, github_nid: int, project_name: str, key: str) -> tuple[str, int]:
+    async def add_workflow_key(
+        self, github_uid: str, github_nid: int, project_name: str, key: str, github_payload: dict[str, Any]
+    ) -> tuple[str, int]:
         now = int(time.time())
         # Twenty minutes to upload all files
         ttl = 20 * 60
@@ -96,6 +99,7 @@ class CommitteeParticipant(FoundationCommitter):
             asf_uid=self.__asf_uid,
             github_uid=github_uid,
             github_nid=github_nid,
+            github_payload=github_payload,
             expires=expires,
         )
         self.__data.add(wsk)

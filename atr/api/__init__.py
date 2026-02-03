@@ -273,6 +273,7 @@ async def distribute_ssh_register(data: models.api.DistributeSshRegisterArgs) ->
             payload["actor_id"],
             release.project_name,
             data.ssh_key,
+            payload,
         )
 
     return models.api.DistributeSshRegisterResults(
@@ -797,6 +798,7 @@ async def publisher_ssh_register(data: models.api.PublisherSshRegisterArgs) -> D
             payload["actor_id"],
             project.name,
             data.ssh_key,
+            payload,
         )
 
     return models.api.PublisherSshRegisterResults(
