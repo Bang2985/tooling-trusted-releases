@@ -40,32 +40,6 @@ class IgnoreStatus(enum.Enum):
     WARNING = "Warning"
 
 
-def ignore_status_to_sql(status: IgnoreStatus | None) -> sql.CheckResultStatusIgnore | None:
-    """Convert wrapper enum to SQL enum."""
-    if (status is None) or (status == IgnoreStatus.NO_STATUS):
-        return None
-    match status:
-        case IgnoreStatus.EXCEPTION:
-            return sql.CheckResultStatusIgnore.EXCEPTION
-        case IgnoreStatus.FAILURE:
-            return sql.CheckResultStatusIgnore.FAILURE
-        case IgnoreStatus.WARNING:
-            return sql.CheckResultStatusIgnore.WARNING
-
-
-def sql_to_ignore_status(status: sql.CheckResultStatusIgnore | None) -> IgnoreStatus:
-    """Convert SQL enum to wrapper enum."""
-    if status is None:
-        return IgnoreStatus.NO_STATUS
-    match status:
-        case sql.CheckResultStatusIgnore.EXCEPTION:
-            return IgnoreStatus.EXCEPTION
-        case sql.CheckResultStatusIgnore.FAILURE:
-            return IgnoreStatus.FAILURE
-        case sql.CheckResultStatusIgnore.WARNING:
-            return IgnoreStatus.WARNING
-
-
 class AddIgnoreForm(form.Form):
     variant: ADD = form.value(ADD)
     release_glob: str = form.label("Release pattern", default="")
@@ -152,6 +126,32 @@ type IgnoreForm = Annotated[
     AddIgnoreForm | DeleteIgnoreForm | UpdateIgnoreForm,
     form.DISCRIMINATOR,
 ]
+
+
+def ignore_status_to_sql(status: IgnoreStatus | None) -> sql.CheckResultStatusIgnore | None:
+    """Convert wrapper enum to SQL enum."""
+    if (status is None) or (status == IgnoreStatus.NO_STATUS):
+        return None
+    match status:
+        case IgnoreStatus.EXCEPTION:
+            return sql.CheckResultStatusIgnore.EXCEPTION
+        case IgnoreStatus.FAILURE:
+            return sql.CheckResultStatusIgnore.FAILURE
+        case IgnoreStatus.WARNING:
+            return sql.CheckResultStatusIgnore.WARNING
+
+
+def sql_to_ignore_status(status: sql.CheckResultStatusIgnore | None) -> IgnoreStatus:
+    """Convert SQL enum to wrapper enum."""
+    if status is None:
+        return IgnoreStatus.NO_STATUS
+    match status:
+        case sql.CheckResultStatusIgnore.EXCEPTION:
+            return IgnoreStatus.EXCEPTION
+        case sql.CheckResultStatusIgnore.FAILURE:
+            return IgnoreStatus.FAILURE
+        case sql.CheckResultStatusIgnore.WARNING:
+            return IgnoreStatus.WARNING
 
 
 def _validate_ignore_form_patterns(*patterns: str) -> None:

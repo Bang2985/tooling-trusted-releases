@@ -31,107 +31,31 @@ if TYPE_CHECKING:
 
 
 @pytest.mark.asyncio
-async def test_send_rejects_crlf_in_subject(monkeypatch: "MonkeyPatch") -> None:
-    """Test that CRLF injection in subject field is rejected."""
-    # Mock _send_many to ensure we never actually send emails
+async def test_address_objects_used_for_from_to_headers(monkeypatch: "MonkeyPatch") -> None:
+    """Test that Address objects are used for From/To headers."""
     mock_send_many = AsyncMock(return_value=[])
     monkeypatch.setattr("atr.mail._send_many", mock_send_many)
 
-    # Create a malicious message with CRLF in the subject
-    malicious_message = mail.Message(
-        email_sender="sender@apache.org",
-        email_recipient="recipient@apache.org",
-        subject="Legitimate Subject\r\nBcc: evil@example.com",
-        body="This is a test message",
-    )
-
-    # Call send and expect it to catch the injection
-    _, errors = await mail.send(malicious_message)
-
-    # Assert that the function returned an error
-    assert len(errors) == 1
-    assert "CRLF injection detected" in errors[0]
-
-    # Assert that _send_many was never called (email was not sent)
-    mock_send_many.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_send_rejects_crlf_in_from_address(monkeypatch: "MonkeyPatch") -> None:
-    """Test that CRLF injection in from address field is rejected.
-
-    Note: The from_addr validation happens before EmailMessage processing,
-    so this test verifies the early validation layer also protects against injection.
-    """
-    mock_send_many = AsyncMock(return_value=[])
-    monkeypatch.setattr("atr.mail._send_many", mock_send_many)
-
-    # Create a malicious message with CRLF in the from address
-    malicious_message = mail.Message(
-        email_sender="sender@apache.org\r\nBcc: evil@example.com",
-        email_recipient="recipient@apache.org",
-        subject="Test Subject",
-        body="This is a test message",
-    )
-
-    # Call send and expect it to raise ValueError due to invalid from_addr format
-    with pytest.raises(ValueError, match=r"from_addr must end with @apache.org"):
-        await mail.send(malicious_message)
-
-    # Assert that _send_many was never called
-    mock_send_many.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_send_rejects_crlf_in_to_address(monkeypatch: "MonkeyPatch") -> None:
-    """Test that CRLF injection in to address field is rejected.
-
-    Note: The _validate_recipient check happens before EmailMessage processing,
-    so this test verifies the early validation layer also protects against injection.
-    """
-    mock_send_many = AsyncMock(return_value=[])
-    monkeypatch.setattr("atr.mail._send_many", mock_send_many)
-
-    # Create a malicious message with CRLF in the to address
-    malicious_message = mail.Message(
-        email_sender="sender@apache.org",
-        email_recipient="recipient@apache.org\r\nBcc: interloper@apache.org",
-        subject="Test Subject",
-        body="This is a test message",
-    )
-
-    # Call send and expect it to raise ValueError due to invalid recipient format
-    with pytest.raises(ValueError, match=r"Email recipient must be @apache.org"):
-        await mail.send(malicious_message)
-
-    # Assert that _send_many was never called
-    mock_send_many.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_send_rejects_crlf_in_reply_to(monkeypatch: "MonkeyPatch") -> None:
-    """Test that CRLF injection in in_reply_to field is rejected."""
-    mock_send_many = AsyncMock(return_value=[])
-    monkeypatch.setattr("atr.mail._send_many", mock_send_many)
-
-    # Create a malicious message with CRLF in the in_reply_to field
-    malicious_message = mail.Message(
+    legitimate_message = mail.Message(
         email_sender="sender@apache.org",
         email_recipient="recipient@apache.org",
         subject="Test Subject",
-        body="This is a test message",
-        in_reply_to="valid-id@apache.org\r\nBcc: evil@example.com",
+        body="Test body",
     )
 
-    # Call send and expect it to catch the injection
-    _, errors = await mail.send(malicious_message)
+    _, errors = await mail.send(legitimate_message)
 
-    # Assert that the function returned an error
-    assert len(errors) == 1
-    assert "CRLF injection detected" in errors[0]
+    # Verify the message was sent successfully
+    assert len(errors) == 0
+    mock_send_many.assert_called_once()
 
-    # Assert that _send_many was never called
-    mock_send_many.assert_not_called()
+    # Verify the generated email bytes contain properly formatted addresses
+    call_args = mock_send_many.call_args
+    msg_text = call_args[0][2]  # already a str
+
+    # Address objects format email addresses properly
+    assert "From: sender@apache.org" in msg_text
+    assert "To: recipient@apache.org" in msg_text
 
 
 @pytest.mark.asyncio
@@ -196,53 +120,33 @@ async def test_send_accepts_message_with_reply_to(monkeypatch: "MonkeyPatch") ->
 
 
 @pytest.mark.asyncio
-async def test_send_rejects_lf_only_injection(monkeypatch: "MonkeyPatch") -> None:
-    """Test that injection with LF only (\\n) is also rejected."""
+async def test_send_handles_non_ascii_headers(monkeypatch: "MonkeyPatch") -> None:
+    """Test that non-ASCII characters in headers are handled correctly."""
     mock_send_many = AsyncMock(return_value=[])
     monkeypatch.setattr("atr.mail._send_many", mock_send_many)
 
-    # Create a malicious message with just LF (no CR)
-    malicious_message = mail.Message(
+    # Create a message with non-ASCII characters in the subject
+    message_with_unicode = mail.Message(
         email_sender="sender@apache.org",
         email_recipient="recipient@apache.org",
-        subject="Legitimate Subject\nBcc: evil@example.com",
-        body="This is a test message",
+        subject="Test avec Accént",
+        body="This message has non-ASCII characters in the subject.",
     )
 
-    # Call send and expect it to catch the injection
-    _, errors = await mail.send(malicious_message)
+    # Call send
+    _mid, errors = await mail.send(message_with_unicode)
 
-    # Assert that the function returned an error
-    assert len(errors) == 1
-    assert "CRLF injection detected" in errors[0]
+    # Assert that no errors were returned
+    assert len(errors) == 0
 
-    # Assert that _send_many was never called
-    mock_send_many.assert_not_called()
+    # Assert that _send_many was called with a string (not bytes)
+    mock_send_many.assert_called_once()
+    call_args = mock_send_many.call_args
+    msg_text = call_args[0][2]  # Third argument should be str
+    assert isinstance(msg_text, str)
 
-
-@pytest.mark.asyncio
-async def test_send_rejects_cr_only_injection(monkeypatch: "MonkeyPatch") -> None:
-    """Test that injection with CR only (\\r) is also rejected."""
-    mock_send_many = AsyncMock(return_value=[])
-    monkeypatch.setattr("atr.mail._send_many", mock_send_many)
-
-    # Create a malicious message with just CR (no LF)
-    malicious_message = mail.Message(
-        email_sender="sender@apache.org",
-        email_recipient="recipient@apache.org",
-        subject="Legitimate Subject\rBcc: evil@example.com",
-        body="This is a test message",
-    )
-
-    # Call send and expect it to catch the injection
-    _, errors = await mail.send(malicious_message)
-
-    # Assert that the function returned an error
-    assert len(errors) == 1
-    assert "CRLF injection detected" in errors[0]
-
-    # Assert that _send_many was never called
-    mock_send_many.assert_not_called()
+    # Verify the subject is present in the message
+    assert "Subject: Test avec Accént" in msg_text
 
 
 @pytest.mark.asyncio
@@ -296,61 +200,157 @@ async def test_send_rejects_content_type_injection(monkeypatch: "MonkeyPatch") -
 
 
 @pytest.mark.asyncio
-async def test_address_objects_used_for_from_to_headers(monkeypatch: "MonkeyPatch") -> None:
-    """Test that Address objects are used for From/To headers."""
+async def test_send_rejects_cr_only_injection(monkeypatch: "MonkeyPatch") -> None:
+    """Test that injection with CR only (\\r) is also rejected."""
     mock_send_many = AsyncMock(return_value=[])
     monkeypatch.setattr("atr.mail._send_many", mock_send_many)
 
-    legitimate_message = mail.Message(
+    # Create a malicious message with just CR (no LF)
+    malicious_message = mail.Message(
         email_sender="sender@apache.org",
         email_recipient="recipient@apache.org",
-        subject="Test Subject",
-        body="Test body",
+        subject="Legitimate Subject\rBcc: evil@example.com",
+        body="This is a test message",
     )
 
-    _, errors = await mail.send(legitimate_message)
+    # Call send and expect it to catch the injection
+    _, errors = await mail.send(malicious_message)
 
-    # Verify the message was sent successfully
-    assert len(errors) == 0
-    mock_send_many.assert_called_once()
+    # Assert that the function returned an error
+    assert len(errors) == 1
+    assert "CRLF injection detected" in errors[0]
 
-    # Verify the generated email bytes contain properly formatted addresses
-    call_args = mock_send_many.call_args
-    msg_text = call_args[0][2]  # already a str
-
-    # Address objects format email addresses properly
-    assert "From: sender@apache.org" in msg_text
-    assert "To: recipient@apache.org" in msg_text
+    # Assert that _send_many was never called
+    mock_send_many.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_send_handles_non_ascii_headers(monkeypatch: "MonkeyPatch") -> None:
-    """Test that non-ASCII characters in headers are handled correctly."""
+async def test_send_rejects_crlf_in_from_address(monkeypatch: "MonkeyPatch") -> None:
+    """Test that CRLF injection in from address field is rejected.
+
+    Note: The from_addr validation happens before EmailMessage processing,
+    so this test verifies the early validation layer also protects against injection.
+    """
     mock_send_many = AsyncMock(return_value=[])
     monkeypatch.setattr("atr.mail._send_many", mock_send_many)
 
-    # Create a message with non-ASCII characters in the subject
-    message_with_unicode = mail.Message(
-        email_sender="sender@apache.org",
+    # Create a malicious message with CRLF in the from address
+    malicious_message = mail.Message(
+        email_sender="sender@apache.org\r\nBcc: evil@example.com",
         email_recipient="recipient@apache.org",
-        subject="Test avec Accént",
-        body="This message has non-ASCII characters in the subject.",
+        subject="Test Subject",
+        body="This is a test message",
     )
 
-    # Call send
-    _mid, errors = await mail.send(message_with_unicode)
+    # Call send and expect it to raise ValueError due to invalid from_addr format
+    with pytest.raises(ValueError, match=r"from_addr must end with @apache.org"):
+        await mail.send(malicious_message)
 
-    # Assert that no errors were returned
-    assert len(errors) == 0
+    # Assert that _send_many was never called
+    mock_send_many.assert_not_called()
 
-    # Assert that _send_many was called with a string (not bytes)
-    mock_send_many.assert_called_once()
-    call_args = mock_send_many.call_args
-    msg_text = call_args[0][2]  # Third argument should be str
-    assert isinstance(msg_text, str)
 
-    # Verify the subject is present in the message
-    assert "Subject: Test avec Accént" in msg_text
+@pytest.mark.asyncio
+async def test_send_rejects_crlf_in_reply_to(monkeypatch: "MonkeyPatch") -> None:
+    """Test that CRLF injection in in_reply_to field is rejected."""
+    mock_send_many = AsyncMock(return_value=[])
+    monkeypatch.setattr("atr.mail._send_many", mock_send_many)
+
+    # Create a malicious message with CRLF in the in_reply_to field
+    malicious_message = mail.Message(
+        email_sender="sender@apache.org",
+        email_recipient="recipient@apache.org",
+        subject="Test Subject",
+        body="This is a test message",
+        in_reply_to="valid-id@apache.org\r\nBcc: evil@example.com",
+    )
+
+    # Call send and expect it to catch the injection
+    _, errors = await mail.send(malicious_message)
+
+    # Assert that the function returned an error
+    assert len(errors) == 1
+    assert "CRLF injection detected" in errors[0]
+
+    # Assert that _send_many was never called
+    mock_send_many.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_send_rejects_crlf_in_subject(monkeypatch: "MonkeyPatch") -> None:
+    """Test that CRLF injection in subject field is rejected."""
+    # Mock _send_many to ensure we never actually send emails
+    mock_send_many = AsyncMock(return_value=[])
+    monkeypatch.setattr("atr.mail._send_many", mock_send_many)
+
+    # Create a malicious message with CRLF in the subject
+    malicious_message = mail.Message(
+        email_sender="sender@apache.org",
+        email_recipient="recipient@apache.org",
+        subject="Legitimate Subject\r\nBcc: evil@example.com",
+        body="This is a test message",
+    )
+
+    # Call send and expect it to catch the injection
+    _, errors = await mail.send(malicious_message)
+
+    # Assert that the function returned an error
+    assert len(errors) == 1
+    assert "CRLF injection detected" in errors[0]
+
+    # Assert that _send_many was never called (email was not sent)
+    mock_send_many.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_send_rejects_crlf_in_to_address(monkeypatch: "MonkeyPatch") -> None:
+    """Test that CRLF injection in to address field is rejected.
+
+    Note: The _validate_recipient check happens before EmailMessage processing,
+    so this test verifies the early validation layer also protects against injection.
+    """
+    mock_send_many = AsyncMock(return_value=[])
+    monkeypatch.setattr("atr.mail._send_many", mock_send_many)
+
+    # Create a malicious message with CRLF in the to address
+    malicious_message = mail.Message(
+        email_sender="sender@apache.org",
+        email_recipient="recipient@apache.org\r\nBcc: interloper@apache.org",
+        subject="Test Subject",
+        body="This is a test message",
+    )
+
+    # Call send and expect it to raise ValueError due to invalid recipient format
+    with pytest.raises(ValueError, match=r"Email recipient must be @apache.org"):
+        await mail.send(malicious_message)
+
+    # Assert that _send_many was never called
+    mock_send_many.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_send_rejects_lf_only_injection(monkeypatch: "MonkeyPatch") -> None:
+    """Test that injection with LF only (\\n) is also rejected."""
+    mock_send_many = AsyncMock(return_value=[])
+    monkeypatch.setattr("atr.mail._send_many", mock_send_many)
+
+    # Create a malicious message with just LF (no CR)
+    malicious_message = mail.Message(
+        email_sender="sender@apache.org",
+        email_recipient="recipient@apache.org",
+        subject="Legitimate Subject\nBcc: evil@example.com",
+        body="This is a test message",
+    )
+
+    # Call send and expect it to catch the injection
+    _, errors = await mail.send(malicious_message)
+
+    # Assert that the function returned an error
+    assert len(errors) == 1
+    assert "CRLF injection detected" in errors[0]
+
+    # Assert that _send_many was never called
+    mock_send_many.assert_not_called()
 
 
 def test_smtp_policy_vs_smtputf8() -> None:

@@ -25,83 +25,83 @@ if TYPE_CHECKING:
     from pytest import MonkeyPatch
 
 
-class _MockApp:
+class MockApp:
     def __init__(self):
         self.extensions: dict[str, object] = {}
 
 
-class _MockConfig:
+class MockConfig:
     def __init__(self, allow_tests: bool = False, admin_users_additional: str = ""):
         self.ALLOW_TESTS = allow_tests
         self.ADMIN_USERS_ADDITIONAL = admin_users_additional
 
 
 @pytest.fixture
-def mock_app(monkeypatch: "MonkeyPatch") -> _MockApp:
-    app = _MockApp()
+def mock_app(monkeypatch: "MonkeyPatch") -> MockApp:
+    app = MockApp()
     monkeypatch.setattr("asfquart.APP", app)
     return app
 
 
 @pytest.mark.asyncio
-async def test_is_admin_async_returns_false_for_none(mock_app: _MockApp, monkeypatch: "MonkeyPatch"):
-    monkeypatch.setattr("atr.config.get", lambda: _MockConfig())
+async def test_is_admin_async_returns_false_for_none(mock_app: MockApp, monkeypatch: "MonkeyPatch"):
+    monkeypatch.setattr("atr.config.get", lambda: MockConfig())
     mock_app.extensions["admins"] = frozenset()
     assert await user.is_admin_async(None) is False
 
 
 @pytest.mark.asyncio
-async def test_is_admin_async_returns_true_for_cached_admin(mock_app: _MockApp, monkeypatch: "MonkeyPatch"):
+async def test_is_admin_async_returns_true_for_cached_admin(mock_app: MockApp, monkeypatch: "MonkeyPatch"):
     user._get_additional_admin_users.cache_clear()
-    monkeypatch.setattr("atr.config.get", lambda: _MockConfig())
+    monkeypatch.setattr("atr.config.get", lambda: MockConfig())
     mock_app.extensions["admins"] = frozenset({"async_admin"})
     assert await user.is_admin_async("async_admin") is True
 
 
 @pytest.mark.asyncio
-async def test_is_admin_async_returns_true_for_test_user(mock_app: _MockApp, monkeypatch: "MonkeyPatch"):
+async def test_is_admin_async_returns_true_for_test_user(mock_app: MockApp, monkeypatch: "MonkeyPatch"):
     user._get_additional_admin_users.cache_clear()
-    monkeypatch.setattr("atr.config.get", lambda: _MockConfig(allow_tests=True))
+    monkeypatch.setattr("atr.config.get", lambda: MockConfig(allow_tests=True))
     mock_app.extensions["admins"] = frozenset()
     assert await user.is_admin_async("test") is True
 
 
-def test_is_admin_returns_false_for_none(mock_app: _MockApp, monkeypatch: "MonkeyPatch"):
-    monkeypatch.setattr("atr.config.get", lambda: _MockConfig())
+def test_is_admin_returns_false_for_none(mock_app: MockApp, monkeypatch: "MonkeyPatch"):
+    monkeypatch.setattr("atr.config.get", lambda: MockConfig())
     mock_app.extensions["admins"] = frozenset()
     assert user.is_admin(None) is False
 
 
-def test_is_admin_returns_false_for_test_user_when_not_allowed(mock_app: _MockApp, monkeypatch: "MonkeyPatch"):
+def test_is_admin_returns_false_for_test_user_when_not_allowed(mock_app: MockApp, monkeypatch: "MonkeyPatch"):
     user._get_additional_admin_users.cache_clear()
-    monkeypatch.setattr("atr.config.get", lambda: _MockConfig(allow_tests=False))
+    monkeypatch.setattr("atr.config.get", lambda: MockConfig(allow_tests=False))
     mock_app.extensions["admins"] = frozenset()
     assert user.is_admin("test") is False
 
 
-def test_is_admin_returns_false_for_unknown_user(mock_app: _MockApp, monkeypatch: "MonkeyPatch"):
-    monkeypatch.setattr("atr.config.get", lambda: _MockConfig())
+def test_is_admin_returns_false_for_unknown_user(mock_app: MockApp, monkeypatch: "MonkeyPatch"):
+    monkeypatch.setattr("atr.config.get", lambda: MockConfig())
     mock_app.extensions["admins"] = frozenset({"alice", "bob"})
     assert user.is_admin("nobody") is False
 
 
-def test_is_admin_returns_true_for_additional_admin(mock_app: _MockApp, monkeypatch: "MonkeyPatch"):
+def test_is_admin_returns_true_for_additional_admin(mock_app: MockApp, monkeypatch: "MonkeyPatch"):
     user._get_additional_admin_users.cache_clear()
-    monkeypatch.setattr("atr.config.get", lambda: _MockConfig(admin_users_additional="alice,bob"))
+    monkeypatch.setattr("atr.config.get", lambda: MockConfig(admin_users_additional="alice,bob"))
     mock_app.extensions["admins"] = frozenset()
     assert user.is_admin("alice") is True
     assert user.is_admin("bob") is True
 
 
-def test_is_admin_returns_true_for_cached_admin(mock_app: _MockApp, monkeypatch: "MonkeyPatch"):
+def test_is_admin_returns_true_for_cached_admin(mock_app: MockApp, monkeypatch: "MonkeyPatch"):
     user._get_additional_admin_users.cache_clear()
-    monkeypatch.setattr("atr.config.get", lambda: _MockConfig())
+    monkeypatch.setattr("atr.config.get", lambda: MockConfig())
     mock_app.extensions["admins"] = frozenset({"cached_admin"})
     assert user.is_admin("cached_admin") is True
 
 
-def test_is_admin_returns_true_for_test_user_when_allowed(mock_app: _MockApp, monkeypatch: "MonkeyPatch"):
+def test_is_admin_returns_true_for_test_user_when_allowed(mock_app: MockApp, monkeypatch: "MonkeyPatch"):
     user._get_additional_admin_users.cache_clear()
-    monkeypatch.setattr("atr.config.get", lambda: _MockConfig(allow_tests=True))
+    monkeypatch.setattr("atr.config.get", lambda: MockConfig(allow_tests=True))
     mock_app.extensions["admins"] = frozenset()
     assert user.is_admin("test") is True

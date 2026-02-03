@@ -29,26 +29,26 @@ if TYPE_CHECKING:
     from pytest import MonkeyPatch
 
 
-class _MockApp:
+class MockApp:
     def __init__(self):
         self.extensions: dict[str, object] = {}
 
 
-class _MockConfig:
+class MockConfig:
     def __init__(self, state_dir: pathlib.Path):
         self.STATE_DIR = str(state_dir)
 
 
 @pytest.fixture
-def mock_app(monkeypatch: "MonkeyPatch") -> _MockApp:
-    app = _MockApp()
+def mock_app(monkeypatch: "MonkeyPatch") -> MockApp:
+    app = MockApp()
     monkeypatch.setattr("asfquart.APP", app)
     return app
 
 
 @pytest.fixture
 def state_dir(tmp_path: pathlib.Path, monkeypatch: "MonkeyPatch") -> pathlib.Path:
-    monkeypatch.setattr("atr.config.get", lambda: _MockConfig(tmp_path))
+    monkeypatch.setattr("atr.config.get", lambda: MockConfig(tmp_path))
     return tmp_path
 
 
@@ -109,18 +109,18 @@ async def test_admins_get_async_falls_back_to_file_without_app_context(
 
 
 @pytest.mark.asyncio
-async def test_admins_get_async_uses_extensions_when_available(mock_app: _MockApp):
+async def test_admins_get_async_uses_extensions_when_available(mock_app: MockApp):
     mock_app.extensions["admins"] = frozenset({"async_alice"})
     result = await cache.admins_get_async()
     assert result == frozenset({"async_alice"})
 
 
-def test_admins_get_returns_empty_frozenset_when_not_set(mock_app: _MockApp):
+def test_admins_get_returns_empty_frozenset_when_not_set(mock_app: MockApp):
     result = cache.admins_get()
     assert result == frozenset()
 
 
-def test_admins_get_returns_frozenset_from_extensions(mock_app: _MockApp):
+def test_admins_get_returns_frozenset_from_extensions(mock_app: MockApp):
     mock_app.extensions["admins"] = frozenset({"alice", "bob"})
     result = cache.admins_get()
     assert result == frozenset({"alice", "bob"})
@@ -178,7 +178,7 @@ async def test_admins_save_to_file_creates_parent_dirs(state_dir: pathlib.Path):
 
 @pytest.mark.asyncio
 async def test_admins_startup_load_calls_ldap_when_cache_missing(
-    state_dir: pathlib.Path, mock_app: _MockApp, monkeypatch: "MonkeyPatch"
+    state_dir: pathlib.Path, mock_app: MockApp, monkeypatch: "MonkeyPatch"
 ):
     ldap_called = False
 
@@ -199,7 +199,7 @@ async def test_admins_startup_load_calls_ldap_when_cache_missing(
 
 @pytest.mark.asyncio
 async def test_admins_startup_load_handles_ldap_failure(
-    state_dir: pathlib.Path, mock_app: _MockApp, monkeypatch: "MonkeyPatch"
+    state_dir: pathlib.Path, mock_app: MockApp, monkeypatch: "MonkeyPatch"
 ):
     async def mock_fetch_admin_users() -> frozenset[str]:
         raise ConnectionError("LDAP server unavailable")
@@ -215,7 +215,7 @@ async def test_admins_startup_load_handles_ldap_failure(
 
 @pytest.mark.asyncio
 async def test_admins_startup_load_uses_cache_when_present(
-    state_dir: pathlib.Path, mock_app: _MockApp, monkeypatch: "MonkeyPatch"
+    state_dir: pathlib.Path, mock_app: MockApp, monkeypatch: "MonkeyPatch"
 ):
     ldap_called = False
 

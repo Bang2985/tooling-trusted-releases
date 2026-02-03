@@ -32,6 +32,38 @@ import atr.models.sql as sql
 import atr.util as util
 from atr.storage import outcome
 
+# async def __json_from_maven_cdn(
+#     self, api_url: str, group_id: str, artifact_id: str, version: str
+# ) -> outcome.Outcome[models.basic.JSON]:
+#     import datetime
+#
+#     try:
+#         async with util.create_secure_session() as session:
+#             async with session.get(api_url) as response:
+#                 response.raise_for_status()
+#
+#         # Use current time as timestamp since we're just validating the package exists
+#         timestamp_ms = int(datetime.datetime.now(datetime.UTC).timestamp() * 1000)
+#
+#         # Convert to dict matching MavenResponse structure
+#         result_dict = {
+#             "response": {
+#                 "start": 0,
+#                 "docs": [
+#                     {
+#                         "g": group_id,
+#                         "a": artifact_id,
+#                         "v": version,
+#                         "timestamp": timestamp_ms,
+#                     }
+#                 ],
+#             }
+#         }
+#         result = models.basic.as_json(result_dict)
+#         return outcome.Result(result)
+#     except aiohttp.ClientError as e:
+#         return outcome.Error(e)
+
 
 class DistributionError(RuntimeError): ...
 
@@ -119,173 +151,6 @@ class DistributeForm(form.Form):
             raise ValueError(f'Platform "{platform_name}" does not require an owner or namespace.')
 
         return self
-
-
-def html_submitted_values_table(block: htm.Block, dd: distribution.Data) -> None:
-    tbody = htm.tbody[
-        html_tr("Platform", dd.platform.name),
-        html_tr("Owner or Namespace", dd.owner_namespace or "-"),
-        html_tr("Package", dd.package),
-        html_tr("Version", dd.version),
-    ]
-    block.table(".table.table-striped.table-bordered")[tbody]
-
-
-def html_tr(label: str, value: str) -> htm.Element:
-    return htm.tr[htm.th[label], htm.td[value]]
-
-
-def html_tr_a(label: str, value: str | None) -> htm.Element:
-    return htm.tr[htm.th[label], htm.td[htm.a(href=value)[value] if value else "-"]]
-
-
-async def json_from_distribution_platform(
-    api_url: str, platform: sql.DistributionPlatform, version: str
-) -> outcome.Outcome[basic.JSON]:
-    try:
-        async with util.create_secure_session() as session:
-            async with session.get(api_url) as response:
-                response.raise_for_status()
-                response_json = await response.json()
-        result = basic.as_json(response_json)
-    except aiohttp.ClientError as e:
-        return outcome.Error(e)
-    match platform:
-        case sql.DistributionPlatform.NPM | sql.DistributionPlatform.NPM_SCOPED:
-            if version not in distribution.NpmResponse.model_validate(result).time:
-                e = DistributionError(f"Version '{version}' not found")
-                return outcome.Error(e)
-    return outcome.Result(result)
-
-
-async def release_validated(
-    project: str, version: str, committee: bool = False, staging: bool | None = None, release_policy: bool = False
-) -> sql.Release:
-    match staging:
-        case True:
-            phase = {sql.ReleasePhase.RELEASE_CANDIDATE_DRAFT}
-        case False:
-            phase = {sql.ReleasePhase.RELEASE_PREVIEW}
-        case None:
-            phase = {sql.ReleasePhase.RELEASE_CANDIDATE_DRAFT, sql.ReleasePhase.RELEASE_PREVIEW}
-    async with db.session() as data:
-        release = await data.release(
-            project_name=project,
-            version=version,
-            _committee=committee,
-            _release_policy=release_policy,
-        ).demand(RuntimeError(f"Release {project} {version} not found"))
-        if release.phase not in phase:
-            raise RuntimeError(f"Release {project} {version} is not in {phase}")
-        # if release.project.status != sql.ProjectStatus.ACTIVE:
-        #     raise RuntimeError(f"Project {project} is not active")
-    return release
-
-
-async def release_validated_and_committee(
-    project: str, version: str, *, staging: bool | None = None, release_policy: bool = False
-) -> tuple[sql.Release, sql.Committee]:
-    release = await release_validated(project, version, committee=True, staging=staging, release_policy=release_policy)
-    committee = release.committee
-    if committee is None:
-        raise RuntimeError(f"Release {project} {version} has no committee")
-    return release, committee
-
-
-# async def __json_from_maven_cdn(
-#     self, api_url: str, group_id: str, artifact_id: str, version: str
-# ) -> outcome.Outcome[models.basic.JSON]:
-#     import datetime
-#
-#     try:
-#         async with util.create_secure_session() as session:
-#             async with session.get(api_url) as response:
-#                 response.raise_for_status()
-#
-#         # Use current time as timestamp since we're just validating the package exists
-#         timestamp_ms = int(datetime.datetime.now(datetime.UTC).timestamp() * 1000)
-#
-#         # Convert to dict matching MavenResponse structure
-#         result_dict = {
-#             "response": {
-#                 "start": 0,
-#                 "docs": [
-#                     {
-#                         "g": group_id,
-#                         "a": artifact_id,
-#                         "v": version,
-#                         "timestamp": timestamp_ms,
-#                     }
-#                 ],
-#             }
-#         }
-#         result = models.basic.as_json(result_dict)
-#         return outcome.Result(result)
-#     except aiohttp.ClientError as e:
-#         return outcome.Error(e)
-
-
-async def json_from_maven_xml(api_url: str, version: str) -> outcome.Outcome[basic.JSON]:
-    import datetime
-    import xml.etree.ElementTree as ET
-
-    try:
-        async with util.create_secure_session() as session:
-            async with session.get(api_url) as response:
-                response.raise_for_status()
-                xml_text = await response.text()
-
-        # Parse the XML
-        root = ET.fromstring(xml_text)
-
-        # Extract versioning info
-        group = root.find("groupId")
-        artifact = root.find("artifactId")
-        versioning = root.find("versioning")
-        if versioning is None:
-            e = DistributionError("No versioning element found in Maven metadata")
-            return outcome.Error(e)
-
-        # Get lastUpdated timestamp (format: yyyyMMddHHmmss)
-        last_updated_elem = versioning.find("lastUpdated")
-        if (last_updated_elem is None) or (not last_updated_elem.text):
-            e = DistributionError("No lastUpdated timestamp found in Maven metadata")
-            return outcome.Error(e)
-
-        # Convert lastUpdated string to Unix timestamp in milliseconds
-        last_updated_str = last_updated_elem.text
-        dt = datetime.datetime.strptime(last_updated_str, "%Y%m%d%H%M%S")
-        dt = dt.replace(tzinfo=datetime.UTC)
-        timestamp_ms = int(dt.timestamp() * 1000)
-
-        # Verify the version exists
-        versions_elem = versioning.find("versions")
-        if versions_elem is not None:
-            versions = [v.text for v in versions_elem.findall("version") if v.text]
-            if version not in versions:
-                e = DistributionError(f"Version '{version}' not found in Maven metadata")
-                return outcome.Error(e)
-
-        # Convert to dict matching MavenResponse structure
-        result_dict = {
-            "response": {
-                "start": 0,
-                "docs": [
-                    {
-                        "g": group.text if (group is not None) else "",
-                        "a": artifact.text if (artifact is not None) else "",
-                        "v": version,
-                        "timestamp": timestamp_ms,
-                    }
-                ],
-            }
-        }
-        result = basic.as_json(result_dict)
-        return outcome.Result(result)
-    except (aiohttp.ClientError, DistributionError) as e:
-        return outcome.Error(e)
-    except ET.ParseError as e:
-        return outcome.Error(RuntimeError(f"Failed to parse Maven XML: {e}"))
 
 
 def distribution_upload_date(  # noqa: C901
@@ -391,6 +256,140 @@ def get_api_url(dd: distribution.Data, staging: bool | None = None):
             version=dd.version,
         )
     return api_url
+
+
+def html_submitted_values_table(block: htm.Block, dd: distribution.Data) -> None:
+    tbody = htm.tbody[
+        html_tr("Platform", dd.platform.name),
+        html_tr("Owner or Namespace", dd.owner_namespace or "-"),
+        html_tr("Package", dd.package),
+        html_tr("Version", dd.version),
+    ]
+    block.table(".table.table-striped.table-bordered")[tbody]
+
+
+def html_tr(label: str, value: str) -> htm.Element:
+    return htm.tr[htm.th[label], htm.td[value]]
+
+
+def html_tr_a(label: str, value: str | None) -> htm.Element:
+    return htm.tr[htm.th[label], htm.td[htm.a(href=value)[value] if value else "-"]]
+
+
+async def json_from_distribution_platform(
+    api_url: str, platform: sql.DistributionPlatform, version: str
+) -> outcome.Outcome[basic.JSON]:
+    try:
+        async with util.create_secure_session() as session:
+            async with session.get(api_url) as response:
+                response.raise_for_status()
+                response_json = await response.json()
+        result = basic.as_json(response_json)
+    except aiohttp.ClientError as e:
+        return outcome.Error(e)
+    match platform:
+        case sql.DistributionPlatform.NPM | sql.DistributionPlatform.NPM_SCOPED:
+            if version not in distribution.NpmResponse.model_validate(result).time:
+                e = DistributionError(f"Version '{version}' not found")
+                return outcome.Error(e)
+    return outcome.Result(result)
+
+
+async def json_from_maven_xml(api_url: str, version: str) -> outcome.Outcome[basic.JSON]:
+    import datetime
+    import xml.etree.ElementTree as ET
+
+    try:
+        async with util.create_secure_session() as session:
+            async with session.get(api_url) as response:
+                response.raise_for_status()
+                xml_text = await response.text()
+
+        # Parse the XML
+        root = ET.fromstring(xml_text)
+
+        # Extract versioning info
+        group = root.find("groupId")
+        artifact = root.find("artifactId")
+        versioning = root.find("versioning")
+        if versioning is None:
+            e = DistributionError("No versioning element found in Maven metadata")
+            return outcome.Error(e)
+
+        # Get lastUpdated timestamp (format: yyyyMMddHHmmss)
+        last_updated_elem = versioning.find("lastUpdated")
+        if (last_updated_elem is None) or (not last_updated_elem.text):
+            e = DistributionError("No lastUpdated timestamp found in Maven metadata")
+            return outcome.Error(e)
+
+        # Convert lastUpdated string to Unix timestamp in milliseconds
+        last_updated_str = last_updated_elem.text
+        dt = datetime.datetime.strptime(last_updated_str, "%Y%m%d%H%M%S")
+        dt = dt.replace(tzinfo=datetime.UTC)
+        timestamp_ms = int(dt.timestamp() * 1000)
+
+        # Verify the version exists
+        versions_elem = versioning.find("versions")
+        if versions_elem is not None:
+            versions = [v.text for v in versions_elem.findall("version") if v.text]
+            if version not in versions:
+                e = DistributionError(f"Version '{version}' not found in Maven metadata")
+                return outcome.Error(e)
+
+        # Convert to dict matching MavenResponse structure
+        result_dict = {
+            "response": {
+                "start": 0,
+                "docs": [
+                    {
+                        "g": group.text if (group is not None) else "",
+                        "a": artifact.text if (artifact is not None) else "",
+                        "v": version,
+                        "timestamp": timestamp_ms,
+                    }
+                ],
+            }
+        }
+        result = basic.as_json(result_dict)
+        return outcome.Result(result)
+    except (aiohttp.ClientError, DistributionError) as e:
+        return outcome.Error(e)
+    except ET.ParseError as e:
+        return outcome.Error(RuntimeError(f"Failed to parse Maven XML: {e}"))
+
+
+async def release_validated(
+    project: str, version: str, committee: bool = False, staging: bool | None = None, release_policy: bool = False
+) -> sql.Release:
+    match staging:
+        case True:
+            phase = {sql.ReleasePhase.RELEASE_CANDIDATE_DRAFT}
+        case False:
+            phase = {sql.ReleasePhase.RELEASE_PREVIEW}
+        case None:
+            phase = {sql.ReleasePhase.RELEASE_CANDIDATE_DRAFT, sql.ReleasePhase.RELEASE_PREVIEW}
+    async with db.session() as data:
+        release = await data.release(
+            project_name=project,
+            version=version,
+            _committee=committee,
+            _release_policy=release_policy,
+        ).demand(RuntimeError(f"Release {project} {version} not found"))
+        if release.phase not in phase:
+            raise RuntimeError(f"Release {project} {version} is not in {phase}")
+        # if release.project.status != sql.ProjectStatus.ACTIVE:
+        #     raise RuntimeError(f"Project {project} is not active")
+    return release
+
+
+async def release_validated_and_committee(
+    project: str, version: str, *, staging: bool | None = None, release_policy: bool = False
+) -> tuple[sql.Release, sql.Committee]:
+    release = await release_validated(project, version, committee=True, staging=staging, release_policy=release_policy)
+    committee = release.committee
+    if committee is None:
+        raise RuntimeError(f"Release {project} {version} has no committee")
+    return release, committee
 
 
 def _template_url(

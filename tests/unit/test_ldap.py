@@ -27,12 +27,12 @@ if TYPE_CHECKING:
     from pytest import MonkeyPatch
 
 
-class _MockApp:
+class MockApp:
     def __init__(self):
         self.extensions: dict[str, object] = {}
 
 
-class _MockConfig:
+class MockConfig:
     def __init__(self, state_dir: pathlib.Path, ldap_bind_dn: str | None, ldap_bind_password: str | None):
         self.STATE_DIR = str(state_dir)
         self.LDAP_BIND_DN = ldap_bind_dn
@@ -53,10 +53,10 @@ async def test_admins_startup_load_fetches_real_admins(
     import atr.config as config
 
     real_config = config.get()
-    mock_config = _MockConfig(tmp_path, real_config.LDAP_BIND_DN, real_config.LDAP_BIND_PASSWORD)
+    mock_config = MockConfig(tmp_path, real_config.LDAP_BIND_DN, real_config.LDAP_BIND_PASSWORD)
     monkeypatch.setattr("atr.config.get", lambda: mock_config)
 
-    mock_app = _MockApp()
+    mock_app = MockApp()
     monkeypatch.setattr("asfquart.APP", mock_app)
 
     await cache.admins_startup_load()

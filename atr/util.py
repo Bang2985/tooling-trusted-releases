@@ -279,7 +279,7 @@ def cookie_pmcs_or_session_pmcs(session_data: session.ClientSession) -> list[str
     pmcs = cookie_pmcs()
     if pmcs is None:
         pmcs = session_data.committees
-    if not isinstance(pmcs, list) or (not (all(isinstance(item, str) for item in pmcs))):
+    if (not isinstance(pmcs, list)) or (not (all(isinstance(item, str) for item in pmcs))):
         raise TypeError("Session pmcs must be a list[str]")
     return pmcs
 
