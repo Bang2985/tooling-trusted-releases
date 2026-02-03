@@ -17,11 +17,25 @@
 
 """Tests for vote email formatting and binding vote determination."""
 
+import pytest
+from pytest import MonkeyPatch
+
 import atr.storage.writers.vote as vote_writer
 import atr.user as user
 
 
-class _MockCommittee:
+class MockApp:
+    def __init__(self) -> None:
+        self.extensions: dict[str, object] = {}
+
+
+class MockConfig:
+    def __init__(self, allow_tests: bool = False, admin_users_additional: str = "") -> None:
+        self.ALLOW_TESTS = allow_tests
+        self.ADMIN_USERS_ADDITIONAL = admin_users_additional
+
+
+class MockCommittee:
     def __init__(
         self,
         name: str = "testproject",
@@ -33,6 +47,13 @@ class _MockCommittee:
         self.display_name = display_name
         self.committee_members = committee_members or []
         self.committers = committers or []
+
+
+@pytest.fixture
+def mock_app(monkeypatch: MonkeyPatch) -> MockApp:
+    app = MockApp()
+    monkeypatch.setattr("asfquart.APP", app)
+    return app
 
 
 def test_binding_vote_body_format() -> None:
@@ -152,7 +173,7 @@ def test_empty_comment_no_signature() -> None:
 
 def test_pmc_member_has_binding_vote() -> None:
     """PMC members have binding votes."""
-    committee = _MockCommittee(
+    committee = MockCommittee(
         committee_members=["alice", "bob", "charlie"],
         committers=["alice", "bob", "charlie", "dave", "eve"],
     )
@@ -162,7 +183,7 @@ def test_pmc_member_has_binding_vote() -> None:
 
 def test_committer_non_pmc_has_non_binding_vote() -> None:
     """Committers who are not PMC members have non-binding votes."""
-    committee = _MockCommittee(
+    committee = MockCommittee(
         committee_members=["alice", "bob", "charlie"],
         committers=["alice", "bob", "charlie", "dave", "eve"],
     )
@@ -172,7 +193,7 @@ def test_committer_non_pmc_has_non_binding_vote() -> None:
 
 def test_non_committer_has_non_binding_vote() -> None:
     """Non-committers have non-binding votes."""
-    committee = _MockCommittee(
+    committee = MockCommittee(
         committee_members=["alice", "bob", "charlie"],
         committers=["alice", "bob", "charlie", "dave", "eve"],
     )
@@ -186,9 +207,15 @@ def test_none_committee_returns_false() -> None:
     assert is_binding is False
 
 
-def test_admin_not_on_pmc_has_non_binding_vote() -> None:
+def test_admin_not_on_pmc_has_non_binding_vote(mock_app: MockApp, monkeypatch: MonkeyPatch) -> None:
     """Admins who are not PMC members do not get binding votes."""
-    committee = _MockCommittee(
+    user._get_additional_admin_users.cache_clear()
+    monkeypatch.setattr("atr.config.get", lambda: MockConfig())
+    mock_app.extensions["admins"] = frozenset({"admin_user"})
+
+    assert user.is_admin("admin_user") is True
+
+    committee = MockCommittee(
         committee_members=["alice", "bob"],
         committers=["alice", "bob", "charlie"],
     )
