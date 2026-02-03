@@ -47,6 +47,14 @@ jobs:
           path: ~/.cache/pre-commit
           key: pre-commit-3|${{ env.pythonLocation }}|${{ hashFiles('.pre-commit-config.yaml') }}
 
+      - name: Show pip version
+        run: |
+          pip --version
+          python -m pip --version
+          pip3 --version
+          python3 -m pip --version
+          uv run --frozen pip --version
+
       - name: Run pre-commit
         run: |
           uv run --frozen pre-commit run --show-diff-on-failure --color=always --all-files
