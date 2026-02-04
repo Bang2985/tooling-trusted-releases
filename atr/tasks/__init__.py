@@ -24,6 +24,7 @@ import sqlmodel
 import atr.db as db
 import atr.models.results as results
 import atr.models.sql as sql
+import atr.tasks.checks.compare as compare
 import atr.tasks.checks.hashing as hashing
 import atr.tasks.checks.license as license
 import atr.tasks.checks.paths as paths
@@ -251,6 +252,8 @@ def queued(
 
 def resolve(task_type: sql.TaskType) -> Callable[..., Awaitable[results.Results | None]]:  # noqa: C901
     match task_type:
+        case sql.TaskType.COMPARE_SOURCE_TREES:
+            return compare.source_trees
         case sql.TaskType.DISTRIBUTION_STATUS:
             return distribution.status_check
         case sql.TaskType.DISTRIBUTION_WORKFLOW:
@@ -315,6 +318,7 @@ async def tar_gz_checks(asf_uid: str, release: sql.Release, revision: str, path:
     # This release has committee, as guaranteed in draft_checks
     is_podling = (release.project.committee is not None) and release.project.committee.is_podling
     tasks = [
+        queued(asf_uid, sql.TaskType.COMPARE_SOURCE_TREES, release, revision, path),
         queued(asf_uid, sql.TaskType.LICENSE_FILES, release, revision, path, extra_args={"is_podling": is_podling}),
         queued(asf_uid, sql.TaskType.LICENSE_HEADERS, release, revision, path),
         queued(asf_uid, sql.TaskType.RAT_CHECK, release, revision, path),
@@ -357,6 +361,7 @@ async def zip_checks(asf_uid: str, release: sql.Release, revision: str, path: st
     # This release has committee, as guaranteed in draft_checks
     is_podling = (release.project.committee is not None) and release.project.committee.is_podling
     tasks = [
+        queued(asf_uid, sql.TaskType.COMPARE_SOURCE_TREES, release, revision, path),
         queued(asf_uid, sql.TaskType.LICENSE_FILES, release, revision, path, extra_args={"is_podling": is_podling}),
         queued(asf_uid, sql.TaskType.LICENSE_HEADERS, release, revision, path),
         queued(asf_uid, sql.TaskType.RAT_CHECK, release, revision, path),

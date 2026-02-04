@@ -190,6 +190,7 @@ class TaskStatus(str, enum.Enum):
 
 
 class TaskType(str, enum.Enum):
+    COMPARE_SOURCE_TREES = "compare_source_trees"
     DISTRIBUTION_STATUS = "distribution_status"
     DISTRIBUTION_WORKFLOW = "distribution_workflow"
     HASHING_CHECK = "hashing_check"

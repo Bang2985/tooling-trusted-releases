@@ -17,6 +17,37 @@
 
 from __future__ import annotations
 
-from . import base, bom, bundle, conformance, github, licenses, osv, patch, sbomqs, tool
+from .base import Lax
 
-__all__ = ["base", "bom", "bundle", "conformance", "github", "licenses", "osv", "patch", "sbomqs", "tool"]
+
+class TrustedPublisherPayload(Lax):
+    actor: str
+    actor_id: str
+    aud: str
+    base_ref: str
+    check_run_id: str
+    enterprise: str
+    enterprise_id: str
+    event_name: str
+    exp: int
+    head_ref: str
+    iat: int
+    iss: str
+    job_workflow_ref: str
+    job_workflow_sha: str
+    jti: str
+    nbf: int | None = None
+    ref: str
+    ref_protected: str
+    ref_type: str
+    repository: str
+    repository_owner: str
+    repository_visibility: str
+    run_attempt: str
+    run_number: str
+    runner_environment: str
+    sha: str
+    sub: str
+    workflow: str
+    workflow_ref: str
+    workflow_sha: str
