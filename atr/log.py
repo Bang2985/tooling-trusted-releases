@@ -21,7 +21,7 @@ import logging
 import logging.handlers
 import queue
 import threading
-from typing import Final
+from typing import Any, Final
 
 import structlog
 
@@ -108,6 +108,11 @@ def error(msg: str, **kwargs) -> None:
 
 def exception(msg: str, **kwargs) -> None:
     _event(logging.ERROR, msg, exc_info=True, **kwargs)
+
+
+def get_context(arg) -> Any | None:
+    """Get context from the request log"""
+    return structlog.contextvars.get_contextvars().get(arg, None)
 
 
 def get_recent_logs() -> list[str] | None:

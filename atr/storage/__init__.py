@@ -47,7 +47,13 @@ def audit(**kwargs: basic.JSON) -> None:
     now = datetime.datetime.now(datetime.UTC).isoformat(timespec="milliseconds")
     now = now.replace("+00:00", "Z")
     action = log.caller_name(depth=2)
+    request_user_id = log.get_context("user_id")
+    admin_user_id = log.get_context("admin_id")
     kwargs = {"datetime": now, "action": action, **kwargs}
+    if request_user_id:
+        kwargs["request_user_id"] = request_user_id
+    if admin_user_id and request_user_id != admin_user_id:
+        kwargs["admin_user_id"] = admin_user_id
     msg = json.dumps(kwargs, allow_nan=False)
     # The atr.log logger should give the same name
     # But to be extra sure, we set it manually

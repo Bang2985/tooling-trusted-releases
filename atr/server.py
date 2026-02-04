@@ -886,6 +886,8 @@ async def _reset_request_log_context():
     session = await asfquart.session.read()
     if session is not None:
         log.add_context(user_id=session.uid)
+        if "admin" in session.metadata:
+            log.add_context(admin_id=session.metadata["admin"])
     elif hasattr(quart.g, "jwt_claims"):
         claims = getattr(quart.g, "jwt_claims", {})
         asf_uid = claims.get("sub")

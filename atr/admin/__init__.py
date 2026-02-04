@@ -154,14 +154,10 @@ async def browse_as_post(session: web.Committer, browse_form: BrowseAsUserForm) 
         committee_data,
         bind_dn,
         bind_password,
+        {"admin": current_session.uid},
     )
     log_safe_data = _log_safe_session_data(
-        ldap_data,
-        new_uid,
-        ldap_projects_data,
-        committee_data,
-        bind_dn,
-        bind_password,
+        ldap_data, new_uid, ldap_projects_data, committee_data, bind_dn, bind_password, {"admin": current_session.uid}
     )
     log.info(f"New Quart cookie (not ASFQuart session) data: {log_safe_data}")
     asfquart.session.clear()
@@ -1108,6 +1104,7 @@ def _log_safe_session_data(
     committee_data: apache.CommitteeData,
     bind_dn: str,
     bind_password: str,
+    metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     # This version excludes "mfa" which CodeQL treats as sensitive
     # It's just a bool, but we can't suppress the error at source
@@ -1123,7 +1120,7 @@ def _log_safe_session_data(
         "pmcs": common.pmcs,
         "projects": common.projects,
         "isRole": False,
-        "metadata": {},
+        "metadata": metadata if metadata is not None else {},
     }
 
 
@@ -1146,6 +1143,7 @@ def _session_data(
     committee_data: apache.CommitteeData,
     bind_dn: str,
     bind_password: str,
+    metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     common = _session_data_common(ldap_data, new_uid, ldap_projects, committee_data, bind_dn, bind_password)
     return {
@@ -1162,7 +1160,7 @@ def _session_data(
         "projects": common.projects,
         "mfa": current_session.mfa,
         "isRole": False,
-        "metadata": {},
+        "metadata": metadata if metadata is not None else {},
     }
 
 
