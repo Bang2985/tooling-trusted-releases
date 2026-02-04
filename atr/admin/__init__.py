@@ -146,6 +146,9 @@ async def browse_as_post(session: web.Committer, browse_form: BrowseAsUserForm) 
     committee_data = await apache.get_active_committee_data()
     ldap_data = ldap_params.results_list[0]
     log.info(f"Current ASFQuart session data: {current_session}")
+    admin_id = current_session.uid
+    if "admin" in current_session.metadata:
+        admin_id = current_session.metadata["admin"]
     new_session_data = _session_data(
         ldap_data,
         new_uid,
@@ -154,10 +157,10 @@ async def browse_as_post(session: web.Committer, browse_form: BrowseAsUserForm) 
         committee_data,
         bind_dn,
         bind_password,
-        {"admin": current_session.uid},
+        {"admin": admin_id},
     )
     log_safe_data = _log_safe_session_data(
-        ldap_data, new_uid, ldap_projects_data, committee_data, bind_dn, bind_password, {"admin": current_session.uid}
+        ldap_data, new_uid, ldap_projects_data, committee_data, bind_dn, bind_password, {"admin": admin_id}
     )
     log.info(f"New Quart cookie (not ASFQuart session) data: {log_safe_data}")
     asfquart.session.clear()
