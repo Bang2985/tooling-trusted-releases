@@ -64,14 +64,14 @@ class DistributionPlatformValue:
 # Enumerations
 
 
-class CheckResultStatus(str, enum.Enum):
+class CheckResultStatus(enum.StrEnum):
     EXCEPTION = "exception"
     FAILURE = "failure"
     SUCCESS = "success"
     WARNING = "warning"
 
 
-class CheckResultStatusIgnore(str, enum.Enum):
+class CheckResultStatusIgnore(enum.StrEnum):
     EXCEPTION = "exception"
     FAILURE = "failure"
     WARNING = "warning"
@@ -150,20 +150,20 @@ class DistributionPlatform(enum.Enum):
     )
 
 
-class LicenseCheckMode(str, enum.Enum):
+class LicenseCheckMode(enum.StrEnum):
     BOTH = "Both"
     LIGHTWEIGHT = "Lightweight"
     RAT = "RAT"
 
 
-class ProjectStatus(str, enum.Enum):
+class ProjectStatus(enum.StrEnum):
     ACTIVE = "active"
     DORMANT = "dormant"
     RETIRED = "retired"
     STANDING = "standing"
 
 
-class ReleasePhase(str, enum.Enum):
+class ReleasePhase(enum.StrEnum):
     # TODO: Rename these to the UI names?
     # COMPOSE, VOTE, FINISH, "DISTRIBUTE"
     # Compose a draft
@@ -180,7 +180,7 @@ class ReleasePhase(str, enum.Enum):
     RELEASE = "release"
 
 
-class TaskStatus(str, enum.Enum):
+class TaskStatus(enum.StrEnum):
     """Status of a task in the task queue."""
 
     QUEUED = "queued"
@@ -189,7 +189,7 @@ class TaskStatus(str, enum.Enum):
     FAILED = "failed"
 
 
-class TaskType(str, enum.Enum):
+class TaskType(enum.StrEnum):
     COMPARE_SOURCE_TREES = "compare_source_trees"
     DISTRIBUTION_STATUS = "distribution_status"
     DISTRIBUTION_WORKFLOW = "distribution_workflow"
@@ -216,7 +216,7 @@ class TaskType(str, enum.Enum):
     ZIPFORMAT_STRUCTURE = "zipformat_structure"
 
 
-class UserRole(str, enum.Enum):
+class UserRole(enum.StrEnum):
     COMMITTEE_MEMBER = "committee_member"
     RELEASE_MANAGER = "release_manager"
     COMMITTER = "committer"

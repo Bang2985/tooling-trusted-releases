@@ -49,7 +49,7 @@ if TYPE_CHECKING:
     import atr.get.checks as checks
 
 
-class UserCategory(str, enum.Enum):
+class UserCategory(enum.StrEnum):
     COMMITTER = "Committer"
     COMMITTER_RM = "Committer (Release Manager)"
     PMC_MEMBER = "PMC Member"

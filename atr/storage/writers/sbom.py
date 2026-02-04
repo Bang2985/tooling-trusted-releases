@@ -18,6 +18,7 @@
 # Removing this will cause circular imports
 from __future__ import annotations
 
+import asyncio
 import datetime
 from typing import TYPE_CHECKING
 
@@ -113,11 +114,13 @@ class CommitteeParticipant(FoundationCommitter):
     ) -> sql.Task:
         # Create and queue the task, using paths within the new revision
         # We still need release.name for the task metadata
+        artifact_path = await asyncio.to_thread(_resolved_path_str, path_in_new_revision)
+        output_path = await asyncio.to_thread(_resolved_path_str, sbom_path_in_new_revision)
         sbom_task = sql.Task(
             task_type=sql.TaskType.SBOM_GENERATE_CYCLONEDX,
             task_args=sbom.GenerateCycloneDX(
-                artifact_path=str(path_in_new_revision.resolve()),
-                output_path=str(sbom_path_in_new_revision.resolve()),
+                artifact_path=artifact_path,
+                output_path=output_path,
             ).model_dump(),
             asf_uid=util.unwrap(self.__asf_uid),
             added=datetime.datetime.now(datetime.UTC),
@@ -178,3 +181,7 @@ class CommitteeMember(CommitteeParticipant):
             raise storage.AccessError("Not authorized")
         self.__asf_uid = asf_uid
         self.__committee_name = committee_name
+
+
+def _resolved_path_str(path: pathlib.Path) -> str:
+    return str(path.resolve())

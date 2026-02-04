@@ -18,6 +18,8 @@
 import ast
 import pathlib
 
+import aiofiles
+import aiofiles.os
 import quart
 
 import atr.blueprints.get as get
@@ -38,7 +40,7 @@ async def resolve(session: web.Committer | None, ref_path: str) -> web.WerkzeugR
         file_path_str, symbol = ref_path.rsplit(":", 1)
         resolved_file, validated_path_str = _validate_and_resolve_path(file_path_str, project_root)
 
-        if (not resolved_file.exists()) or (not resolved_file.is_file()):
+        if (not await aiofiles.os.path.exists(resolved_file)) or (not await aiofiles.os.path.isfile(resolved_file)):
             quart.abort(404)
 
         line_number = await _resolve_symbol_to_line(resolved_file, symbol)
@@ -53,15 +55,15 @@ async def resolve(session: web.Committer | None, ref_path: str) -> web.WerkzeugR
     path_str = ref_path.rstrip("/")
     resolved_path, validated_path_str = _validate_and_resolve_path(path_str, project_root)
 
-    if not resolved_path.exists():
+    if not await aiofiles.os.path.exists(resolved_path):
         quart.abort(404)
 
     if is_directory:
-        if not resolved_path.is_dir():
+        if not await aiofiles.os.path.isdir(resolved_path):
             quart.abort(404)
         github_url = f"https://github.com/apache/tooling-trusted-releases/tree/main/{validated_path_str}"
     else:
-        if not resolved_path.is_file():
+        if not await aiofiles.os.path.isfile(resolved_path):
             quart.abort(404)
         github_url = f"https://github.com/apache/tooling-trusted-releases/blob/main/{validated_path_str}"
 
@@ -70,7 +72,8 @@ async def resolve(session: web.Committer | None, ref_path: str) -> web.WerkzeugR
 
 async def _resolve_symbol_to_line(file_path: pathlib.Path, symbol: str) -> int | None:
     try:
-        source = file_path.read_text(encoding="utf-8")
+        async with aiofiles.open(file_path, encoding="utf-8") as f:
+            source = await f.read()
         tree = ast.parse(source, filename=str(file_path))
     except Exception:
         return None

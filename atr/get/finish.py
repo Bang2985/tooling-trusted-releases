@@ -112,7 +112,7 @@ async def _analyse_rc_tags(latest_revision_dir: pathlib.Path) -> RCTagAnalysisRe
         total_paths=0,
     )
 
-    if not latest_revision_dir.exists():
+    if not await aiofiles.os.path.exists(latest_revision_dir):
         return r
 
     async for p_rel in util.paths_recursive_all(latest_revision_dir):
@@ -134,7 +134,7 @@ async def _deletable_choices(
     latest_revision_dir: pathlib.Path, target_dirs: set[pathlib.Path]
 ) -> list[tuple[str, str]]:
     empty_deletable_dirs: list[pathlib.Path] = []
-    if latest_revision_dir.exists():
+    if await aiofiles.os.path.exists(latest_revision_dir):
         for d_rel in target_dirs:
             if d_rel == pathlib.Path("."):
                 # Disallow deletion of the root directory
