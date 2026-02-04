@@ -21,6 +21,7 @@ import os
 import pathlib
 import secrets
 import shutil
+import time
 from typing import Any, Final
 
 import aiofiles
@@ -76,15 +77,18 @@ async def _checkout_github_source(payload: github_models.TrustedPublisherPayload
     checkout_dir = tmp_dir / f"github-{secrets.token_hex(12)}"
     repo_url = f"https://github.com/{payload.repository}.git"
     branch = _ref_to_branch(payload.ref)
+    started_ns = time.perf_counter_ns()
     try:
         await asyncio.to_thread(_clone_repo, repo_url, payload.sha, branch, checkout_dir)
     except Exception:
+        elapsed_ms = (time.perf_counter_ns() - started_ns) / 1_000_000.0
         log.exception(
             "Failed to clone GitHub repo for compare.source_trees",
             repo_url=repo_url,
             sha=payload.sha,
             branch=branch,
             checkout_dir=str(checkout_dir),
+            clone_ms=elapsed_ms,
             git_author_name=os.environ.get("GIT_AUTHOR_NAME"),
             git_author_email=os.environ.get("GIT_AUTHOR_EMAIL"),
             git_committer_name=os.environ.get("GIT_COMMITTER_NAME"),
@@ -94,6 +98,15 @@ async def _checkout_github_source(payload: github_models.TrustedPublisherPayload
             email=os.environ.get("EMAIL"),
         )
         return None
+    elapsed_ms = (time.perf_counter_ns() - started_ns) / 1_000_000.0
+    log.info(
+        "Cloned GitHub repo for compare.source_trees",
+        repo_url=repo_url,
+        sha=payload.sha,
+        branch=branch,
+        checkout_dir=str(checkout_dir),
+        clone_ms=elapsed_ms,
+    )
     return str(checkout_dir)
 
 
