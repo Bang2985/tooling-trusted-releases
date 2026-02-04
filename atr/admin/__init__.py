@@ -31,7 +31,6 @@ import asfquart
 import asfquart.base as base
 import asfquart.session
 import htpy
-import ldap3.utils.conv as conv
 import pydantic
 import quart
 import sqlalchemy
@@ -40,7 +39,6 @@ import sqlmodel
 
 import atr.blueprints.admin as admin
 import atr.config as config
-import atr.datasources.apache as apache
 import atr.db as db
 import atr.db.interaction as interaction
 import atr.form as form
@@ -130,55 +128,36 @@ async def browse_as_post(session: web.Committer, browse_form: BrowseAsUserForm) 
     if not (current_session := await asfquart.session.read()):
         raise base.ASFQuartException("Not authenticated", 401)
 
-    bind_dn, bind_password = principal.get_ldap_bind_dn_and_password()
-    ldap_params = ldap.SearchParameters(
-        uid_query=new_uid,
-        bind_dn_from_config=bind_dn,
-        bind_password_from_config=bind_password,
-    )
-    await asyncio.to_thread(ldap.search, ldap_params)
-
-    if not ldap_params.results_list:
-        await quart.flash(f"User '{new_uid}' not found in LDAP.", "error")
+    try:
+        committer = principal.Committer(new_uid)
+        await asyncio.to_thread(committer.verify)
+    except principal.CommitterError as exc:
+        await quart.flash(f"Unable to browse as '{new_uid}': {exc}", "error")
         return await session.redirect(browse_as_get)
 
-    ldap_projects_data = await apache.get_ldap_projects_data()
-    committee_data = await apache.get_active_committee_data()
-    ldap_data = ldap_params.results_list[0]
-    log.info(f"Current ASFQuart session data: {current_session}")
     admin_id = current_session.uid
-    if "admin" in current_session.metadata:
-        admin_id = current_session.metadata["admin"]
-    new_session_data = _session_data(
-        ldap_data,
-        new_uid,
-        current_session,
-        ldap_projects_data,
-        committee_data,
-        bind_dn,
-        bind_password,
-        {"admin": admin_id},
-    )
-    log_safe_data = _log_safe_session_data(
-        ldap_data, new_uid, ldap_projects_data, committee_data, bind_dn, bind_password, {"admin": admin_id}
-    )
-    log.info(f"New Quart cookie (not ASFQuart session) data: {log_safe_data}")
+    if isinstance(current_session.metadata, dict):
+        existing_admin = current_session.metadata.get("admin")
+        if isinstance(existing_admin, str) and existing_admin:
+            admin_id = existing_admin
+
     asfquart.session.clear()
     # TODO: Make this safer
     session_cookie = atr.models.session.CookieData(
-        uid=new_session_data["uid"],
-        dn=new_session_data.get("dn"),
-        fullname=new_session_data.get("fullname"),
-        email=new_session_data.get("email"),
-        isMember=new_session_data.get("isMember", False),
-        isChair=new_session_data.get("isChair", False),
-        isRoot=new_session_data.get("isRoot", False),
-        pmcs=new_session_data.get("pmcs", []),
-        projects=new_session_data.get("projects", []),
-        mfa=new_session_data.get("mfa", False),
-        roleaccount=new_session_data.get("roleaccount", new_session_data.get("isRole", False)),
-        metadata=new_session_data.get("metadata", {}),
+        uid=committer.uid,
+        dn=None,
+        fullname=committer.fullname or committer.uid,
+        email=committer.email,
+        isMember=committer.isMember,
+        isChair=committer.isChair,
+        isRoot=committer.isRoot,
+        pmcs=sorted(set(committer.pmcs)),
+        projects=sorted(set(committer.projects)),
+        mfa=current_session.mfa,
+        roleaccount=False,
+        metadata={"admin": admin_id},
     )
+    # log.info(f"New Session Cookie Data: {session_cookie}")
     util.write_quart_session_cookie(session_cookie)
 
     await quart.flash(
@@ -1076,57 +1055,6 @@ async def _get_filesystem_dirs_unfinished(filesystem_dirs: list[str]) -> None:
                         filesystem_dirs.append(version_dir_path)
 
 
-def _get_user_committees_from_ldap(uid: str, bind_dn: str, bind_password: str) -> set[str]:
-    escaped_uid = conv.escape_filter_chars(uid)
-    with ldap.Search(bind_dn, bind_password) as ldap_search:
-        result = ldap_search.search(
-            ldap_base="ou=project,ou=groups,dc=apache,dc=org",
-            ldap_scope="SUBTREE",
-            ldap_query=f"(|(ownerUid={escaped_uid})(owner=uid={escaped_uid},ou=people,dc=apache,dc=org))",
-            ldap_attrs=["cn"],
-        )
-
-    committees = set()
-    for hit in result:
-        if not isinstance(hit, dict):
-            continue
-        pmc = hit.get("cn")
-        if not (isinstance(pmc, list) and (len(pmc) == 1)):
-            continue
-        project_name = pmc[0]
-        if project_name and isinstance(project_name, str):
-            committees.add(project_name)
-
-    return committees
-
-
-def _log_safe_session_data(
-    ldap_data: dict[str, Any],
-    new_uid: str,
-    ldap_projects: apache.LDAPProjectsData,
-    committee_data: apache.CommitteeData,
-    bind_dn: str,
-    bind_password: str,
-    metadata: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    # This version excludes "mfa" which CodeQL treats as sensitive
-    # It's just a bool, but we can't suppress the error at source
-    common = _session_data_common(ldap_data, new_uid, ldap_projects, committee_data, bind_dn, bind_password)
-    return {
-        "uid": common.uid,
-        "dn": None,
-        "fullname": common.fullname,
-        "email": common.email,
-        "isMember": common.is_member,
-        "isChair": common.is_chair,
-        "isRoot": common.is_root,
-        "pmcs": common.pmcs,
-        "projects": common.projects,
-        "isRole": False,
-        "metadata": metadata if metadata is not None else {},
-    }
-
-
 async def _ongoing_tasks(
     session: web.Committer, project_name: str, version_name: str, revision: str
 ) -> web.QuartResponse:
@@ -1136,66 +1064,6 @@ async def _ongoing_tasks(
     except Exception:
         log.exception(f"Error fetching ongoing task count for {project_name} {version_name} rev {revision}:")
         return web.TextResponse("")
-
-
-def _session_data(
-    ldap_data: dict[str, Any],
-    new_uid: str,
-    current_session: asfquart.session.ClientSession,
-    ldap_projects: apache.LDAPProjectsData,
-    committee_data: apache.CommitteeData,
-    bind_dn: str,
-    bind_password: str,
-    metadata: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    common = _session_data_common(ldap_data, new_uid, ldap_projects, committee_data, bind_dn, bind_password)
-    return {
-        "uid": common.uid,
-        "dn": None,
-        "fullname": common.fullname,
-        "email": common.email,
-        "isMember": common.is_member,
-        "isChair": common.is_chair,
-        "isRoot": common.is_root,
-        # WARNING: ASFQuart session.ClientSession uses "committees"
-        # But this is cookie, not ClientSession, data, and requires "pmcs"
-        "pmcs": common.pmcs,
-        "projects": common.projects,
-        "mfa": current_session.mfa,
-        "isRole": False,
-        "metadata": metadata if metadata is not None else {},
-    }
-
-
-def _session_data_common(
-    ldap_data: dict[str, Any],
-    new_uid: str,
-    ldap_projects: apache.LDAPProjectsData,
-    committee_data: apache.CommitteeData,
-    bind_dn: str,
-    bind_password: str,
-) -> SessionDataCommon:
-    # This is not quite accurate
-    # For example, this misses "tooling" for tooling members
-    projects = {p.name for p in ldap_projects.projects if (new_uid in p.members) or (new_uid in p.owners)}
-    # And this adds "incubator", which is not in the OAuth data
-    committees = _get_user_committees_from_ldap(new_uid, bind_dn, bind_password)
-
-    # Or asf-member-status?
-    is_member = bool(projects or committees)
-    is_root = False
-    is_chair = any(new_uid in (user.id for user in c.chair) for c in committee_data.committees)
-
-    return SessionDataCommon(
-        uid=ldap_data.get("uid", [new_uid])[0],
-        fullname=ldap_data.get("cn", [new_uid])[0],
-        email=f"{new_uid}@apache.org",
-        is_member=is_member,
-        is_chair=is_chair,
-        is_root=is_root,
-        pmcs=sorted(list(committees)),
-        projects=sorted(list(projects)),
-    )
 
 
 async def _update_keys(asf_uid: str) -> int:
