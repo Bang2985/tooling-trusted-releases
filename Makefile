@@ -1,5 +1,5 @@
 .PHONY: build build-alpine build-bootstrap build-docs build-playwright \
-  build-ts bump-bootstrap certs check check-extra check-light commit \
+  build-ts bump-bootstrap certs check check-clean check-extra check-light commit \
   docs generate-version ipython manual run-alpine run-playwright \
   run-playwright-slow serve serve-local sync sync-all update-deps
 
@@ -52,6 +52,9 @@ certs-local:
 check:
 	git add -A
 	uv run --frozen pre-commit run --all-files
+
+check-clean:
+	uv run --frozen pre-commit clean
 
 check-extra:
 	@git add -A
