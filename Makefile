@@ -1,7 +1,8 @@
 .PHONY: build build-alpine build-bootstrap build-docs build-playwright \
-  build-ts bump-bootstrap certs check check-clean check-extra check-light commit \
-  docs generate-version ipython manual run-alpine run-playwright \
-  run-playwright-slow serve serve-local sync sync-all update-deps
+  build-ts bump-bootstrap certs check check-clean check-extra check-heavy \
+  check-light commit docs e2e e2e-clean generate-version ipython manual \
+  run-alpine run-playwright run-playwright-slow serve serve-local sync \
+  sync-all unit update-deps
 
 BIND ?= 127.0.0.1:8080
 IMAGE ?= tooling-trusted-release
@@ -78,6 +79,12 @@ docs:
 	uv run --frozen python3 scripts/docs_post_process.py docs/*.html
 	uv run --frozen python3 scripts/docs_check.py
 
+e2e:
+	sh tests/run-e2e.sh
+
+e2e-clean:
+	cd tests && docker compose down -v && docker compose build --no-cache atr-dev && cd ..
+
 generate-version:
 	@rm -f atr/version.py
 	@uv run --frozen python3 atr/metadata.py > /tmp/version.py
@@ -125,6 +132,9 @@ sync:
 
 sync-all:
 	uv sync --frozen --all-groups
+
+unit:
+	sh tests/run-unit.sh
 
 update-deps:
 	pre-commit autoupdate || :
