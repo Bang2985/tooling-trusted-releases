@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import datetime
 import pathlib
 from collections.abc import Callable, Mapping
 
@@ -23,6 +24,7 @@ import dulwich.objects
 import dulwich.refs
 import pytest
 
+import atr.models.sql
 import atr.sbom.models.github
 import atr.tasks.checks
 import atr.tasks.checks.compare
@@ -56,6 +58,29 @@ class CloneRecorder:
 class CommitStub:
     def __init__(self, tree: object) -> None:
         self.tree = tree
+
+
+class DecompressRecorder:
+    def __init__(self, return_value: bool = True) -> None:
+        self.archive_path: pathlib.Path | None = None
+        self.extract_dir: pathlib.Path | None = None
+        self.max_extract_size: int | None = None
+        self.chunk_size: int | None = None
+        self.return_value = return_value
+
+    async def __call__(
+        self,
+        archive_path: pathlib.Path,
+        extract_dir: pathlib.Path,
+        max_extract_size: int,
+        chunk_size: int,
+    ) -> bool:
+        self.archive_path = archive_path
+        self.extract_dir = extract_dir
+        self.max_extract_size = max_extract_size
+        self.chunk_size = chunk_size
+        assert await aiofiles.os.path.exists(extract_dir)
+        return self.return_value
 
 
 class GitClientStub:
@@ -105,6 +130,21 @@ class ParseCommitRecorder:
         return self.commit
 
 
+class ExtractErrorRaiser:
+    def __call__(self, *args: object, **kwargs: object) -> tuple[int, list[str]]:
+        raise atr.tasks.checks.compare.archives.ExtractionError("Extraction error")
+
+
+class ExtractRecorder:
+    def __init__(self, extracted_size: int = 123) -> None:
+        self.calls: list[tuple[str, str, int, int]] = []
+        self.extracted_size = extracted_size
+
+    def __call__(self, archive_path: str, extract_dir: str, max_size: int, chunk_size: int) -> tuple[int, list[str]]:
+        self.calls.append((archive_path, extract_dir, max_size, chunk_size))
+        return self.extracted_size, []
+
+
 class PayloadLoader:
     def __init__(self, payload: atr.sbom.models.github.TrustedPublisherPayload | None) -> None:
         self.payload = payload
@@ -150,10 +190,28 @@ class RecorderStub(atr.tasks.checks.Recorder):
             member_rel_path=None,
             afresh=False,
         )
+        self.failure_calls: list[tuple[str, object]] = []
         self._is_source = is_source
 
     async def primary_path_is_source(self) -> bool:
         return self._is_source
+
+    async def failure(
+        self, message: str, data: object, primary_rel_path: str | None = None, member_rel_path: str | None = None
+    ) -> atr.models.sql.CheckResult:
+        self.failure_calls.append((message, data))
+        return atr.models.sql.CheckResult(
+            release_name=self.release_name,
+            revision_number=self.revision_number,
+            checker=self.checker,
+            primary_rel_path=primary_rel_path or self.primary_rel_path,
+            member_rel_path=member_rel_path,
+            created=datetime.datetime.now(datetime.UTC),
+            status=atr.models.sql.CheckResultStatus.FAILURE,
+            message=message,
+            data=data,
+            cached=False,
+        )
 
 
 class RepoStub:
@@ -272,6 +330,36 @@ def test_clone_repo_raises_when_commit_missing(monkeypatch: pytest.MonkeyPatch, 
 
 
 @pytest.mark.asyncio
+async def test_decompress_archive_calls_extract(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
+    archive_path = tmp_path / "artifact.tar.gz"
+    extract_dir = tmp_path / "extracted"
+    extract_dir.mkdir()
+    extract_recorder = ExtractRecorder()
+
+    monkeypatch.setattr(atr.tasks.checks.compare.archives, "extract", extract_recorder)
+
+    result = await atr.tasks.checks.compare._decompress_archive(archive_path, extract_dir, 10, 20)
+
+    assert result is True
+    assert extract_recorder.calls == [(str(archive_path), str(extract_dir), 10, 20)]
+
+
+@pytest.mark.asyncio
+async def test_decompress_archive_handles_extraction_error(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    archive_path = tmp_path / "artifact.tar.gz"
+    extract_dir = tmp_path / "extracted"
+    extract_dir.mkdir()
+
+    monkeypatch.setattr(atr.tasks.checks.compare.archives, "extract", ExtractErrorRaiser())
+
+    result = await atr.tasks.checks.compare._decompress_archive(archive_path, extract_dir, 10, 20)
+
+    assert result is False
+
+
+@pytest.mark.asyncio
 async def test_source_trees_creates_temp_workspace_and_cleans_up(
     monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
 ) -> None:
@@ -279,10 +367,12 @@ async def test_source_trees_creates_temp_workspace_and_cleans_up(
     args = _make_args(recorder)
     payload = _make_payload()
     checkout = CheckoutRecorder()
+    decompress = DecompressRecorder()
     tmp_root = tmp_path / "temporary-root"
 
     monkeypatch.setattr(atr.tasks.checks.compare, "_load_tp_payload", PayloadLoader(payload))
     monkeypatch.setattr(atr.tasks.checks.compare, "_checkout_github_source", checkout)
+    monkeypatch.setattr(atr.tasks.checks.compare, "_decompress_archive", decompress)
     monkeypatch.setattr(atr.tasks.checks.compare.util, "get_tmp_dir", ReturnValue(tmp_root))
 
     await atr.tasks.checks.compare.source_trees(args)
@@ -290,6 +380,8 @@ async def test_source_trees_creates_temp_workspace_and_cleans_up(
     assert checkout.checkout_dir is not None
     checkout_dir = checkout.checkout_dir
     assert checkout_dir.name == "github"
+    assert decompress.extract_dir is not None
+    assert decompress.extract_dir.name == "archive"
     assert checkout_dir.parent.parent == tmp_root
     assert checkout_dir.parent.name.startswith("trees-")
     assert await aiofiles.os.path.exists(tmp_root)
@@ -307,9 +399,40 @@ async def test_source_trees_payload_none_skips_temp_workspace(monkeypatch: pytes
         "_checkout_github_source",
         RaiseAsync("_checkout_github_source should not be called"),
     )
+    monkeypatch.setattr(
+        atr.tasks.checks.compare,
+        "_decompress_archive",
+        RaiseAsync("_decompress_archive should not be called"),
+    )
     monkeypatch.setattr(atr.tasks.checks.compare.util, "get_tmp_dir", RaiseSync("get_tmp_dir should not be called"))
 
     await atr.tasks.checks.compare.source_trees(args)
+
+
+@pytest.mark.asyncio
+async def test_source_trees_records_failure_when_decompress_fails(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    recorder = RecorderStub(True)
+    args = _make_args(recorder)
+    payload = _make_payload()
+    checkout = CheckoutRecorder()
+    decompress = DecompressRecorder(return_value=False)
+    tmp_root = tmp_path / "temporary-root"
+
+    monkeypatch.setattr(atr.tasks.checks.compare, "_load_tp_payload", PayloadLoader(payload))
+    monkeypatch.setattr(atr.tasks.checks.compare, "_checkout_github_source", checkout)
+    monkeypatch.setattr(atr.tasks.checks.compare, "_decompress_archive", decompress)
+    monkeypatch.setattr(atr.tasks.checks.compare.util, "get_tmp_dir", ReturnValue(tmp_root))
+
+    await atr.tasks.checks.compare.source_trees(args)
+
+    assert len(recorder.failure_calls) == 1
+    message, data = recorder.failure_calls[0]
+    assert message == "Failed to extract source archive for comparison"
+    assert isinstance(data, dict)
+    assert data["archive_path"] == str(await recorder.abs_path())
+    assert data["extract_dir"] == str(decompress.extract_dir)
 
 
 @pytest.mark.asyncio

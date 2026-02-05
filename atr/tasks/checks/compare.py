@@ -34,13 +34,16 @@ import dulwich.porcelain
 import dulwich.refs
 import pydantic
 
+import atr.archives as archives
 import atr.attestable as attestable
+import atr.config as config
 import atr.log as log
 import atr.models.results as results
 import atr.sbom.models.github as github_models
 import atr.tasks.checks as checks
 import atr.util as util
 
+_CONFIG: Final = config.get()
 _DEFAULT_EMAIL: Final[str] = "atr@localhost"
 _DEFAULT_USER: Final[str] = "atr"
 
@@ -72,13 +75,28 @@ async def source_trees(args: checks.FunctionArguments) -> results.Results | None
 
     payload = await _load_tp_payload(args.project_name, args.version_name, args.revision_number)
     checkout_dir: str | None = None
+    archive_dir: str | None = None
     if payload is not None:
+        if not (primary_abs_path := await recorder.abs_path()):
+            return None
+        max_extract_size = args.extra_args.get("max_extract_size", _CONFIG.MAX_EXTRACT_SIZE)
+        chunk_size = args.extra_args.get("chunk_size", _CONFIG.EXTRACT_CHUNK_SIZE)
         tmp_dir = util.get_tmp_dir()
         await aiofiles.os.makedirs(tmp_dir, exist_ok=True)
         async with util.async_temporary_directory(prefix="trees-", dir=tmp_dir) as temp_dir:
             github_dir = temp_dir / "github"
+            archive_dir_path = temp_dir / "archive"
             await aiofiles.os.makedirs(github_dir, exist_ok=True)
+            await aiofiles.os.makedirs(archive_dir_path, exist_ok=True)
             checkout_dir = await _checkout_github_source(payload, github_dir)
+            if await _decompress_archive(primary_abs_path, archive_dir_path, max_extract_size, chunk_size):
+                archive_dir = str(archive_dir_path)
+            else:
+                await recorder.failure(
+                    "Failed to extract source archive for comparison",
+                    {"archive_path": str(primary_abs_path), "extract_dir": str(archive_dir_path)},
+                )
+                return None
     payload_summary = _payload_summary(payload)
     log.info(
         "Ran compare.source_trees successfully",
@@ -88,6 +106,7 @@ async def source_trees(args: checks.FunctionArguments) -> results.Results | None
         path=args.primary_rel_path,
         github_payload=payload_summary,
         github_checkout=checkout_dir,
+        archive_checkout=archive_dir,
     )
     return None
 
@@ -145,6 +164,41 @@ def _clone_repo(repo_url: str, sha: str, checkout_dir: pathlib.Path) -> None:
     git_dir = pathlib.Path(repo.controldir())
     if git_dir.exists():
         shutil.rmtree(git_dir)
+
+
+async def _decompress_archive(
+    archive_path: pathlib.Path,
+    extract_dir: pathlib.Path,
+    max_extract_size: int,
+    chunk_size: int,
+) -> bool:
+    started_ns = time.perf_counter_ns()
+    try:
+        extracted_size, _extracted_paths = await asyncio.to_thread(
+            archives.extract,
+            str(archive_path),
+            str(extract_dir),
+            max_size=max_extract_size,
+            chunk_size=chunk_size,
+        )
+    except (archives.ExtractionError, OSError):
+        elapsed_ms = (time.perf_counter_ns() - started_ns) / 1_000_000.0
+        log.exception(
+            "Failed to extract source archive for compare.source_trees",
+            archive_path=str(archive_path),
+            extract_dir=str(extract_dir),
+            extract_ms=elapsed_ms,
+        )
+        return False
+    elapsed_ms = (time.perf_counter_ns() - started_ns) / 1_000_000.0
+    log.info(
+        "Extracted source archive for compare.source_trees",
+        archive_path=str(archive_path),
+        extract_dir=str(extract_dir),
+        extracted_bytes=extracted_size,
+        extract_ms=elapsed_ms,
+    )
+    return True
 
 
 def _ensure_clone_identity_env() -> None:
