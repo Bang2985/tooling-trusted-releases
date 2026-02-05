@@ -261,17 +261,21 @@ def _compare_trees_rsync(repo_dir: pathlib.Path, archive_dir: pathlib.Path) -> T
             continue
         rel_path: str | None = None
         is_repo_only = False
-        if line.startswith("*deleting "):
-            rel_path = line.removeprefix("*deleting ").strip().rstrip("/")
-        elif line.startswith("deleting "):
-            rel_path = line.removeprefix("deleting ").strip().rstrip("/")
+        is_content_diff = False
+        if line.startswith("*deleting ") or line.startswith("deleting "):
+            prefix = "*deleting " if line.startswith("*deleting ") else "deleting "
+            rel_path = line.removeprefix(prefix).strip().rstrip("/")
+            is_content_diff = True
         else:
             parts = line.split(" ", 1)
             if len(parts) == 2:
                 flags = parts[0]
                 rel_path = parts[1].rstrip("/")
-                if flags.startswith(">f") and (len(flags) >= 3) and (flags[2] == "+"):
-                    is_repo_only = True
+                if (len(flags) >= 3) and (flags[1] == "f"):
+                    if (flags[0] == ">") and (flags[2] == "+"):
+                        is_repo_only = True
+                    elif (flags[0] in (">", "<", "c")) and (flags[2] in ("c", "s", "+")):
+                        is_content_diff = True
         if not rel_path:
             continue
         full_repo = repo_dir / rel_path
@@ -279,7 +283,7 @@ def _compare_trees_rsync(repo_dir: pathlib.Path, archive_dir: pathlib.Path) -> T
         if full_repo.is_file() or full_archive.is_file():
             if is_repo_only:
                 repo_only.add(rel_path)
-            else:
+            elif is_content_diff:
                 invalid.add(rel_path)
     return TreeComparisonResult(invalid, repo_only)
 

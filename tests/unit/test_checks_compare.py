@@ -439,6 +439,28 @@ def test_compare_trees_rsync_content_differs(monkeypatch: pytest.MonkeyPatch, tm
     assert result.repo_only == set()
 
 
+def test_compare_trees_rsync_ignores_timestamp_only(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
+    repo_dir = tmp_path / "repo"
+    archive_dir = tmp_path / "archive"
+    _make_tree(repo_dir, ["a.txt"])
+    _make_tree(archive_dir, ["a.txt"])
+    completed = subprocess.CompletedProcess(
+        args=["rsync"],
+        returncode=0,
+        stdout=".f..t...... a.txt\n",
+        stderr="",
+    )
+    run_recorder = RunRecorder(completed)
+
+    monkeypatch.setattr(shutil, "which", lambda _name: "/usr/bin/rsync")
+    monkeypatch.setattr(subprocess, "run", run_recorder)
+
+    result = atr.tasks.checks.compare._compare_trees_rsync(repo_dir, archive_dir)
+
+    assert result.invalid == set()
+    assert result.repo_only == set()
+
+
 def test_compare_trees_rsync_distinct_files(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
     repo_dir = tmp_path / "repo"
     archive_dir = tmp_path / "archive"
