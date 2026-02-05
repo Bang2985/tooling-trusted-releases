@@ -206,7 +206,7 @@ async def _checkout_github_source(
         )
         return None
     elapsed_ms = (time.perf_counter_ns() - started_ns) / 1_000_000.0
-    log.info(
+    log.debug(
         "Cloned GitHub repo for compare.source_trees",
         repo_url=repo_url,
         sha=payload.sha,
@@ -323,7 +323,7 @@ async def _decompress_archive(
         )
         return False
     elapsed_ms = (time.perf_counter_ns() - started_ns) / 1_000_000.0
-    log.info(
+    log.debug(
         "Extracted source archive for compare.source_trees",
         archive_path=str(archive_path),
         extract_dir=str(extract_dir),
@@ -357,7 +357,7 @@ async def _find_archive_root(archive_path: pathlib.Path, extract_dir: pathlib.Pa
         return ArchiveRootResult(root=None, extra_entries=[])
     found_root = directories[0]
     extra_entries = [e for e in entries if (e != found_root) and (not e.startswith("._"))]
-    log.info(
+    log.debug(
         "Found archive root directory for compare.source_trees",
         archive_path=str(archive_path),
         extract_dir=str(extract_dir),
