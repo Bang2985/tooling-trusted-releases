@@ -439,28 +439,6 @@ def test_compare_trees_rsync_content_differs(monkeypatch: pytest.MonkeyPatch, tm
     assert result.repo_only == set()
 
 
-def test_compare_trees_rsync_ignores_timestamp_only(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
-    repo_dir = tmp_path / "repo"
-    archive_dir = tmp_path / "archive"
-    _make_tree(repo_dir, ["a.txt"])
-    _make_tree(archive_dir, ["a.txt"])
-    completed = subprocess.CompletedProcess(
-        args=["rsync"],
-        returncode=0,
-        stdout=".f..t...... a.txt\n",
-        stderr="",
-    )
-    run_recorder = RunRecorder(completed)
-
-    monkeypatch.setattr(shutil, "which", lambda _name: "/usr/bin/rsync")
-    monkeypatch.setattr(subprocess, "run", run_recorder)
-
-    result = atr.tasks.checks.compare._compare_trees_rsync(repo_dir, archive_dir)
-
-    assert result.invalid == set()
-    assert result.repo_only == set()
-
-
 def test_compare_trees_rsync_distinct_files(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
     repo_dir = tmp_path / "repo"
     archive_dir = tmp_path / "archive"
@@ -481,6 +459,28 @@ def test_compare_trees_rsync_distinct_files(monkeypatch: pytest.MonkeyPatch, tmp
 
     assert result.invalid == {"b.txt"}
     assert result.repo_only == {"a.txt"}
+
+
+def test_compare_trees_rsync_ignores_timestamp_only(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
+    repo_dir = tmp_path / "repo"
+    archive_dir = tmp_path / "archive"
+    _make_tree(repo_dir, ["a.txt"])
+    _make_tree(archive_dir, ["a.txt"])
+    completed = subprocess.CompletedProcess(
+        args=["rsync"],
+        returncode=0,
+        stdout=".f..t...... a.txt\n",
+        stderr="",
+    )
+    run_recorder = RunRecorder(completed)
+
+    monkeypatch.setattr(shutil, "which", lambda _name: "/usr/bin/rsync")
+    monkeypatch.setattr(subprocess, "run", run_recorder)
+
+    result = atr.tasks.checks.compare._compare_trees_rsync(repo_dir, archive_dir)
+
+    assert result.invalid == set()
+    assert result.repo_only == set()
 
 
 def test_compare_trees_rsync_repo_has_extra_file(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
@@ -558,6 +558,35 @@ async def test_decompress_archive_handles_extraction_error(
 
 
 @pytest.mark.asyncio
+async def test_find_archive_root_accepts_any_single_directory(tmp_path: pathlib.Path) -> None:
+    archive_path = tmp_path / "my-project-1.0.0.tar.gz"
+    extract_dir = tmp_path / "extracted"
+    extract_dir.mkdir(parents=True)
+    root_dir = extract_dir / "package"
+    root_dir.mkdir()
+
+    result = await atr.tasks.checks.compare._find_archive_root(archive_path, extract_dir)
+
+    assert result.root == "package"
+    assert result.extra_entries == []
+
+
+@pytest.mark.asyncio
+async def test_find_archive_root_detects_extra_file_entries(tmp_path: pathlib.Path) -> None:
+    archive_path = tmp_path / "my-project-1.0.0.tar.gz"
+    extract_dir = tmp_path / "extracted"
+    root_dir = extract_dir / "my-project-1.0.0"
+    root_dir.mkdir(parents=True)
+    (extract_dir / "extra.txt").write_text("extra")
+    (extract_dir / "README").write_text("readme")
+
+    result = await atr.tasks.checks.compare._find_archive_root(archive_path, extract_dir)
+
+    assert result.root == "my-project-1.0.0"
+    assert sorted(result.extra_entries) == ["README", "extra.txt"]
+
+
+@pytest.mark.asyncio
 async def test_find_archive_root_finds_expected_root(tmp_path: pathlib.Path) -> None:
     archive_path = tmp_path / "my-project-1.0.0.tar.gz"
     extract_dir = tmp_path / "extracted"
@@ -597,16 +626,17 @@ async def test_find_archive_root_finds_root_without_source_suffix(tmp_path: path
 
 
 @pytest.mark.asyncio
-async def test_find_archive_root_accepts_any_single_directory(tmp_path: pathlib.Path) -> None:
+async def test_find_archive_root_ignores_macos_metadata(tmp_path: pathlib.Path) -> None:
     archive_path = tmp_path / "my-project-1.0.0.tar.gz"
     extract_dir = tmp_path / "extracted"
-    extract_dir.mkdir(parents=True)
-    root_dir = extract_dir / "package"
-    root_dir.mkdir()
+    root_dir = extract_dir / "my-project-1.0.0"
+    root_dir.mkdir(parents=True)
+    metadata_file = extract_dir / "._my-project-1.0.0"
+    metadata_file.write_text("metadata")
 
     result = await atr.tasks.checks.compare._find_archive_root(archive_path, extract_dir)
 
-    assert result.root == "package"
+    assert result.root == "my-project-1.0.0"
     assert result.extra_entries == []
 
 
@@ -633,36 +663,6 @@ async def test_find_archive_root_returns_none_when_no_directories(tmp_path: path
     result = await atr.tasks.checks.compare._find_archive_root(archive_path, extract_dir)
 
     assert result.root is None
-
-
-@pytest.mark.asyncio
-async def test_find_archive_root_detects_extra_file_entries(tmp_path: pathlib.Path) -> None:
-    archive_path = tmp_path / "my-project-1.0.0.tar.gz"
-    extract_dir = tmp_path / "extracted"
-    root_dir = extract_dir / "my-project-1.0.0"
-    root_dir.mkdir(parents=True)
-    (extract_dir / "extra.txt").write_text("extra")
-    (extract_dir / "README").write_text("readme")
-
-    result = await atr.tasks.checks.compare._find_archive_root(archive_path, extract_dir)
-
-    assert result.root == "my-project-1.0.0"
-    assert sorted(result.extra_entries) == ["README", "extra.txt"]
-
-
-@pytest.mark.asyncio
-async def test_find_archive_root_ignores_macos_metadata(tmp_path: pathlib.Path) -> None:
-    archive_path = tmp_path / "my-project-1.0.0.tar.gz"
-    extract_dir = tmp_path / "extracted"
-    root_dir = extract_dir / "my-project-1.0.0"
-    root_dir.mkdir(parents=True)
-    metadata_file = extract_dir / "._my-project-1.0.0"
-    metadata_file.write_text("metadata")
-
-    result = await atr.tasks.checks.compare._find_archive_root(archive_path, extract_dir)
-
-    assert result.root == "my-project-1.0.0"
-    assert result.extra_entries == []
 
 
 @pytest.mark.asyncio
@@ -726,6 +726,42 @@ async def test_source_trees_payload_none_skips_temp_workspace(monkeypatch: pytes
 
 
 @pytest.mark.asyncio
+async def test_source_trees_permits_pkg_info_when_pyproject_toml_exists(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    recorder = RecorderStub(True)
+    args = _make_args(recorder)
+    payload = _make_payload()
+    checkout = CheckoutRecorder()
+    find_root = FindArchiveRootRecorder("artifact")
+    compare = CompareRecorder(invalid={"PKG-INFO"})
+    tmp_root = tmp_path / "temporary-root"
+
+    async def decompress_with_pyproject(
+        archive_path: pathlib.Path,
+        extract_dir: pathlib.Path,
+        max_extract_size: int,
+        chunk_size: int,
+    ) -> bool:
+        archive_content = extract_dir / "artifact"
+        archive_content.mkdir(parents=True, exist_ok=True)
+        (archive_content / "pyproject.toml").write_text("[project]\nname = 'test'\n")
+        return True
+
+    monkeypatch.setattr(atr.tasks.checks.compare, "_load_tp_payload", PayloadLoader(payload))
+    monkeypatch.setattr(atr.tasks.checks.compare, "_checkout_github_source", checkout)
+    monkeypatch.setattr(atr.tasks.checks.compare, "_decompress_archive", decompress_with_pyproject)
+    monkeypatch.setattr(atr.tasks.checks.compare, "_find_archive_root", find_root)
+    monkeypatch.setattr(atr.tasks.checks.compare, "_compare_trees", compare)
+    monkeypatch.setattr(atr.tasks.checks.compare.util, "get_tmp_dir", ReturnValue(tmp_root))
+
+    await atr.tasks.checks.compare.source_trees(args)
+
+    assert len(recorder.failure_calls) == 0
+    assert len(recorder.success_calls) == 1
+
+
+@pytest.mark.asyncio
 async def test_source_trees_records_failure_when_archive_has_invalid_files(
     monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
 ) -> None:
@@ -783,6 +819,32 @@ async def test_source_trees_records_failure_when_archive_root_not_found(
 
 
 @pytest.mark.asyncio
+async def test_source_trees_records_failure_when_decompress_fails(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    recorder = RecorderStub(True)
+    args = _make_args(recorder)
+    payload = _make_payload()
+    checkout = CheckoutRecorder()
+    decompress = DecompressRecorder(return_value=False)
+    tmp_root = tmp_path / "temporary-root"
+
+    monkeypatch.setattr(atr.tasks.checks.compare, "_load_tp_payload", PayloadLoader(payload))
+    monkeypatch.setattr(atr.tasks.checks.compare, "_checkout_github_source", checkout)
+    monkeypatch.setattr(atr.tasks.checks.compare, "_decompress_archive", decompress)
+    monkeypatch.setattr(atr.tasks.checks.compare.util, "get_tmp_dir", ReturnValue(tmp_root))
+
+    await atr.tasks.checks.compare.source_trees(args)
+
+    assert len(recorder.failure_calls) == 1
+    message, data = recorder.failure_calls[0]
+    assert message == "Failed to extract source archive for comparison"
+    assert isinstance(data, dict)
+    assert data["archive_path"] == str(await recorder.abs_path())
+    assert data["extract_dir"] == str(decompress.extract_dir)
+
+
+@pytest.mark.asyncio
 async def test_source_trees_records_failure_when_extra_entries_in_archive(
     monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
 ) -> None:
@@ -808,32 +870,6 @@ async def test_source_trees_records_failure_when_extra_entries_in_archive(
     assert isinstance(data, dict)
     assert data["root"] == "artifact"
     assert data["extra_entries"] == ["README.txt", "extra.txt"]
-
-
-@pytest.mark.asyncio
-async def test_source_trees_records_failure_when_decompress_fails(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
-) -> None:
-    recorder = RecorderStub(True)
-    args = _make_args(recorder)
-    payload = _make_payload()
-    checkout = CheckoutRecorder()
-    decompress = DecompressRecorder(return_value=False)
-    tmp_root = tmp_path / "temporary-root"
-
-    monkeypatch.setattr(atr.tasks.checks.compare, "_load_tp_payload", PayloadLoader(payload))
-    monkeypatch.setattr(atr.tasks.checks.compare, "_checkout_github_source", checkout)
-    monkeypatch.setattr(atr.tasks.checks.compare, "_decompress_archive", decompress)
-    monkeypatch.setattr(atr.tasks.checks.compare.util, "get_tmp_dir", ReturnValue(tmp_root))
-
-    await atr.tasks.checks.compare.source_trees(args)
-
-    assert len(recorder.failure_calls) == 1
-    message, data = recorder.failure_calls[0]
-    assert message == "Failed to extract source archive for comparison"
-    assert isinstance(data, dict)
-    assert data["archive_path"] == str(await recorder.abs_path())
-    assert data["extract_dir"] == str(decompress.extract_dir)
 
 
 @pytest.mark.asyncio

@@ -48,6 +48,9 @@ import atr.util as util
 _CONFIG: Final = config.get()
 _DEFAULT_EMAIL: Final[str] = "atr@localhost"
 _DEFAULT_USER: Final[str] = "atr"
+_PERMITTED_ADDED_PATHS: Final[dict[str, list[str]]] = {
+    "PKG-INFO": ["pyproject.toml"],
+}
 
 
 @dataclasses.dataclass
@@ -74,7 +77,7 @@ class TreeComparisonResult:
     repo_only: set[str]
 
 
-async def source_trees(args: checks.FunctionArguments) -> results.Results | None:
+async def source_trees(args: checks.FunctionArguments) -> results.Results | None:  # noqa: C901
     recorder = await args.recorder()
     is_source = await recorder.primary_path_is_source()
     if not is_source:
@@ -142,8 +145,15 @@ async def source_trees(args: checks.FunctionArguments) -> results.Results | None
                     {"error": str(exc)},
                 )
                 return None
-            if comparison.invalid:
-                invalid_list = sorted(comparison.invalid)
+            invalid_filtered: set[str] = set()
+            for path in comparison.invalid:
+                required = _PERMITTED_ADDED_PATHS.get(path)
+                if required is None:
+                    invalid_filtered.add(path)
+                elif not all((archive_content_dir / r).is_file() for r in required):
+                    invalid_filtered.add(path)
+            if invalid_filtered:
+                invalid_list = sorted(invalid_filtered)
                 await recorder.failure(
                     "Source archive contains files not in GitHub checkout or with different content",
                     {"invalid_count": len(invalid_list), "invalid_paths": invalid_list},
