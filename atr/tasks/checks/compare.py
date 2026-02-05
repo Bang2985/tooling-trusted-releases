@@ -16,17 +16,22 @@
 # under the License.
 
 import asyncio
+import contextlib
 import json
 import os
 import pathlib
 import shutil
 import time
+from collections.abc import Mapping
 from typing import Any, Final
 
 import aiofiles
 import aiofiles.os
-import dulwich.objectspec as objectspec
-import dulwich.porcelain as porcelain
+import dulwich.client
+import dulwich.objects
+import dulwich.objectspec
+import dulwich.porcelain
+import dulwich.refs
 import pydantic
 
 import atr.attestable as attestable
@@ -38,6 +43,18 @@ import atr.util as util
 
 _DEFAULT_EMAIL: Final[str] = "atr@localhost"
 _DEFAULT_USER: Final[str] = "atr"
+
+
+class DetermineWantsForSha:
+    def __init__(self, sha: str) -> None:
+        self.sha = sha
+
+    def __call__(
+        self,
+        refs: Mapping[dulwich.refs.Ref, dulwich.objects.ObjectID],
+        depth: int | None = None,
+    ) -> list[dulwich.objects.ObjectID]:
+        return [dulwich.objects.ObjectID(self.sha.encode("ascii"))]
 
 
 async def source_trees(args: checks.FunctionArguments) -> results.Results | None:
@@ -79,17 +96,15 @@ async def _checkout_github_source(
     payload: github_models.TrustedPublisherPayload, checkout_dir: pathlib.Path
 ) -> str | None:
     repo_url = f"https://github.com/{payload.repository}.git"
-    branch = _ref_to_branch(payload.ref)
     started_ns = time.perf_counter_ns()
     try:
-        await asyncio.to_thread(_clone_repo, repo_url, payload.sha, branch, checkout_dir)
+        await asyncio.to_thread(_clone_repo, repo_url, payload.sha, checkout_dir)
     except Exception:
         elapsed_ms = (time.perf_counter_ns() - started_ns) / 1_000_000.0
         log.exception(
             "Failed to clone GitHub repo for compare.source_trees",
             repo_url=repo_url,
             sha=payload.sha,
-            branch=branch,
             checkout_dir=str(checkout_dir),
             clone_ms=elapsed_ms,
             git_author_name=os.environ.get("GIT_AUTHOR_NAME"),
@@ -106,24 +121,24 @@ async def _checkout_github_source(
         "Cloned GitHub repo for compare.source_trees",
         repo_url=repo_url,
         sha=payload.sha,
-        branch=branch,
         checkout_dir=str(checkout_dir),
         clone_ms=elapsed_ms,
     )
     return str(checkout_dir)
 
 
-def _clone_repo(repo_url: str, sha: str, branch: str | None, checkout_dir: pathlib.Path) -> None:
+def _clone_repo(repo_url: str, sha: str, checkout_dir: pathlib.Path) -> None:
     _ensure_clone_identity_env()
-    repo = porcelain.clone(
-        repo_url,
-        str(checkout_dir),
-        checkout=True,
-        depth=1,
-        branch=branch,
-    )
+    repo = dulwich.porcelain.init(str(checkout_dir))
+    git_client, path = dulwich.client.get_transport_and_path(repo_url, operation="pull")
     try:
-        commit = objectspec.parse_commit(repo, sha)
+        determine_wants = DetermineWantsForSha(sha)
+        git_client.fetch(path, repo, determine_wants=determine_wants, depth=1)
+    finally:
+        with contextlib.suppress(Exception):
+            git_client.close()
+    try:
+        commit = dulwich.objectspec.parse_commit(repo, sha)
         repo.get_worktree().reset_index(tree=commit.tree)
     except (KeyError, ValueError) as exc:
         raise RuntimeError(f"Commit {sha} not found in shallow clone") from exc
@@ -170,9 +185,3 @@ def _payload_summary(payload: github_models.TrustedPublisherPayload | None) -> d
         "actor": payload.actor,
         "actor_id": payload.actor_id,
     }
-
-
-def _ref_to_branch(ref: str) -> str | None:
-    if ref.startswith("refs/heads/"):
-        return ref.removeprefix("refs/heads/")
-    return None

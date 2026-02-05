@@ -16,8 +16,11 @@
 # under the License.
 
 import pathlib
+from collections.abc import Callable, Mapping
 
 import aiofiles.os
+import dulwich.objects
+import dulwich.refs
 import pytest
 
 import atr.sbom.models.github
@@ -44,10 +47,62 @@ class CheckoutRecorder:
 
 class CloneRecorder:
     def __init__(self) -> None:
-        self.calls: list[tuple[str, str, str | None, pathlib.Path]] = []
+        self.calls: list[tuple[str, str, pathlib.Path]] = []
 
-    def __call__(self, repo_url: str, sha: str, branch: str | None, checkout_dir: pathlib.Path) -> None:
-        self.calls.append((repo_url, sha, branch, checkout_dir))
+    def __call__(self, repo_url: str, sha: str, checkout_dir: pathlib.Path) -> None:
+        self.calls.append((repo_url, sha, checkout_dir))
+
+
+class CommitStub:
+    def __init__(self, tree: object) -> None:
+        self.tree = tree
+
+
+class GitClientStub:
+    def __init__(self) -> None:
+        self.closed = False
+        self.fetch_calls: list[tuple[str, object, int | None]] = []
+        self.wants: list[dulwich.objects.ObjectID] | None = None
+
+    def fetch(
+        self,
+        path: str,
+        repo: object,
+        determine_wants: Callable[
+            [Mapping[dulwich.refs.Ref, dulwich.objects.ObjectID], int | None],
+            list[dulwich.objects.ObjectID],
+        ],
+        depth: int | None = None,
+    ) -> None:
+        self.fetch_calls.append((path, repo, depth))
+        if self.wants is None:
+            self.wants = determine_wants({}, depth)
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class InitRecorder:
+    def __init__(self, repo: object) -> None:
+        self.calls: list[str] = []
+        self.repo = repo
+
+    def __call__(self, path: str) -> object:
+        self.calls.append(path)
+        return self.repo
+
+
+class ParseCommitRecorder:
+    def __init__(self, commit: CommitStub, raise_exc: Exception | None = None) -> None:
+        self.calls: list[tuple[object, str]] = []
+        self.commit = commit
+        self.raise_exc = raise_exc
+
+    def __call__(self, repo: object, sha: str) -> CommitStub:
+        self.calls.append((repo, sha))
+        if self.raise_exc is not None:
+            raise self.raise_exc
+        return self.commit
 
 
 class PayloadLoader:
@@ -101,12 +156,43 @@ class RecorderStub(atr.tasks.checks.Recorder):
         return self._is_source
 
 
+class RepoStub:
+    def __init__(self, controldir: pathlib.Path, worktree: object) -> None:
+        self._controldir = controldir
+        self._worktree = worktree
+
+    def controldir(self) -> str:
+        return str(self._controldir)
+
+    def get_worktree(self) -> object:
+        return self._worktree
+
+
 class ReturnValue:
     def __init__(self, value: pathlib.Path) -> None:
         self.value = value
 
     def __call__(self) -> pathlib.Path:
         return self.value
+
+
+class TransportRecorder:
+    def __init__(self, client: object, path: str) -> None:
+        self.calls: list[tuple[str, str | None]] = []
+        self.client = client
+        self.path = path
+
+    def __call__(self, repo_url: str, operation: str | None = None) -> tuple[object, str]:
+        self.calls.append((repo_url, operation))
+        return self.client, self.path
+
+
+class WorktreeStub:
+    def __init__(self) -> None:
+        self.reset_calls: list[object] = []
+
+    def reset_index(self, tree: object | None = None) -> None:
+        self.reset_calls.append(tree)
 
 
 @pytest.mark.asyncio
@@ -123,11 +209,66 @@ async def test_checkout_github_source_uses_provided_dir(
 
     assert result == str(checkout_dir)
     assert len(clone_recorder.calls) == 1
-    repo_url, sha, branch, called_dir = clone_recorder.calls[0]
+    repo_url, sha, called_dir = clone_recorder.calls[0]
     assert repo_url == "https://github.com/apache/test.git"
     assert sha == "0000000000000000000000000000000000000000"
-    assert branch == "main"
     assert called_dir == checkout_dir
+
+
+def test_clone_repo_fetches_requested_sha(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
+    checkout_dir = tmp_path / "checkout"
+    git_dir = checkout_dir / ".git"
+    git_dir.mkdir(parents=True)
+    worktree = WorktreeStub()
+    repo = RepoStub(git_dir, worktree)
+    init_recorder = InitRecorder(repo)
+    git_client = GitClientStub()
+    transport = TransportRecorder(git_client, "remote-path")
+    tree_marker = object()
+    parse_commit = ParseCommitRecorder(CommitStub(tree_marker))
+    sha = "0000000000000000000000000000000000000000"
+
+    monkeypatch.setattr(atr.tasks.checks.compare.dulwich.porcelain, "init", init_recorder)
+    monkeypatch.setattr(atr.tasks.checks.compare.dulwich.client, "get_transport_and_path", transport)
+    monkeypatch.setattr(atr.tasks.checks.compare.dulwich.objectspec, "parse_commit", parse_commit)
+
+    atr.tasks.checks.compare._clone_repo("https://github.com/apache/test.git", sha, checkout_dir)
+
+    assert init_recorder.calls == [str(checkout_dir)]
+    assert transport.calls == [("https://github.com/apache/test.git", "pull")]
+    assert git_client.fetch_calls == [("remote-path", repo, 1)]
+    assert git_client.wants == [dulwich.objects.ObjectID(sha.encode("ascii"))]
+    assert parse_commit.calls == [(repo, sha)]
+    assert worktree.reset_calls == [tree_marker]
+    assert not git_dir.exists()
+    assert git_client.closed is True
+
+
+def test_clone_repo_raises_when_commit_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
+    checkout_dir = tmp_path / "checkout"
+    git_dir = checkout_dir / ".git"
+    git_dir.mkdir(parents=True)
+    worktree = WorktreeStub()
+    repo = RepoStub(git_dir, worktree)
+    init_recorder = InitRecorder(repo)
+    git_client = GitClientStub()
+    transport = TransportRecorder(git_client, "remote-path")
+    parse_commit = ParseCommitRecorder(CommitStub(object()), raise_exc=KeyError("missing"))
+    sha = "1111111111111111111111111111111111111111"
+
+    monkeypatch.setattr(atr.tasks.checks.compare.dulwich.porcelain, "init", init_recorder)
+    monkeypatch.setattr(atr.tasks.checks.compare.dulwich.client, "get_transport_and_path", transport)
+    monkeypatch.setattr(atr.tasks.checks.compare.dulwich.objectspec, "parse_commit", parse_commit)
+
+    with pytest.raises(RuntimeError, match=r"Commit .* not found in shallow clone"):
+        atr.tasks.checks.compare._clone_repo("https://github.com/apache/test.git", sha, checkout_dir)
+
+    assert git_client.fetch_calls == [("remote-path", repo, 1)]
+    assert git_client.wants == [dulwich.objects.ObjectID(sha.encode("ascii"))]
+    assert parse_commit.calls == [(repo, sha)]
+    assert worktree.reset_calls == []
+    assert git_dir.exists()
+    assert git_client.closed is True
 
 
 @pytest.mark.asyncio
