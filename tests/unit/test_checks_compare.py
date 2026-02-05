@@ -17,7 +17,9 @@
 
 import datetime
 import pathlib
-from collections.abc import Callable, Mapping
+import shutil
+import subprocess
+from collections.abc import Callable, Iterable, Mapping
 
 import aiofiles.os
 import dulwich.objects
@@ -60,6 +62,23 @@ class CommitStub:
         self.tree = tree
 
 
+class CompareRecorder:
+    def __init__(
+        self,
+        invalid: set[str] | None = None,
+        repo_only: set[str] | None = None,
+    ) -> None:
+        self.calls: list[tuple[pathlib.Path, pathlib.Path]] = []
+        self.invalid = invalid or set()
+        self.repo_only = repo_only or set()
+
+    async def __call__(
+        self, repo_dir: pathlib.Path, archive_dir: pathlib.Path
+    ) -> atr.tasks.checks.compare.TreeComparisonResult:
+        self.calls.append((repo_dir, archive_dir))
+        return atr.tasks.checks.compare.TreeComparisonResult(set(self.invalid), set(self.repo_only))
+
+
 class DecompressRecorder:
     def __init__(self, return_value: bool = True) -> None:
         self.archive_path: pathlib.Path | None = None
@@ -81,6 +100,21 @@ class DecompressRecorder:
         self.chunk_size = chunk_size
         assert await aiofiles.os.path.exists(extract_dir)
         return self.return_value
+
+
+class ExtractErrorRaiser:
+    def __call__(self, *args: object, **kwargs: object) -> tuple[int, list[str]]:
+        raise atr.tasks.checks.compare.archives.ExtractionError("Extraction error")
+
+
+class ExtractRecorder:
+    def __init__(self, extracted_size: int = 123) -> None:
+        self.calls: list[tuple[str, str, int, int]] = []
+        self.extracted_size = extracted_size
+
+    def __call__(self, archive_path: str, extract_dir: str, max_size: int, chunk_size: int) -> tuple[int, list[str]]:
+        self.calls.append((archive_path, extract_dir, max_size, chunk_size))
+        return self.extracted_size, []
 
 
 class GitClientStub:
@@ -130,19 +164,20 @@ class ParseCommitRecorder:
         return self.commit
 
 
-class ExtractErrorRaiser:
-    def __call__(self, *args: object, **kwargs: object) -> tuple[int, list[str]]:
-        raise atr.tasks.checks.compare.archives.ExtractionError("Extraction error")
+class RunRecorder:
+    def __init__(self, completed: subprocess.CompletedProcess[str]) -> None:
+        self.calls: list[list[str]] = []
+        self.completed = completed
 
-
-class ExtractRecorder:
-    def __init__(self, extracted_size: int = 123) -> None:
-        self.calls: list[tuple[str, str, int, int]] = []
-        self.extracted_size = extracted_size
-
-    def __call__(self, archive_path: str, extract_dir: str, max_size: int, chunk_size: int) -> tuple[int, list[str]]:
-        self.calls.append((archive_path, extract_dir, max_size, chunk_size))
-        return self.extracted_size, []
+    def __call__(
+        self,
+        args: list[str],
+        capture_output: bool,
+        text: bool,
+        check: bool,
+    ) -> subprocess.CompletedProcess[str]:
+        self.calls.append(args)
+        return self.completed
 
 
 class PayloadLoader:
@@ -191,6 +226,7 @@ class RecorderStub(atr.tasks.checks.Recorder):
             afresh=False,
         )
         self.failure_calls: list[tuple[str, object]] = []
+        self.success_calls: list[tuple[str, object]] = []
         self._is_source = is_source
 
     async def primary_path_is_source(self) -> bool:
@@ -208,6 +244,23 @@ class RecorderStub(atr.tasks.checks.Recorder):
             member_rel_path=member_rel_path,
             created=datetime.datetime.now(datetime.UTC),
             status=atr.models.sql.CheckResultStatus.FAILURE,
+            message=message,
+            data=data,
+            cached=False,
+        )
+
+    async def success(
+        self, message: str, data: object, primary_rel_path: str | None = None, member_rel_path: str | None = None
+    ) -> atr.models.sql.CheckResult:
+        self.success_calls.append((message, data))
+        return atr.models.sql.CheckResult(
+            release_name=self.release_name,
+            revision_number=self.revision_number,
+            checker=self.checker,
+            primary_rel_path=primary_rel_path or self.primary_rel_path,
+            member_rel_path=member_rel_path,
+            created=datetime.datetime.now(datetime.UTC),
+            status=atr.models.sql.CheckResultStatus.SUCCESS,
             message=message,
             data=data,
             cached=False,
@@ -329,6 +382,116 @@ def test_clone_repo_raises_when_commit_missing(monkeypatch: pytest.MonkeyPatch, 
     assert git_client.closed is True
 
 
+def test_compare_trees_rsync_archive_has_extra_file(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
+    repo_dir = tmp_path / "repo"
+    archive_dir = tmp_path / "archive"
+    _make_tree(repo_dir, ["a.txt"])
+    _make_tree(archive_dir, ["a.txt", "b.txt"])
+    completed = subprocess.CompletedProcess(
+        args=["rsync"],
+        returncode=0,
+        stdout="",
+        stderr="*deleting b.txt\n",
+    )
+    run_recorder = RunRecorder(completed)
+
+    monkeypatch.setattr(shutil, "which", lambda _name: "/usr/bin/rsync")
+    monkeypatch.setattr(subprocess, "run", run_recorder)
+
+    result = atr.tasks.checks.compare._compare_trees_rsync(repo_dir, archive_dir)
+
+    assert result.invalid == {"b.txt"}
+    assert result.repo_only == set()
+
+
+def test_compare_trees_rsync_content_differs(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
+    repo_dir = tmp_path / "repo"
+    archive_dir = tmp_path / "archive"
+    _make_tree(repo_dir, ["a.txt", "b.txt"])
+    _make_tree(archive_dir, ["a.txt", "b.txt"])
+    completed = subprocess.CompletedProcess(
+        args=["rsync"],
+        returncode=0,
+        stdout=">fc......... b.txt\n",
+        stderr="",
+    )
+    run_recorder = RunRecorder(completed)
+
+    monkeypatch.setattr(shutil, "which", lambda _name: "/usr/bin/rsync")
+    monkeypatch.setattr(subprocess, "run", run_recorder)
+
+    result = atr.tasks.checks.compare._compare_trees_rsync(repo_dir, archive_dir)
+
+    assert result.invalid == {"b.txt"}
+    assert result.repo_only == set()
+
+
+def test_compare_trees_rsync_distinct_files(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
+    repo_dir = tmp_path / "repo"
+    archive_dir = tmp_path / "archive"
+    _make_tree(repo_dir, ["a.txt"])
+    _make_tree(archive_dir, ["b.txt"])
+    completed = subprocess.CompletedProcess(
+        args=["rsync"],
+        returncode=0,
+        stdout=">f+++++++++ a.txt\n",
+        stderr="*deleting b.txt\n",
+    )
+    run_recorder = RunRecorder(completed)
+
+    monkeypatch.setattr(shutil, "which", lambda _name: "/usr/bin/rsync")
+    monkeypatch.setattr(subprocess, "run", run_recorder)
+
+    result = atr.tasks.checks.compare._compare_trees_rsync(repo_dir, archive_dir)
+
+    assert result.invalid == {"b.txt"}
+    assert result.repo_only == {"a.txt"}
+
+
+def test_compare_trees_rsync_repo_has_extra_file(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
+    repo_dir = tmp_path / "repo"
+    archive_dir = tmp_path / "archive"
+    _make_tree(repo_dir, ["a.txt", "b.txt"])
+    _make_tree(archive_dir, ["a.txt"])
+    completed = subprocess.CompletedProcess(
+        args=["rsync"],
+        returncode=0,
+        stdout=">f+++++++++ b.txt\n",
+        stderr="",
+    )
+    run_recorder = RunRecorder(completed)
+
+    monkeypatch.setattr(shutil, "which", lambda _name: "/usr/bin/rsync")
+    monkeypatch.setattr(subprocess, "run", run_recorder)
+
+    result = atr.tasks.checks.compare._compare_trees_rsync(repo_dir, archive_dir)
+
+    assert result.invalid == set()
+    assert result.repo_only == {"b.txt"}
+
+
+def test_compare_trees_rsync_trees_match(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
+    repo_dir = tmp_path / "repo"
+    archive_dir = tmp_path / "archive"
+    _make_tree(repo_dir, ["a.txt", "b.txt"])
+    _make_tree(archive_dir, ["a.txt", "b.txt"])
+    completed = subprocess.CompletedProcess(
+        args=["rsync"],
+        returncode=0,
+        stdout="",
+        stderr="",
+    )
+    run_recorder = RunRecorder(completed)
+
+    monkeypatch.setattr(shutil, "which", lambda _name: "/usr/bin/rsync")
+    monkeypatch.setattr(subprocess, "run", run_recorder)
+
+    result = atr.tasks.checks.compare._compare_trees_rsync(repo_dir, archive_dir)
+
+    assert result.invalid == set()
+    assert result.repo_only == set()
+
+
 @pytest.mark.asyncio
 async def test_decompress_archive_calls_extract(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
     archive_path = tmp_path / "artifact.tar.gz"
@@ -368,11 +531,13 @@ async def test_source_trees_creates_temp_workspace_and_cleans_up(
     payload = _make_payload()
     checkout = CheckoutRecorder()
     decompress = DecompressRecorder()
+    compare = CompareRecorder(repo_only={"extra1.txt", "extra2.txt"})
     tmp_root = tmp_path / "temporary-root"
 
     monkeypatch.setattr(atr.tasks.checks.compare, "_load_tp_payload", PayloadLoader(payload))
     monkeypatch.setattr(atr.tasks.checks.compare, "_checkout_github_source", checkout)
     monkeypatch.setattr(atr.tasks.checks.compare, "_decompress_archive", decompress)
+    monkeypatch.setattr(atr.tasks.checks.compare, "_compare_trees", compare)
     monkeypatch.setattr(atr.tasks.checks.compare.util, "get_tmp_dir", ReturnValue(tmp_root))
 
     await atr.tasks.checks.compare.source_trees(args)
@@ -386,6 +551,12 @@ async def test_source_trees_creates_temp_workspace_and_cleans_up(
     assert checkout_dir.parent.name.startswith("trees-")
     assert await aiofiles.os.path.exists(tmp_root)
     assert not await aiofiles.os.path.exists(checkout_dir.parent)
+    assert len(recorder.success_calls) == 1
+    message, data = recorder.success_calls[0]
+    assert message == "Source archive is a valid subset of GitHub checkout"
+    assert isinstance(data, dict)
+    assert data["repo_only_count"] == 2
+    assert data["repo_only_paths_sample"] == ["extra1.txt", "extra2.txt"]
 
 
 @pytest.mark.asyncio
@@ -407,6 +578,35 @@ async def test_source_trees_payload_none_skips_temp_workspace(monkeypatch: pytes
     monkeypatch.setattr(atr.tasks.checks.compare.util, "get_tmp_dir", RaiseSync("get_tmp_dir should not be called"))
 
     await atr.tasks.checks.compare.source_trees(args)
+
+
+@pytest.mark.asyncio
+async def test_source_trees_records_failure_when_archive_has_invalid_files(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    recorder = RecorderStub(True)
+    args = _make_args(recorder)
+    payload = _make_payload()
+    checkout = CheckoutRecorder()
+    decompress = DecompressRecorder()
+    compare = CompareRecorder(invalid={"bad1.txt", "bad2.txt"}, repo_only={"ok.txt"})
+    tmp_root = tmp_path / "temporary-root"
+
+    monkeypatch.setattr(atr.tasks.checks.compare, "_load_tp_payload", PayloadLoader(payload))
+    monkeypatch.setattr(atr.tasks.checks.compare, "_checkout_github_source", checkout)
+    monkeypatch.setattr(atr.tasks.checks.compare, "_decompress_archive", decompress)
+    monkeypatch.setattr(atr.tasks.checks.compare, "_compare_trees", compare)
+    monkeypatch.setattr(atr.tasks.checks.compare.util, "get_tmp_dir", ReturnValue(tmp_root))
+
+    await atr.tasks.checks.compare.source_trees(args)
+
+    assert len(recorder.failure_calls) == 1
+    assert len(recorder.success_calls) == 0
+    message, data = recorder.failure_calls[0]
+    assert message == "Source archive contains files not in GitHub checkout or with different content"
+    assert isinstance(data, dict)
+    assert data["invalid_count"] == 2
+    assert data["invalid_paths"] == ["bad1.txt", "bad2.txt"]
 
 
 @pytest.mark.asyncio
@@ -433,6 +633,34 @@ async def test_source_trees_records_failure_when_decompress_fails(
     assert isinstance(data, dict)
     assert data["archive_path"] == str(await recorder.abs_path())
     assert data["extract_dir"] == str(decompress.extract_dir)
+
+
+@pytest.mark.asyncio
+async def test_source_trees_reports_repo_only_sample_limited_to_five(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    recorder = RecorderStub(True)
+    args = _make_args(recorder)
+    payload = _make_payload()
+    checkout = CheckoutRecorder()
+    decompress = DecompressRecorder()
+    repo_only_files = {f"file{i}.txt" for i in range(10)}
+    compare = CompareRecorder(repo_only=repo_only_files)
+    tmp_root = tmp_path / "temporary-root"
+
+    monkeypatch.setattr(atr.tasks.checks.compare, "_load_tp_payload", PayloadLoader(payload))
+    monkeypatch.setattr(atr.tasks.checks.compare, "_checkout_github_source", checkout)
+    monkeypatch.setattr(atr.tasks.checks.compare, "_decompress_archive", decompress)
+    monkeypatch.setattr(atr.tasks.checks.compare, "_compare_trees", compare)
+    monkeypatch.setattr(atr.tasks.checks.compare.util, "get_tmp_dir", ReturnValue(tmp_root))
+
+    await atr.tasks.checks.compare.source_trees(args)
+
+    assert len(recorder.success_calls) == 1
+    _message, data = recorder.success_calls[0]
+    assert isinstance(data, dict)
+    assert data["repo_only_count"] == 10
+    assert len(data["repo_only_paths_sample"]) == 5
 
 
 @pytest.mark.asyncio
@@ -497,3 +725,11 @@ def _make_payload(
         "workflow_sha": "ffffffffffffffffffffffffffffffffffffffff",
     }
     return atr.sbom.models.github.TrustedPublisherPayload.model_validate(payload)
+
+
+def _make_tree(root: pathlib.Path, files: Iterable[str]) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+    for rel_path in files:
+        target = root / rel_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(rel_path, encoding="utf-8")

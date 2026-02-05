@@ -52,7 +52,7 @@ def audit(**kwargs: basic.JSON) -> None:
     kwargs = {"datetime": now, "action": action, **kwargs}
     if request_user_id:
         kwargs["request_user_id"] = request_user_id
-    if admin_user_id and request_user_id != admin_user_id:
+    if admin_user_id and (request_user_id != admin_user_id):
         kwargs["admin_user_id"] = admin_user_id
     msg = json.dumps(kwargs, allow_nan=False)
     # The atr.log logger should give the same name

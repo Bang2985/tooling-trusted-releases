@@ -17,10 +17,12 @@
 
 import asyncio
 import contextlib
+import dataclasses
 import json
 import os
 import pathlib
 import shutil
+import subprocess
 import time
 from collections.abc import Mapping
 from typing import Any, Final
@@ -60,6 +62,12 @@ class DetermineWantsForSha:
         return [dulwich.objects.ObjectID(self.sha.encode("ascii"))]
 
 
+@dataclasses.dataclass
+class TreeComparisonResult:
+    invalid: set[str]
+    repo_only: set[str]
+
+
 async def source_trees(args: checks.FunctionArguments) -> results.Results | None:
     recorder = await args.recorder()
     is_source = await recorder.primary_path_is_source()
@@ -89,6 +97,12 @@ async def source_trees(args: checks.FunctionArguments) -> results.Results | None
             await aiofiles.os.makedirs(github_dir, exist_ok=True)
             await aiofiles.os.makedirs(archive_dir_path, exist_ok=True)
             checkout_dir = await _checkout_github_source(payload, github_dir)
+            if checkout_dir is None:
+                await recorder.failure(
+                    "Failed to clone GitHub repository for comparison",
+                    {"repo_url": f"https://github.com/{payload.repository}.git", "sha": payload.sha},
+                )
+                return None
             if await _decompress_archive(primary_abs_path, archive_dir_path, max_extract_size, chunk_size):
                 archive_dir = str(archive_dir_path)
             else:
@@ -97,6 +111,29 @@ async def source_trees(args: checks.FunctionArguments) -> results.Results | None
                     {"archive_path": str(primary_abs_path), "extract_dir": str(archive_dir_path)},
                 )
                 return None
+            try:
+                comparison = await _compare_trees(github_dir, archive_dir_path)
+            except RuntimeError as exc:
+                await recorder.failure(
+                    "Failed to compare source tree against GitHub checkout",
+                    {"error": str(exc)},
+                )
+                return None
+            if comparison.invalid:
+                invalid_list = sorted(comparison.invalid)
+                await recorder.failure(
+                    "Source archive contains files not in GitHub checkout or with different content",
+                    {"invalid_count": len(invalid_list), "invalid_paths": invalid_list},
+                )
+                return None
+            repo_only_list = sorted(comparison.repo_only)
+            await recorder.success(
+                "Source archive is a valid subset of GitHub checkout",
+                {
+                    "repo_only_count": len(repo_only_list),
+                    "repo_only_paths_sample": repo_only_list[:5],
+                },
+            )
     payload_summary = _payload_summary(payload)
     log.info(
         "Ran compare.source_trees successfully",
@@ -164,6 +201,64 @@ def _clone_repo(repo_url: str, sha: str, checkout_dir: pathlib.Path) -> None:
     git_dir = pathlib.Path(repo.controldir())
     if git_dir.exists():
         shutil.rmtree(git_dir)
+
+
+async def _compare_trees(repo_dir: pathlib.Path, archive_dir: pathlib.Path) -> TreeComparisonResult:
+    return await asyncio.to_thread(_compare_trees_rsync, repo_dir, archive_dir)
+
+
+def _compare_trees_rsync(repo_dir: pathlib.Path, archive_dir: pathlib.Path) -> TreeComparisonResult:  # noqa: C901
+    if shutil.which("rsync") is None:
+        raise RuntimeError("rsync is not available on PATH")
+    command = [
+        "rsync",
+        "-a",
+        "--delete",
+        "--dry-run",
+        "--itemize-changes",
+        "--out-format=%i %n",
+        "--no-motd",
+        "--checksum",
+        f"{repo_dir}{os.sep}",
+        f"{archive_dir}{os.sep}",
+    ]
+    result = subprocess.run(
+        command,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"rsync failed with code {result.returncode}: {result.stderr.strip()}")
+    invalid: set[str] = set()
+    repo_only: set[str] = set()
+    for line in (result.stdout + "\n" + result.stderr).splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        rel_path: str | None = None
+        is_repo_only = False
+        if line.startswith("*deleting "):
+            rel_path = line.removeprefix("*deleting ").strip().rstrip("/")
+        elif line.startswith("deleting "):
+            rel_path = line.removeprefix("deleting ").strip().rstrip("/")
+        else:
+            parts = line.split(" ", 1)
+            if len(parts) == 2:
+                flags = parts[0]
+                rel_path = parts[1].rstrip("/")
+                if flags.startswith(">f") and (len(flags) >= 3) and (flags[2] == "+"):
+                    is_repo_only = True
+        if not rel_path:
+            continue
+        full_repo = repo_dir / rel_path
+        full_archive = archive_dir / rel_path
+        if full_repo.is_file() or full_archive.is_file():
+            if is_repo_only:
+                repo_only.add(rel_path)
+            else:
+                invalid.add(rel_path)
+    return TreeComparisonResult(invalid, repo_only)
 
 
 async def _decompress_archive(
