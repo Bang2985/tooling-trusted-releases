@@ -19,7 +19,6 @@ import asyncio
 import json
 import os
 import pathlib
-import secrets
 import shutil
 import time
 from typing import Any, Final
@@ -57,7 +56,12 @@ async def source_trees(args: checks.FunctionArguments) -> results.Results | None
     payload = await _load_tp_payload(args.project_name, args.version_name, args.revision_number)
     checkout_dir: str | None = None
     if payload is not None:
-        checkout_dir = await _checkout_github_source(payload)
+        tmp_dir = util.get_tmp_dir()
+        await aiofiles.os.makedirs(tmp_dir, exist_ok=True)
+        async with util.async_temporary_directory(prefix="trees-", dir=tmp_dir) as temp_dir:
+            github_dir = temp_dir / "github"
+            await aiofiles.os.makedirs(github_dir, exist_ok=True)
+            checkout_dir = await _checkout_github_source(payload, github_dir)
     payload_summary = _payload_summary(payload)
     log.info(
         "Ran compare.source_trees successfully",
@@ -71,10 +75,9 @@ async def source_trees(args: checks.FunctionArguments) -> results.Results | None
     return None
 
 
-async def _checkout_github_source(payload: github_models.TrustedPublisherPayload) -> str | None:
-    tmp_dir = util.get_tmp_dir()
-    await aiofiles.os.makedirs(tmp_dir, exist_ok=True)
-    checkout_dir = tmp_dir / f"github-{secrets.token_hex(12)}"
+async def _checkout_github_source(
+    payload: github_models.TrustedPublisherPayload, checkout_dir: pathlib.Path
+) -> str | None:
     repo_url = f"https://github.com/{payload.repository}.git"
     branch = _ref_to_branch(payload.ref)
     started_ns = time.perf_counter_ns()
@@ -127,9 +130,6 @@ def _clone_repo(repo_url: str, sha: str, branch: str | None, checkout_dir: pathl
     git_dir = pathlib.Path(repo.controldir())
     if git_dir.exists():
         shutil.rmtree(git_dir)
-    tmp_dir = pathlib.Path(repo.path)
-    if tmp_dir.exists():
-        shutil.rmtree(tmp_dir)
 
 
 def _ensure_clone_identity_env() -> None:
