@@ -117,6 +117,19 @@ class ExtractRecorder:
         return self.extracted_size, []
 
 
+class FindArchiveRootRecorder:
+    def __init__(self, root: str | None = "artifact", extra_entries: list[str] | None = None) -> None:
+        self.calls: list[tuple[pathlib.Path, pathlib.Path]] = []
+        self.root = root
+        self.extra_entries = extra_entries or []
+
+    async def __call__(
+        self, archive_path: pathlib.Path, extract_dir: pathlib.Path
+    ) -> atr.tasks.checks.compare.ArchiveRootResult:
+        self.calls.append((archive_path, extract_dir))
+        return atr.tasks.checks.compare.ArchiveRootResult(root=self.root, extra_entries=self.extra_entries)
+
+
 class GitClientStub:
     def __init__(self) -> None:
         self.closed = False
@@ -523,6 +536,114 @@ async def test_decompress_archive_handles_extraction_error(
 
 
 @pytest.mark.asyncio
+async def test_find_archive_root_finds_expected_root(tmp_path: pathlib.Path) -> None:
+    archive_path = tmp_path / "my-project-1.0.0.tar.gz"
+    extract_dir = tmp_path / "extracted"
+    root_dir = extract_dir / "my-project-1.0.0"
+    root_dir.mkdir(parents=True)
+
+    result = await atr.tasks.checks.compare._find_archive_root(archive_path, extract_dir)
+
+    assert result.root == "my-project-1.0.0"
+    assert result.extra_entries == []
+
+
+@pytest.mark.asyncio
+async def test_find_archive_root_finds_root_with_source_suffix(tmp_path: pathlib.Path) -> None:
+    archive_path = tmp_path / "my-project-1.0.0-source.tar.gz"
+    extract_dir = tmp_path / "extracted"
+    root_dir = extract_dir / "my-project-1.0.0-source"
+    root_dir.mkdir(parents=True)
+
+    result = await atr.tasks.checks.compare._find_archive_root(archive_path, extract_dir)
+
+    assert result.root == "my-project-1.0.0-source"
+    assert result.extra_entries == []
+
+
+@pytest.mark.asyncio
+async def test_find_archive_root_finds_root_without_source_suffix(tmp_path: pathlib.Path) -> None:
+    archive_path = tmp_path / "my-project-1.0.0-source.tar.gz"
+    extract_dir = tmp_path / "extracted"
+    root_dir = extract_dir / "my-project-1.0.0"
+    root_dir.mkdir(parents=True)
+
+    result = await atr.tasks.checks.compare._find_archive_root(archive_path, extract_dir)
+
+    assert result.root == "my-project-1.0.0"
+    assert result.extra_entries == []
+
+
+@pytest.mark.asyncio
+async def test_find_archive_root_accepts_any_single_directory(tmp_path: pathlib.Path) -> None:
+    archive_path = tmp_path / "my-project-1.0.0.tar.gz"
+    extract_dir = tmp_path / "extracted"
+    extract_dir.mkdir(parents=True)
+    root_dir = extract_dir / "package"
+    root_dir.mkdir()
+
+    result = await atr.tasks.checks.compare._find_archive_root(archive_path, extract_dir)
+
+    assert result.root == "package"
+    assert result.extra_entries == []
+
+
+@pytest.mark.asyncio
+async def test_find_archive_root_returns_none_when_multiple_directories(tmp_path: pathlib.Path) -> None:
+    archive_path = tmp_path / "my-project-1.0.0.tar.gz"
+    extract_dir = tmp_path / "extracted"
+    extract_dir.mkdir(parents=True)
+    (extract_dir / "dir1").mkdir()
+    (extract_dir / "dir2").mkdir()
+
+    result = await atr.tasks.checks.compare._find_archive_root(archive_path, extract_dir)
+
+    assert result.root is None
+
+
+@pytest.mark.asyncio
+async def test_find_archive_root_returns_none_when_no_directories(tmp_path: pathlib.Path) -> None:
+    archive_path = tmp_path / "my-project-1.0.0.tar.gz"
+    extract_dir = tmp_path / "extracted"
+    extract_dir.mkdir(parents=True)
+    (extract_dir / "file.txt").write_text("content")
+
+    result = await atr.tasks.checks.compare._find_archive_root(archive_path, extract_dir)
+
+    assert result.root is None
+
+
+@pytest.mark.asyncio
+async def test_find_archive_root_detects_extra_file_entries(tmp_path: pathlib.Path) -> None:
+    archive_path = tmp_path / "my-project-1.0.0.tar.gz"
+    extract_dir = tmp_path / "extracted"
+    root_dir = extract_dir / "my-project-1.0.0"
+    root_dir.mkdir(parents=True)
+    (extract_dir / "extra.txt").write_text("extra")
+    (extract_dir / "README").write_text("readme")
+
+    result = await atr.tasks.checks.compare._find_archive_root(archive_path, extract_dir)
+
+    assert result.root == "my-project-1.0.0"
+    assert sorted(result.extra_entries) == ["README", "extra.txt"]
+
+
+@pytest.mark.asyncio
+async def test_find_archive_root_ignores_macos_metadata(tmp_path: pathlib.Path) -> None:
+    archive_path = tmp_path / "my-project-1.0.0.tar.gz"
+    extract_dir = tmp_path / "extracted"
+    root_dir = extract_dir / "my-project-1.0.0"
+    root_dir.mkdir(parents=True)
+    metadata_file = extract_dir / "._my-project-1.0.0"
+    metadata_file.write_text("metadata")
+
+    result = await atr.tasks.checks.compare._find_archive_root(archive_path, extract_dir)
+
+    assert result.root == "my-project-1.0.0"
+    assert result.extra_entries == []
+
+
+@pytest.mark.asyncio
 async def test_source_trees_creates_temp_workspace_and_cleans_up(
     monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
 ) -> None:
@@ -531,12 +652,14 @@ async def test_source_trees_creates_temp_workspace_and_cleans_up(
     payload = _make_payload()
     checkout = CheckoutRecorder()
     decompress = DecompressRecorder()
+    find_root = FindArchiveRootRecorder("artifact")
     compare = CompareRecorder(repo_only={"extra1.txt", "extra2.txt"})
     tmp_root = tmp_path / "temporary-root"
 
     monkeypatch.setattr(atr.tasks.checks.compare, "_load_tp_payload", PayloadLoader(payload))
     monkeypatch.setattr(atr.tasks.checks.compare, "_checkout_github_source", checkout)
     monkeypatch.setattr(atr.tasks.checks.compare, "_decompress_archive", decompress)
+    monkeypatch.setattr(atr.tasks.checks.compare, "_find_archive_root", find_root)
     monkeypatch.setattr(atr.tasks.checks.compare, "_compare_trees", compare)
     monkeypatch.setattr(atr.tasks.checks.compare.util, "get_tmp_dir", ReturnValue(tmp_root))
 
@@ -589,12 +712,14 @@ async def test_source_trees_records_failure_when_archive_has_invalid_files(
     payload = _make_payload()
     checkout = CheckoutRecorder()
     decompress = DecompressRecorder()
+    find_root = FindArchiveRootRecorder("artifact")
     compare = CompareRecorder(invalid={"bad1.txt", "bad2.txt"}, repo_only={"ok.txt"})
     tmp_root = tmp_path / "temporary-root"
 
     monkeypatch.setattr(atr.tasks.checks.compare, "_load_tp_payload", PayloadLoader(payload))
     monkeypatch.setattr(atr.tasks.checks.compare, "_checkout_github_source", checkout)
     monkeypatch.setattr(atr.tasks.checks.compare, "_decompress_archive", decompress)
+    monkeypatch.setattr(atr.tasks.checks.compare, "_find_archive_root", find_root)
     monkeypatch.setattr(atr.tasks.checks.compare, "_compare_trees", compare)
     monkeypatch.setattr(atr.tasks.checks.compare.util, "get_tmp_dir", ReturnValue(tmp_root))
 
@@ -607,6 +732,60 @@ async def test_source_trees_records_failure_when_archive_has_invalid_files(
     assert isinstance(data, dict)
     assert data["invalid_count"] == 2
     assert data["invalid_paths"] == ["bad1.txt", "bad2.txt"]
+
+
+@pytest.mark.asyncio
+async def test_source_trees_records_failure_when_archive_root_not_found(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    recorder = RecorderStub(True)
+    args = _make_args(recorder)
+    payload = _make_payload()
+    checkout = CheckoutRecorder()
+    decompress = DecompressRecorder()
+    find_root = FindArchiveRootRecorder(root=None)
+    tmp_root = tmp_path / "temporary-root"
+
+    monkeypatch.setattr(atr.tasks.checks.compare, "_load_tp_payload", PayloadLoader(payload))
+    monkeypatch.setattr(atr.tasks.checks.compare, "_checkout_github_source", checkout)
+    monkeypatch.setattr(atr.tasks.checks.compare, "_decompress_archive", decompress)
+    monkeypatch.setattr(atr.tasks.checks.compare, "_find_archive_root", find_root)
+    monkeypatch.setattr(atr.tasks.checks.compare.util, "get_tmp_dir", ReturnValue(tmp_root))
+
+    await atr.tasks.checks.compare.source_trees(args)
+
+    assert len(recorder.failure_calls) == 1
+    message, data = recorder.failure_calls[0]
+    assert message == "Could not determine archive root directory for comparison"
+    assert isinstance(data, dict)
+
+
+@pytest.mark.asyncio
+async def test_source_trees_records_failure_when_extra_entries_in_archive(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    recorder = RecorderStub(True)
+    args = _make_args(recorder)
+    payload = _make_payload()
+    checkout = CheckoutRecorder()
+    decompress = DecompressRecorder()
+    find_root = FindArchiveRootRecorder(root="artifact", extra_entries=["README.txt", "extra.txt"])
+    tmp_root = tmp_path / "temporary-root"
+
+    monkeypatch.setattr(atr.tasks.checks.compare, "_load_tp_payload", PayloadLoader(payload))
+    monkeypatch.setattr(atr.tasks.checks.compare, "_checkout_github_source", checkout)
+    monkeypatch.setattr(atr.tasks.checks.compare, "_decompress_archive", decompress)
+    monkeypatch.setattr(atr.tasks.checks.compare, "_find_archive_root", find_root)
+    monkeypatch.setattr(atr.tasks.checks.compare.util, "get_tmp_dir", ReturnValue(tmp_root))
+
+    await atr.tasks.checks.compare.source_trees(args)
+
+    assert len(recorder.failure_calls) == 1
+    message, data = recorder.failure_calls[0]
+    assert message == "Archive contains entries outside the root directory"
+    assert isinstance(data, dict)
+    assert data["root"] == "artifact"
+    assert data["extra_entries"] == ["README.txt", "extra.txt"]
 
 
 @pytest.mark.asyncio
@@ -644,6 +823,7 @@ async def test_source_trees_reports_repo_only_sample_limited_to_five(
     payload = _make_payload()
     checkout = CheckoutRecorder()
     decompress = DecompressRecorder()
+    find_root = FindArchiveRootRecorder("artifact")
     repo_only_files = {f"file{i}.txt" for i in range(10)}
     compare = CompareRecorder(repo_only=repo_only_files)
     tmp_root = tmp_path / "temporary-root"
@@ -651,6 +831,7 @@ async def test_source_trees_reports_repo_only_sample_limited_to_five(
     monkeypatch.setattr(atr.tasks.checks.compare, "_load_tp_payload", PayloadLoader(payload))
     monkeypatch.setattr(atr.tasks.checks.compare, "_checkout_github_source", checkout)
     monkeypatch.setattr(atr.tasks.checks.compare, "_decompress_archive", decompress)
+    monkeypatch.setattr(atr.tasks.checks.compare, "_find_archive_root", find_root)
     monkeypatch.setattr(atr.tasks.checks.compare, "_compare_trees", compare)
     monkeypatch.setattr(atr.tasks.checks.compare.util, "get_tmp_dir", ReturnValue(tmp_root))
 

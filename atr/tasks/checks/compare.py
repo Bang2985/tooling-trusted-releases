@@ -50,6 +50,12 @@ _DEFAULT_EMAIL: Final[str] = "atr@localhost"
 _DEFAULT_USER: Final[str] = "atr"
 
 
+@dataclasses.dataclass
+class ArchiveRootResult:
+    root: str | None
+    extra_entries: list[str]
+
+
 class DetermineWantsForSha:
     def __init__(self, sha: str) -> None:
         self.sha = sha
@@ -103,16 +109,33 @@ async def source_trees(args: checks.FunctionArguments) -> results.Results | None
                     {"repo_url": f"https://github.com/{payload.repository}.git", "sha": payload.sha},
                 )
                 return None
-            if await _decompress_archive(primary_abs_path, archive_dir_path, max_extract_size, chunk_size):
-                archive_dir = str(archive_dir_path)
-            else:
+            if not await _decompress_archive(primary_abs_path, archive_dir_path, max_extract_size, chunk_size):
                 await recorder.failure(
                     "Failed to extract source archive for comparison",
                     {"archive_path": str(primary_abs_path), "extract_dir": str(archive_dir_path)},
                 )
                 return None
+            archive_root_result = await _find_archive_root(primary_abs_path, archive_dir_path)
+            if archive_root_result.root is None:
+                await recorder.failure(
+                    "Could not determine archive root directory for comparison",
+                    {"archive_path": str(primary_abs_path), "extract_dir": str(archive_dir_path)},
+                )
+                return None
+            if archive_root_result.extra_entries:
+                await recorder.failure(
+                    "Archive contains entries outside the root directory",
+                    {
+                        "archive_path": str(primary_abs_path),
+                        "root": archive_root_result.root,
+                        "extra_entries": sorted(archive_root_result.extra_entries),
+                    },
+                )
+                return None
+            archive_content_dir = archive_dir_path / archive_root_result.root
+            archive_dir = str(archive_content_dir)
             try:
-                comparison = await _compare_trees(github_dir, archive_dir_path)
+                comparison = await _compare_trees(github_dir, archive_content_dir)
             except RuntimeError as exc:
                 await recorder.failure(
                     "Failed to compare source tree against GitHub checkout",
@@ -299,6 +322,35 @@ async def _decompress_archive(
 def _ensure_clone_identity_env() -> None:
     os.environ["USER"] = _DEFAULT_USER
     os.environ["EMAIL"] = _DEFAULT_EMAIL
+
+
+async def _find_archive_root(archive_path: pathlib.Path, extract_dir: pathlib.Path) -> ArchiveRootResult:
+    entries = await aiofiles.os.listdir(extract_dir)
+    directories: list[str] = []
+    for entry in entries:
+        if entry.startswith("._"):
+            continue
+        entry_path = extract_dir / entry
+        if await aiofiles.os.path.isdir(entry_path):
+            directories.append(entry)
+    if len(directories) != 1:
+        log.warning(
+            "Expected exactly one root directory in archive for compare.source_trees",
+            archive_path=str(archive_path),
+            extract_dir=str(extract_dir),
+            directories=directories[:10],
+        )
+        return ArchiveRootResult(root=None, extra_entries=[])
+    found_root = directories[0]
+    extra_entries = [e for e in entries if (e != found_root) and (not e.startswith("._"))]
+    log.info(
+        "Found archive root directory for compare.source_trees",
+        archive_path=str(archive_path),
+        extract_dir=str(extract_dir),
+        root=found_root,
+        extra_entries=extra_entries,
+    )
+    return ArchiveRootResult(root=found_root, extra_entries=extra_entries)
 
 
 async def _load_tp_payload(
