@@ -143,10 +143,10 @@ async def _check_metadata_rules(
         errors.append("The use of .md5 is forbidden, please use .sha512")
     if ".sha1" in suffixes:
         # Deprecated by RDP
-        warnings.append("The use of .sha1 is deprecated, please use .sha512")
+        errors.append("The use of .sha1 is deprecated, please use .sha512")
     if ".sha" in suffixes:
         # Discouraged by RDP
-        warnings.append("The use of .sha is discouraged, please use .sha512")
+        errors.append("The use of .sha is discouraged, please use .sha512")
     if ".sig" in suffixes:
         # Forbidden by RCP, forbidden by RDP
         errors.append("Binary signature files (.sig) are forbidden, please use .asc")
@@ -156,7 +156,7 @@ async def _check_metadata_rules(
     # Also .mds is allowed, but we'll ignore that for now
     # TODO: Is .mds supported in analysis.METADATA_SUFFIXES?
     if ext_metadata not in {".asc", ".cdx.json", ".sha256", ".sha512", ".md5", ".sha", ".sha1"}:
-        warnings.append("The use of this metadata file is discouraged")
+        errors.append("The use of this metadata file is discouraged")
 
     # Check whether the corresponding artifact exists
     artifact_path_base = str(relative_path).removesuffix(ext_metadata)
@@ -212,7 +212,7 @@ async def _check_path_process_single(
     else:
         log.info(f"Checking general rules for {full_path}")
         if (relative_path.parent == pathlib.Path(".")) and (relative_path.name not in allowed_top_level):
-            warnings.append(f"Unknown top level file: {relative_path.name}")
+            errors.append(f"Unknown top level file: {relative_path.name}")
 
     await _record(
         recorder_errors,

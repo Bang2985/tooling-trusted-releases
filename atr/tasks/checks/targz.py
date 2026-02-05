@@ -125,7 +125,7 @@ async def structure(args: checks.FunctionArguments) -> results.Results | None:  
                         "filename_match": npm_info.filename_match,
                     }
                     if npm_info.filename_match is False:
-                        await recorder.warning(
+                        await recorder.failure(
                             "npm pack layout detected but filename does not match package.json", data
                         )
                     else:
@@ -133,21 +133,21 @@ async def structure(args: checks.FunctionArguments) -> results.Results | None:  
                 else:
                     if npm_error is not None:
                         data["npm_pack_error"] = npm_error
-                    await recorder.warning(
+                    await recorder.failure(
                         f"Root directory '{root}' does not match expected names '{expected_roots_display}'", data
                     )
             else:
-                await recorder.warning(
+                await recorder.failure(
                     f"Root directory '{root}' does not match expected names '{expected_roots_display}'", data
                 )
         else:
-            await recorder.warning(
+            await recorder.failure(
                 f"Root directory '{root}' does not match expected names '{expected_roots_display}'", data
             )
     except tarzip.ArchiveMemberLimitExceededError as e:
         await recorder.failure(f"Archive has too many members: {e}", {"error": str(e)})
     except RootDirectoryError as e:
-        await recorder.warning("Could not get the root directory of the archive", {"error": str(e)})
+        await recorder.failure("Could not get the root directory of the archive", {"error": str(e)})
     except Exception as e:
         await recorder.failure("Unable to verify archive structure", {"error": str(e)})
     return None

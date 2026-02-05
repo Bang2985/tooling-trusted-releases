@@ -63,7 +63,7 @@ async def structure(args: checks.FunctionArguments) -> results.Results | None:
         result_data = await asyncio.to_thread(_structure_check_core_logic, str(artifact_abs_path))
 
         if result_data.get("warning"):
-            await recorder.warning(result_data["warning"], result_data)
+            await recorder.failure(result_data["warning"], result_data)
         elif result_data.get("error"):
             await recorder.failure(result_data["error"], result_data)
         else:
@@ -140,11 +140,11 @@ def _structure_check_core_logic(artifact_path: str) -> dict[str, Any]:  # noqa: 
                             },
                         }
                         if npm_info.filename_match is False:
-                            npm_data["warning"] = "npm pack layout detected but filename does not match package.json"
+                            npm_data["error"] = "npm pack layout detected but filename does not match package.json"
                         return npm_data
                 result_data: dict[str, Any] = {"expected_roots": expected_roots}
                 if error_msg.startswith("Root directory mismatch"):
-                    result_data["warning"] = error_msg
+                    result_data["error"] = error_msg
                 else:
                     result_data["error"] = error_msg
                 return result_data

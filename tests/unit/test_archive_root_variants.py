@@ -119,7 +119,7 @@ async def test_targz_structure_rejects_package_root_without_package_json(tmp_pat
 
     await targz.structure(args)
 
-    assert any(status == sql.CheckResultStatus.WARNING.value for status, _, _ in recorder.messages)
+    assert any(status == sql.CheckResultStatus.FAILURE.value for status, _, _ in recorder.messages)
 
 
 @pytest.mark.asyncio
@@ -139,7 +139,7 @@ async def test_targz_structure_rejects_source_root_when_filename_has_no_suffix(t
 
     await targz.structure(args)
 
-    assert any(status == sql.CheckResultStatus.WARNING.value for status, _, _ in recorder.messages)
+    assert any(status == sql.CheckResultStatus.FAILURE.value for status, _, _ in recorder.messages)
 
 
 @pytest.mark.asyncio
@@ -159,7 +159,7 @@ async def test_targz_structure_rejects_source_root_when_filename_has_src_suffix(
 
     await targz.structure(args)
 
-    assert any(status == sql.CheckResultStatus.WARNING.value for status, _, _ in recorder.messages)
+    assert any(status == sql.CheckResultStatus.FAILURE.value for status, _, _ in recorder.messages)
 
 
 @pytest.mark.asyncio
@@ -179,7 +179,7 @@ async def test_targz_structure_rejects_src_root_when_filename_has_no_suffix(tmp_
 
     await targz.structure(args)
 
-    assert any(status == sql.CheckResultStatus.WARNING.value for status, _, _ in recorder.messages)
+    assert any(status == sql.CheckResultStatus.FAILURE.value for status, _, _ in recorder.messages)
 
 
 @pytest.mark.asyncio
@@ -199,11 +199,11 @@ async def test_targz_structure_rejects_src_root_when_filename_has_source_suffix(
 
     await targz.structure(args)
 
-    assert any(status == sql.CheckResultStatus.WARNING.value for status, _, _ in recorder.messages)
+    assert any(status == sql.CheckResultStatus.FAILURE.value for status, _, _ in recorder.messages)
 
 
 @pytest.mark.asyncio
-async def test_targz_structure_warns_on_npm_pack_filename_mismatch(tmp_path: pathlib.Path) -> None:
+async def test_targz_structure_rejects_npm_pack_filename_mismatch(tmp_path: pathlib.Path) -> None:
     archive_path = tmp_path / "example-1.2.3.tgz"
     _make_tar_gz_with_contents(
         archive_path,
@@ -225,7 +225,7 @@ async def test_targz_structure_warns_on_npm_pack_filename_mismatch(tmp_path: pat
 
     await targz.structure(args)
 
-    assert any(status == sql.CheckResultStatus.WARNING.value for status, _, _ in recorder.messages)
+    assert any(status == sql.CheckResultStatus.FAILURE.value for status, _, _ in recorder.messages)
     assert any("npm pack layout detected" in message for _, message, _ in recorder.messages)
 
 
@@ -263,8 +263,8 @@ def test_zipformat_structure_rejects_dated_src_suffix(tmp_path: pathlib.Path) ->
 
     result = zipformat._structure_check_core_logic(str(archive_path))
 
-    assert "warning" in result
-    assert "Root directory mismatch" in result["warning"]
+    assert "error" in result
+    assert "Root directory mismatch" in result["error"]
 
 
 def test_zipformat_structure_rejects_package_root_without_package_json(tmp_path: pathlib.Path) -> None:
@@ -278,11 +278,11 @@ def test_zipformat_structure_rejects_package_root_without_package_json(tmp_path:
 
     result = zipformat._structure_check_core_logic(str(archive_path))
 
-    assert result.get("warning") is not None
-    assert "Root directory mismatch" in result["warning"]
+    assert result.get("error") is not None
+    assert "Root directory mismatch" in result["error"]
 
 
-def test_zipformat_structure_warns_on_npm_pack_filename_mismatch(tmp_path: pathlib.Path) -> None:
+def test_zipformat_structure_rejects_npm_pack_filename_mismatch(tmp_path: pathlib.Path) -> None:
     archive_path = tmp_path / "example-1.2.3.zip"
     _make_zip_with_contents(
         archive_path,
@@ -294,8 +294,8 @@ def test_zipformat_structure_warns_on_npm_pack_filename_mismatch(tmp_path: pathl
 
     result = zipformat._structure_check_core_logic(str(archive_path))
 
-    assert result.get("warning") is not None
-    assert "npm pack layout detected" in result["warning"]
+    assert result.get("error") is not None
+    assert "npm pack layout detected" in result["error"]
     assert result.get("root_dir") == "package"
 
 
