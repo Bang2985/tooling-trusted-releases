@@ -41,6 +41,7 @@ import atr.get.ref as ref
 import atr.get.release as release
 import atr.get.report as report
 import atr.get.resolve as resolve
+import atr.get.result as result
 import atr.get.revisions as revisions
 import atr.get.root as root
 import atr.get.sbom as sbom
@@ -77,6 +78,7 @@ __all__ = [
     "release",
     "report",
     "resolve",
+    "result",
     "revisions",
     "root",
     "sbom",

@@ -631,7 +631,7 @@ def test_checks_02_license_files(page: Page, credentials: Credentials) -> None:
     ensure_success_results_are_visible(page, "primary")
 
     logging.info("Verifying License Files check status")
-    check_row_locator = page.locator("tr.atr-result-primary:has(th:text-is('License Files'))")
+    check_row_locator = page.locator("tr.atr-result-primary:has(th:has-text('License Files'))")
     expect(check_row_locator).to_have_count(2)
     logging.info("Located 2 License Files check rows")
 
