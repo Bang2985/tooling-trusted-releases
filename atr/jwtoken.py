@@ -34,6 +34,7 @@ import atr.util as util
 _ALGORITHM: Final[str] = "HS256"
 _ATR_JWT_AUDIENCE: Final[str] = "atr-api-pat-test-v1"
 _ATR_JWT_ISSUER: Final[str] = f"https://{config.get().APP_HOST}/"
+_ATR_JWT_TTL: Final[int] = 30 * 60
 _GITHUB_OIDC_AUDIENCE: Final[str] = "atr-test-v1"
 _GITHUB_OIDC_EXPECTED: Final[dict[str, str]] = {
     "enterprise": "the-asf",
@@ -48,7 +49,7 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Coroutine
 
 
-def issue(uid: str, *, ttl: int = 90 * 60) -> str:
+def issue(uid: str, *, ttl: int = _ATR_JWT_TTL) -> str:
     now = datetime.datetime.now(tz=datetime.UTC)
     payload = {
         "sub": uid,
