@@ -112,4 +112,40 @@ _For debugging only_, if you need a fresh run, place a file named `.atr-no-cache
 
 ## Project policy inputs
 
-Several checks depend on project policy. You can define which paths are considered source artifacts and which are considered binary artifacts, and you can define exclusion patterns for the RAT scan and for the lightweight license header check. These settings affect which checks run and which files are skipped. If no policy pattern matches a file, ATR treats it as a source artifact for the purpose of the lightweight and RAT license checks.
+Several project and committee settings influence which checks run, what they skip, and how their results are interpreted. This section lists each setting that can change the outcome of a check, where to find it, and what it does. Most of these settings live on the project settings page in the _Release policy - Compose options_ form. Committee signing keys and check ignores are, however, managed separately.
+
+### Source and binary artifact paths
+
+You can configure path patterns that tell ATR which of your artifacts are source artifacts and which are binary. These are the _Source artifact paths_ and _Binary artifact paths_ fields in the compose options form, and they accept one .gitignore style pattern per line. ATR uses these patterns to classify each file, and the classification makes several checks behave differently depending on whether an artifact is source or binary: archive structure checks are skipped for binary artifacts, RAT checks never runs on binary artifacts, and source tree comparisons only run for source artifacts.
+
+Please note that there is [currently a bug](https://github.com/apache/tooling-trusted-releases/issues/630) where license file exclusions are not applied when a source archive is not explicitly classified through release policy options.
+
+### License check mode
+
+The _Source artifact license checker_ setting controls which license checks run on source archives. You can set it to _Both_ (the default), _Lightweight_, or _RAT_. Binary artifacts always use the lightweight checks regardless of this setting, because RAT does not operate on binary artifacts. In _Lightweight_ mode, therefore, the RAT check is skipped entirely. In _RAT_ mode, the lightweight checks are skipped for source artifacts only.
+
+You can [read more about license checks](license-checks).
+
+### License check exclusions
+
+Two separate sets of exclusion patterns let you skip files during license scanning. The _RAT source excludes_ are applied when RAT scans a source artifact that does not contain its own `.rat-excludes` file. The _Lightweight source excludes_ are always applied during the lightweight license header scan for source artifacts. In both cases the exclusions only take effect for artifacts that are classified as source by the source artifact paths setting (this is a [bug](https://github.com/apache/tooling-trusted-releases/issues/630)).
+
+You can [read more about license check exclusions](license-checks#project-policy-exclusions).
+
+### Strict checking
+
+When _Strict checking_ is enabled, ATR prevents a release from being promoted to a vote unless all checks pass. This setting does not change what the checks themselves do or what they report.
+
+### Committee signing keys
+
+Signature verification depends on the public signing keys registered for the project's committee. ATR verifies each `.asc` signature against the set of keys linked to the committee, and accepts a signature only when the signing key has a valid ASF UID association or matches the committee's private email address pattern `private@`_committee_`.apache.org`. If a key has not been imported for the committee, or if it lacks an ASF UID, signature checks will fail for artifacts signed with that key. Committee members manage these keys through the committee keys page, and ATR regenerates the `KEYS` file when keys change. See [signing artifacts](signing-artifacts) for background on how to create and register keys.
+
+### Podling status
+
+If the project belongs to an incubating podling, ATR passes this to certain checks automatically. The path and naming check requires the word "incubating" in artifact filenames for podlings, and the license file check looks for a `DISCLAIMER` or `DISCLAIMER-WIP` file in the archive root. Podling status comes from the committee record and is not something that you can configure per project.
+
+### Check ignores
+
+Check ignore rules do not change which checks run or what they report, but they do change which results are shown. Ignored results are removed from the warning and error counts and shown separately Ignores are managed from the release checks page and apply at the project level, not per release.
+
+You can [read more about check ignores](check-ignores).
