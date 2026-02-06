@@ -598,7 +598,10 @@ def _synchronous_extract_parse_output_core(xml_file: str, base_dir: str) -> chec
 
         # Remove base_dir prefix for cleaner display
         if name.startswith(base_dir):
-            name = name[len(base_dir) :].lstrip("/")
+            name = name[len(base_dir) :]
+        name = name.lstrip("/")
+        if name.startswith("./"):
+            name = name[2:]
 
         # Get license information
         license_elem = resource.find("license")
