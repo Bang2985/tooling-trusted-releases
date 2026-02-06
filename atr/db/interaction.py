@@ -181,7 +181,7 @@ async def has_failing_checks(release: sql.Release, revision_number: str, caller_
                 sql.CheckResult.release_name == release.name,
                 sql.CheckResult.revision_number == revision_number,
                 sql.validate_instrumented_attribute(sql.CheckResult.status).in_(
-                    [sql.CheckResultStatus.BLOCKING, sql.CheckResultStatus.FAILURE]
+                    [sql.CheckResultStatus.BLOCKER, sql.CheckResultStatus.FAILURE]
                 ),
             )
         )

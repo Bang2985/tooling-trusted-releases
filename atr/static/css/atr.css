@@ -565,6 +565,31 @@ td.atr-shrink {
     text-decoration: line-through;
 }
 
-.atr-bg-blocking {
+.atr-bg-blocker {
     background-color: rgb(111 0 193 / 75%);
+    color: #ffffff;
+}
+
+.btn.atr-btn-blocker {
+    background-color: rgb(111 0 193 / 75%);
+    border-color: rgb(111 0 193 / 75%);
+    color: #ffffff;
+}
+
+.btn.atr-btn-blocker:hover {
+    background-color: rgb(111 0 193 / 90%);
+    border-color: rgb(111 0 193 / 90%);
+    color: #ffffff;
+}
+
+.btn.atr-btn-outline-blocker {
+    background-color: transparent;
+    border-color: rgb(111 0 193 / 75%);
+    color: rgb(111 0 193);
+}
+
+.btn.atr-btn-outline-blocker:hover {
+    background-color: rgb(111 0 193 / 75%);
+    border-color: rgb(111 0 193 / 75%);
+    color: #ffffff;
 }

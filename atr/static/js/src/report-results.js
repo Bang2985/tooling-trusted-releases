@@ -42,8 +42,17 @@ function toggleStatusVisibility(type, status) {
 			el.classList.add("atr-hide");
 		}
 	});
-	const bsSt =
-		status === "failure" || status === "exception" ? "danger" : status;
+	let filledClass;
+	let outlineClass;
+	if (status === "blocker") {
+		filledClass = "atr-btn-blocker";
+		outlineClass = "atr-btn-outline-blocker";
+	} else {
+		const bsSt =
+			status === "failure" || status === "exception" ? "danger" : status;
+		filledClass = `btn-${bsSt}`;
+		outlineClass = `btn-outline-${bsSt}`;
+	}
 	const cntMatch = btn.textContent.match(/\((\d+)\)/);
 	if (!cntMatch) {
 		console.error("Button text regex mismatch for:", btn.textContent);
@@ -52,11 +61,11 @@ function toggleStatusVisibility(type, status) {
 	const newButtonAction = elementsCurrentlyHidden ? "Hide" : "Show";
 	btn.querySelector("span").textContent = newButtonAction;
 	if (newButtonAction === "Hide") {
-		btn.classList.remove(`btn-outline-${bsSt}`);
-		btn.classList.add(`btn-${bsSt}`);
+		btn.classList.remove(outlineClass);
+		btn.classList.add(filledClass);
 	} else {
-		btn.classList.remove(`btn-${bsSt}`);
-		btn.classList.add(`btn-outline-${bsSt}`);
+		btn.classList.remove(filledClass);
+		btn.classList.add(outlineClass);
 	}
 	if (type === "member") {
 		updateMemberStriping();

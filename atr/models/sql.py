@@ -65,7 +65,7 @@ class DistributionPlatformValue:
 
 
 class CheckResultStatus(enum.StrEnum):
-    BLOCKING = "blocking"
+    BLOCKER = "blocker"
     EXCEPTION = "exception"
     FAILURE = "failure"
     SUCCESS = "success"

@@ -276,11 +276,11 @@ class Recorder:
     def input_hash(self) -> str | None:
         return self.__input_hash
 
-    async def blocking(
+    async def blocker(
         self, message: str, data: Any, primary_rel_path: str | None = None, member_rel_path: str | None = None
     ) -> sql.CheckResult:
         return await self._add(
-            sql.CheckResultStatus.BLOCKING,
+            sql.CheckResultStatus.BLOCKER,
             message,
             data,
             primary_rel_path=primary_rel_path,

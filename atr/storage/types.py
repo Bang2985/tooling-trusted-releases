@@ -31,8 +31,10 @@ class CheckerStats:
     success_count: int
     warning_count: int
     failure_count: int
+    blocker_count: int
     warning_files: dict[str, int]
     failure_files: dict[str, int]
+    blocker_files: dict[str, int]
 
 
 @dataclasses.dataclass

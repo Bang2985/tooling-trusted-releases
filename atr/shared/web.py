@@ -192,20 +192,25 @@ def _render_checks_summary(info: types.PathInfo | None, project_name: str, versi
             summary_content.append(htpy.span(".badge.bg-warning.text-dark.me-2")[str(stat.warning_count)])
         if stat.failure_count > 0:
             summary_content.append(htpy.span(".badge.bg-danger.me-2")[str(stat.failure_count)])
+        if stat.blocker_count > 0:
+            summary_content.append(htpy.span(".badge.atr-bg-blocker.me-2")[str(stat.blocker_count)])
         summary_content.append(htpy.strong[_checker_display_name(stat.checker)])
 
         details.summary[*summary_content]
 
         files_div = htm.Block(htm.div, classes=".mt-2.atr-checks-files")
-        all_files = set(stat.failure_files.keys()) | set(stat.warning_files.keys())
+        all_files = set(stat.failure_files.keys()) | set(stat.warning_files.keys()) | set(stat.blocker_files.keys())
         for file_path in sorted(all_files):
             report_url = f"/report/{project_name}/{version_name}/{file_path}"
             error_count = stat.failure_files.get(file_path, 0)
+            blocker_count = stat.blocker_files.get(file_path, 0)
             warning_count = stat.warning_files.get(file_path, 0)
 
             file_content: list[htm.Element | str] = []
             if error_count > 0:
                 file_content.append(htpy.span(".badge.bg-danger.me-2")[util.plural(error_count, "error")])
+            if blocker_count > 0:
+                file_content.append(htpy.span(".badge.atr-bg-blocker.me-2")[util.plural(blocker_count, "blocker")])
             if warning_count > 0:
                 file_content.append(
                     htpy.span(".badge.bg-warning.text-dark.me-2")[util.plural(warning_count, "warning")]

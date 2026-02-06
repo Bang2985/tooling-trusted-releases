@@ -34,8 +34,10 @@ class CheckerAccumulator:
     success: int = 0
     warning: int = 0
     failure: int = 0
+    blocker: int = 0
     warning_files: dict[str, int] = dataclasses.field(default_factory=dict)
     failure_files: dict[str, int] = dataclasses.field(default_factory=dict)
+    blocker_files: dict[str, int] = dataclasses.field(default_factory=dict)
 
 
 class GeneralPublic:
@@ -86,6 +88,9 @@ class GeneralPublic:
                 elif kind == "warning":
                     acc.warning += 1
                     acc.warning_files[path_str] = acc.warning_files.get(path_str, 0) + 1
+                elif result.status == sql.CheckResultStatus.BLOCKER:
+                    acc.blocker += 1
+                    acc.blocker_files[path_str] = acc.blocker_files.get(path_str, 0) + 1
                 else:
                     acc.failure += 1
                     acc.failure_files[path_str] = acc.failure_files.get(path_str, 0) + 1
@@ -99,7 +104,7 @@ class GeneralPublic:
         self.__accumulate_results(info.errors, paths_set, checker_data, "failure")
 
         for checker, acc in sorted(checker_data.items()):
-            if (acc.warning == 0) and (acc.failure == 0):
+            if (acc.warning == 0) and (acc.failure == 0) and (acc.blocker == 0):
                 continue
             info.checker_stats.append(
                 types.CheckerStats(
@@ -107,8 +112,10 @@ class GeneralPublic:
                     success_count=acc.success,
                     warning_count=acc.warning,
                     failure_count=acc.failure,
+                    blocker_count=acc.blocker,
                     warning_files=acc.warning_files,
                     failure_files=acc.failure_files,
+                    blocker_files=acc.blocker_files,
                 )
             )
 
@@ -126,16 +133,16 @@ class GeneralPublic:
         await self.__successes(cs)
         await self.__warnings(cs)
         await self.__errors(cs)
-        await self.__blocking(cs)
+        await self.__blocker(cs)
 
-    async def __blocking(self, cs: types.ChecksSubset) -> None:
-        blocking = await self.__data.check_result(
+    async def __blocker(self, cs: types.ChecksSubset) -> None:
+        blocker = await self.__data.check_result(
             release_name=cs.release.name,
             revision_number=cs.latest_revision_number,
             member_rel_path=None,
-            status=sql.CheckResultStatus.BLOCKING,
+            status=sql.CheckResultStatus.BLOCKER,
         ).all()
-        for result in blocking:
+        for result in blocker:
             if primary_rel_path := result.primary_rel_path:
                 cs.info.errors.setdefault(pathlib.Path(primary_rel_path), []).append(result)
 

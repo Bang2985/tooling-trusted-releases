@@ -106,7 +106,7 @@ async def _check_artifact_rules(
     relative_path: pathlib.Path,
     relative_paths: set[str],
     errors: list[str],
-    blocking: list[str],
+    blockers: list[str],
     is_podling: bool,
 ) -> None:
     """Check rules specific to artifact files."""
@@ -115,7 +115,7 @@ async def _check_artifact_rules(
     # RDP says that .asc is required
     asc_path = full_path.with_suffix(full_path.suffix + ".asc")
     if not await aiofiles.os.path.exists(asc_path):
-        blocking.append(f"Missing corresponding signature file ({relative_path}.asc)")
+        blockers.append(f"Missing corresponding signature file ({relative_path}.asc)")
 
     # RDP requires one of .sha256 or .sha512
     relative_sha256_path = relative_path.with_suffix(relative_path.suffix + ".sha256")
@@ -123,13 +123,13 @@ async def _check_artifact_rules(
     has_sha256 = str(relative_sha256_path) in relative_paths
     has_sha512 = str(relative_sha512_path) in relative_paths
     if not (has_sha256 or has_sha512):
-        blocking.append(f"Missing corresponding checksum file ({relative_path}.sha256 or {relative_path}.sha512)")
+        blockers.append(f"Missing corresponding checksum file ({relative_path}.sha256 or {relative_path}.sha512)")
 
     # IP requires "incubating" in the filename
     if is_podling is True:
         # TODO: Allow "incubator" too as #114 requests?
         if "incubating" not in full_path.name:
-            blocking.append("Podling artifact filenames must include 'incubating'")
+            blockers.append("Podling artifact filenames must include 'incubating'")
 
 
 async def _check_metadata_rules(
@@ -138,7 +138,7 @@ async def _check_metadata_rules(
     relative_paths: set[str],
     ext_metadata: str,
     errors: list[str],
-    blocking: list[str],
+    blockers: list[str],
     warnings: list[str],
 ) -> None:
     """Check rules specific to metadata files (.asc, .sha*, etc.)."""
@@ -146,7 +146,7 @@ async def _check_metadata_rules(
 
     if ".md5" in suffixes:
         # Forbidden by RCP, deprecated by RDP
-        blocking.append("The use of .md5 is forbidden, please use .sha512")
+        blockers.append("The use of .md5 is forbidden, please use .sha512")
     if ".sha1" in suffixes:
         # Deprecated by RDP
         errors.append("The use of .sha1 is deprecated, please use .sha512")
@@ -155,7 +155,7 @@ async def _check_metadata_rules(
         errors.append("The use of .sha is discouraged, please use .sha512")
     if ".sig" in suffixes:
         # Forbidden by RCP, forbidden by RDP
-        blocking.append("Binary signature files (.sig) are forbidden, please use .asc")
+        blockers.append("Binary signature files (.sig) are forbidden, please use .asc")
 
     # "Signature and checksum files for verifying distributed artifacts should
     # not be provided, unless named as indicated above." (RDP)
@@ -189,7 +189,7 @@ async def _check_path_process_single(
         await asyncio.sleep(20)
 
     errors: list[str] = []
-    blocking: list[str] = []
+    blockers: list[str] = []
     warnings: list[str] = []
 
     # The Release Distribution Policy specifically allows README and CHANGES, etc.
@@ -212,10 +212,10 @@ async def _check_path_process_single(
     allowed_top_level = _ALLOWED_TOP_LEVEL
     if ext_artifact:
         log.info(f"Checking artifact rules for {full_path}")
-        await _check_artifact_rules(base_path, relative_path, relative_paths, errors, blocking, is_podling)
+        await _check_artifact_rules(base_path, relative_path, relative_paths, errors, blockers, is_podling)
     elif ext_metadata:
         log.info(f"Checking metadata rules for {full_path}")
-        await _check_metadata_rules(base_path, relative_path, relative_paths, ext_metadata, errors, blocking, warnings)
+        await _check_metadata_rules(base_path, relative_path, relative_paths, ext_metadata, errors, blockers, warnings)
     else:
         log.info(f"Checking general rules for {full_path}")
         if (relative_path.parent == pathlib.Path(".")) and (relative_path.name not in allowed_top_level):
@@ -227,7 +227,7 @@ async def _check_path_process_single(
         recorder_success,
         relative_path_str,
         errors,
-        blocking,
+        blockers,
         warnings,
     )
 
@@ -238,16 +238,16 @@ async def _record(
     recorder_success: checks.Recorder,
     relative_path_str: str,
     errors: list[str],
-    blocking: list[str],
+    blockers: list[str],
     warnings: list[str],
 ) -> None:
     for error in errors:
         await recorder_errors.failure(error, {}, primary_rel_path=relative_path_str)
-    for item in blocking:
-        await recorder_errors.blocking(item, {}, primary_rel_path=relative_path_str)
+    for item in blockers:
+        await recorder_errors.blocker(item, {}, primary_rel_path=relative_path_str)
     for warning in warnings:
         await recorder_warnings.warning(warning, {}, primary_rel_path=relative_path_str)
-    if not (errors or blocking or warnings):
+    if not (errors or blockers or warnings):
         await recorder_success.success(
             "Path structure and naming conventions conform to policy", {}, primary_rel_path=relative_path_str
         )

@@ -255,7 +255,7 @@ def _files_check_core_logic(artifact_path: str, is_podling: bool) -> Iterator[Re
     yield from _notice_results(notice_results)
     if is_podling and (not disclaimer_found):
         yield ArtifactResult(
-            status=sql.CheckResultStatus.BLOCKING,
+            status=sql.CheckResultStatus.BLOCKER,
             message="No DISCLAIMER or DISCLAIMER-WIP file found",
             data=None,
         )
@@ -373,7 +373,7 @@ def _headers_check_core_logic(artifact_path: str, ignore_lines: list[str], exclu
                                 artifact_data.files_with_invalid_headers += 1
                             case sql.CheckResultStatus.FAILURE:
                                 artifact_data.files_with_invalid_headers += 1
-                            case sql.CheckResultStatus.BLOCKING:
+                            case sql.CheckResultStatus.BLOCKER:
                                 artifact_data.files_with_invalid_headers += 1
                             case sql.CheckResultStatus.EXCEPTION:
                                 artifact_data.files_with_invalid_headers += 1
@@ -505,7 +505,7 @@ def _license_results(
     license_files_size = len(license_results)
     if license_files_size == 0:
         yield ArtifactResult(
-            status=sql.CheckResultStatus.BLOCKING,
+            status=sql.CheckResultStatus.BLOCKER,
             message="No LICENSE file found",
             data=None,
         )
@@ -551,7 +551,7 @@ def _notice_results(
     notice_files_size = len(notice_results)
     if notice_files_size == 0:
         yield ArtifactResult(
-            status=sql.CheckResultStatus.BLOCKING,
+            status=sql.CheckResultStatus.BLOCKER,
             message="No NOTICE file found",
             data=None,
         )
@@ -589,8 +589,8 @@ async def _record_artifact(recorder: checks.Recorder, result: ArtifactResult) ->
             await recorder.warning(result.message, result.data)
         case sql.CheckResultStatus.FAILURE:
             await recorder.failure(result.message, result.data)
-        case sql.CheckResultStatus.BLOCKING:
-            await recorder.blocking(result.message, result.data)
+        case sql.CheckResultStatus.BLOCKER:
+            await recorder.blocker(result.message, result.data)
         case sql.CheckResultStatus.EXCEPTION:
             await recorder.exception(result.message, result.data)
 
@@ -603,7 +603,7 @@ async def _record_member(recorder: checks.Recorder, result: MemberResult) -> Non
             await recorder.warning(result.message, result.data, member_rel_path=result.path)
         case sql.CheckResultStatus.FAILURE:
             await recorder.failure(result.message, result.data, member_rel_path=result.path)
-        case sql.CheckResultStatus.BLOCKING:
-            await recorder.blocking(result.message, result.data, member_rel_path=result.path)
+        case sql.CheckResultStatus.BLOCKER:
+            await recorder.blocker(result.message, result.data, member_rel_path=result.path)
         case sql.CheckResultStatus.EXCEPTION:
             await recorder.exception(result.message, result.data, member_rel_path=result.path)
