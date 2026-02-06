@@ -58,12 +58,14 @@
            title="View revision history"
            class="btn btn-secondary"><i class="bi bi-clock-history me-1"></i> Revisions</a>
         {% if revision_number %}
-          {% if has_files and release.project.policy_manual_vote and (ongoing_tasks_count == 0) %}
+          {% set vote_blocked = blocker_errors or strict_checking_errors %}
+          {% set blocked_title = "Fix blockers before starting a vote" if blocker_errors else "Fix errors before starting a vote" %}
+          {% if has_files and release.project.policy_manual_vote and (ongoing_tasks_count == 0) and (not vote_blocked) %}
             <a id="start-vote-button"
                href="{{ as_url(get.manual.start_selected_revision, project_name=release.project.name, version_name=release.version, revision=revision_number) }}"
                title="Start a manual vote on this draft"
                class="btn btn-success"><i class="bi bi-check-circle me-1"></i> Start manual vote</a>
-          {% elif has_files and release.project.policy_manual_vote %}
+          {% elif has_files and release.project.policy_manual_vote and (not vote_blocked) %}
             <a id="start-vote-button"
                href="{{ as_url(get.manual.start_selected_revision, project_name=release.project.name, version_name=release.version, revision=revision_number) }}"
                data-vote-href="{{ as_url(get.manual.start_selected_revision, project_name=release.project.name, version_name=release.version, revision=revision_number) }}"
@@ -72,12 +74,20 @@
                role="button"
                aria-disabled="true"
                tabindex="-1"><i class="bi bi-check-circle me-1"></i> Start manual vote</a>
-          {% elif has_files and (not strict_checking_errors) and (ongoing_tasks_count == 0) %}
+          {% elif has_files and release.project.policy_manual_vote and vote_blocked %}
+            <a id="start-vote-button"
+               href="{{ as_url(get.manual.start_selected_revision, project_name=release.project.name, version_name=release.version, revision=revision_number) }}"
+               title="{{ blocked_title }}"
+               class="btn btn-success disabled"
+               role="button"
+               aria-disabled="true"
+               tabindex="-1"><i class="bi bi-check-circle me-1"></i> Start manual vote</a>
+          {% elif has_files and (not vote_blocked) and (ongoing_tasks_count == 0) %}
             <a id="start-vote-button"
                href="{{ as_url(get.voting.selected_revision, project_name=release.project.name, version_name=release.version, revision=revision_number) }}"
                title="Start a vote on this draft"
                class="btn btn-success"><i class="bi bi-check-circle me-1"></i> Start voting</a>
-          {% elif has_files and (not strict_checking_errors) %}
+          {% elif has_files and (not vote_blocked) %}
             <a id="start-vote-button"
                href="{{ as_url(get.voting.selected_revision, project_name=release.project.name, version_name=release.version, revision=revision_number) }}"
                data-vote-href="{{ as_url(get.voting.selected_revision, project_name=release.project.name, version_name=release.version, revision=revision_number) }}"
@@ -86,9 +96,17 @@
                role="button"
                aria-disabled="true"
                tabindex="-1"><i class="bi bi-check-circle me-1"></i> Start voting</a>
+          {% elif has_files and vote_blocked %}
+            <a id="start-vote-button"
+               href="{{ as_url(get.voting.selected_revision, project_name=release.project.name, version_name=release.version, revision=revision_number) }}"
+               title="{{ blocked_title }}"
+               class="btn btn-success disabled"
+               role="button"
+               aria-disabled="true"
+               tabindex="-1"><i class="bi bi-check-circle me-1"></i> Start voting</a>
           {% else %}
             <a id="start-vote-button"
-               href="#"
+               href="{{ as_url(get.voting.selected_revision, project_name=release.project.name, version_name=release.version, revision=revision_number) }}"
                title="Upload files to enable voting"
                class="btn btn-success disabled"
                role="button"

@@ -22,7 +22,7 @@ from playwright.sync_api import Page, expect
 
 def test_sbom_generate(page_release_with_file: Page) -> None:
     # Make sure that the test file exists
-    file_cell = page_release_with_file.get_by_role("cell", name=sbom_helpers.FILE_NAME)
+    file_cell = page_release_with_file.get_by_role("cell", name=sbom_helpers.FILE_NAME, exact=True)
     expect(file_cell).to_be_visible()
 
     # Generate an SBOM for the file

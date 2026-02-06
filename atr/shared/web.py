@@ -132,6 +132,9 @@ async def check(
     has_any_errors = any(info.errors.get(path, []) for path in paths) if info else False
     strict_checking = release.project.policy_strict_checking
     strict_checking_errors = strict_checking and has_any_errors
+    blocker_errors = False
+    if revision_number is not None:
+        blocker_errors = await interaction.has_blocker_checks(release, revision_number)
 
     checks_summary_html = _render_checks_summary(info, release.project.name, release.version)
 
@@ -165,6 +168,7 @@ async def check(
         resolve_form=resolve_form,
         has_files=has_files,
         strict_checking_errors=strict_checking_errors,
+        blocker_errors=blocker_errors,
         can_vote=can_vote,
         can_resolve=can_resolve,
         checks_summary_html=checks_summary_html,

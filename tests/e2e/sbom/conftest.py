@@ -40,7 +40,11 @@ def page_release_with_file(page: Page) -> Generator[Page]:
     page.get_by_role("button", name="Start new release").click()
     helpers.visit(page, f"/upload/{sbom_helpers.PROJECT_NAME}/{sbom_helpers.VERSION_NAME}")
     page.locator('input[name="file_data"]').set_input_files(
-        f"{sbom_helpers.CURRENT_DIR}/../test_files/{sbom_helpers.FILE_NAME}"
+        [
+            f"{sbom_helpers.CURRENT_DIR}/../test_files/{sbom_helpers.FILE_NAME}",
+            f"{sbom_helpers.CURRENT_DIR}/../test_files/{sbom_helpers.FILE_NAME}.sha512",
+            f"{sbom_helpers.CURRENT_DIR}/../test_files/{sbom_helpers.FILE_NAME}.asc",
+        ]
     )
     page.get_by_role("button", name="Add files").click()
     page.wait_for_url(f"**/compose/{sbom_helpers.PROJECT_NAME}/{sbom_helpers.VERSION_NAME}")

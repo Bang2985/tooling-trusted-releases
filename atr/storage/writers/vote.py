@@ -161,6 +161,11 @@ class CommitteeParticipant(FoundationCommitter):
             log.info(f"Invalid mailing list choice: {email_to} not in {permitted_recipients}")
             raise storage.AccessError("Invalid mailing list choice")
 
+        if await interaction.has_blocker_checks(release, selected_revision_number, caller_data=self.__data):
+            raise storage.AccessError(
+                "This release candidate draft has blockers. Please fix the blockers before starting a vote."
+            )
+
         if promote is True:
             # This verifies the state and sets the phase to RELEASE_CANDIDATE
             error = await self.__write_as.release.promote_to_candidate(

@@ -63,7 +63,13 @@ def vote_context(browser: Browser) -> Generator[BrowserContext]:
     page.wait_for_url(f"**/compose/{PROJECT_NAME}/{VERSION_NAME}")
 
     helpers.visit(page, f"/upload/{PROJECT_NAME}/{VERSION_NAME}")
-    page.locator('input[name="file_data"]').set_input_files(f"{CURRENT_DIR}/../test_files/{FILE_NAME}")
+    page.locator('input[name="file_data"]').set_input_files(
+        [
+            f"{CURRENT_DIR}/../test_files/{FILE_NAME}",
+            f"{CURRENT_DIR}/../test_files/{FILE_NAME}.sha512",
+            f"{CURRENT_DIR}/../test_files/{FILE_NAME}.asc",
+        ]
+    )
     page.get_by_role("button", name="Add files").click()
     page.wait_for_url(f"**/compose/{PROJECT_NAME}/{VERSION_NAME}")
 

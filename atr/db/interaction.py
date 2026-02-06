@@ -172,6 +172,21 @@ async def full_releases(project: sql.Project) -> list[sql.Release]:
     return await releases_by_phase(project, sql.ReleasePhase.RELEASE)
 
 
+async def has_blocker_checks(release: sql.Release, revision_number: str, caller_data: db.Session | None = None) -> bool:
+    async with db.ensure_session(caller_data) as data:
+        query = (
+            sqlmodel.select(sqlalchemy.func.count())
+            .select_from(sql.CheckResult)
+            .where(
+                sql.CheckResult.release_name == release.name,
+                sql.CheckResult.revision_number == revision_number,
+                sql.CheckResult.status == sql.CheckResultStatus.BLOCKER,
+            )
+        )
+        result = await data.execute(query)
+        return result.scalar_one() > 0
+
+
 async def has_failing_checks(release: sql.Release, revision_number: str, caller_data: db.Session | None = None) -> bool:
     async with db.ensure_session(caller_data) as data:
         query = (
@@ -180,9 +195,7 @@ async def has_failing_checks(release: sql.Release, revision_number: str, caller_
             .where(
                 sql.CheckResult.release_name == release.name,
                 sql.CheckResult.revision_number == revision_number,
-                sql.validate_instrumented_attribute(sql.CheckResult.status).in_(
-                    [sql.CheckResultStatus.BLOCKER, sql.CheckResultStatus.FAILURE]
-                ),
+                sql.CheckResult.status == sql.CheckResultStatus.FAILURE,
             )
         )
         result = await data.execute(query)
@@ -239,7 +252,7 @@ async def release_latest_vote_task(release: sql.Release, caller_data: db.Session
         return task
 
 
-async def release_ready_for_vote(
+async def release_ready_for_vote(  # noqa: C901
     session: web.Committer,
     project_name: str,
     version_name: str,
@@ -271,6 +284,9 @@ async def release_ready_for_vote(
         return "This release does not have manual vote mode enabled"
     elif (not manual_vote) and release.project.policy_manual_vote:
         return "This release has manual vote mode enabled"
+
+    if await has_blocker_checks(release, revision, caller_data=data):
+        return "This release candidate draft has blockers. Please fix the blockers before starting a vote."
 
     if release.project.policy_strict_checking:
         if await has_failing_checks(release, revision, caller_data=data):
