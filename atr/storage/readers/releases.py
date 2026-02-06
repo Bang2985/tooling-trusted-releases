@@ -126,6 +126,18 @@ class GeneralPublic:
         await self.__successes(cs)
         await self.__warnings(cs)
         await self.__errors(cs)
+        await self.__blocking(cs)
+
+    async def __blocking(self, cs: types.ChecksSubset) -> None:
+        blocking = await self.__data.check_result(
+            release_name=cs.release.name,
+            revision_number=cs.latest_revision_number,
+            member_rel_path=None,
+            status=sql.CheckResultStatus.BLOCKING,
+        ).all()
+        for result in blocking:
+            if primary_rel_path := result.primary_rel_path:
+                cs.info.errors.setdefault(pathlib.Path(primary_rel_path), []).append(result)
 
     async def __errors(self, cs: types.ChecksSubset) -> None:
         errors = await self.__data.check_result(

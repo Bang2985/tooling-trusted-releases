@@ -564,3 +564,7 @@ td.atr-shrink {
 .atr-text-strike {
     text-decoration: line-through;
 }
+
+.atr-bg-blocking {
+    background-color: rgb(111 0 193 / 75%);
+}

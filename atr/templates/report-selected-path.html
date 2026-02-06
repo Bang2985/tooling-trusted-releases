@@ -51,9 +51,10 @@
     <code>{{ package.filename }}</code>
   </div>
   {% if primary_results %}
+    {% set blocking_count = primary_results|selectattr("status.value", "equalto", "blocking")|list|length %}
     {% set status_counts = {
     "success": primary_results|selectattr("status.value", "equalto", "success")|list|length,
-    "failure": primary_results|selectattr("status.value", "equalto", "failure")|list|length,
+    "failure": (primary_results|selectattr("status.value", "equalto", "failure")|list|length) + blocking_count,
     "warning": primary_results|selectattr("status.value", "equalto", "warning")|list|length,
     "exception": primary_results|selectattr("status.value", "equalto", "exception")|list|length
     } %}
@@ -107,7 +108,7 @@
         </thead>
         <tbody>
           {% for primary_result in primary_results %}
-            <tr class="atr-result-primary atr-result-status-{{ primary_result.status.value }} {% if primary_result.status.value == 'success' and not all_primary_are_success %}atr-hide{% endif %}">
+            <tr class="atr-result-primary atr-result-status-{{ 'failure' if primary_result.status.value == 'blocking' else primary_result.status.value }} {% if primary_result.status.value == 'success' and not all_primary_are_success %}atr-hide{% endif %}">
               <th scope="row" class="align-middle fw-bold">{{ function_name_from_key(primary_result.checker) }}</th>
               <td class="align-middle text-break">
                 {% if primary_result.data is mapping and primary_result.data.keys()|length > 0 %}
@@ -213,9 +214,16 @@
               </td>
               <td class="align-middle text-center atr-sans">
                 <div class="d-inline-flex flex-column align-items-center gap-1">
-                  <span class="badge rounded-pill {% if primary_result.status.value == "success" %}bg-success {% elif primary_result.status.value == "failure" %}bg-danger {% elif primary_result.status.value == "warning" %}bg-warning {% elif primary_result.status.value == "exception" %}bg-danger {% else %}bg-secondary{% endif %}">
-                    {{ primary_result.status.value|title }}
+                  <span class="badge rounded-pill {% if primary_result.status.value == "success" %}bg-success {% elif primary_result.status.value == "failure" or primary_result.status.value == "blocking" %}bg-danger {% elif primary_result.status.value == "warning" %}bg-warning {% elif primary_result.status.value == "exception" %}bg-danger {% else %}bg-secondary{% endif %}">
+                    {{ "Failure" if primary_result.status.value == "blocking" else primary_result.status.value|title }}
                   </span>
+                  {% if primary_result.status.value == "blocking" %}
+                    <span class="badge rounded-pill atr-bg-blocking border small"
+                          title="You cannot release when there is a blocking check result"
+                          aria-label="You cannot release when there is a blocking check result">
+                      <i class="bi bi-shield-lock me-1"></i>Blocking
+                    </span>
+                  {% endif %}
                   {% if primary_result.cached %}
                     <span class="badge rounded-pill bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle small"
                           title="Cached result"
@@ -239,7 +247,9 @@
       {% set member_status_counts = {"success": 0, "failure": 0, "warning": 0, "exception": 0} %}
       {% for path, m_results in member_results.items() %}
         {% for m_result in m_results %}
-          {% if m_result.status.value in member_status_counts %}
+          {% if m_result.status.value == "blocking" %}
+            {% set _ = member_status_counts.update({"failure": member_status_counts.failure + 1}) %}
+          {% elif m_result.status.value in member_status_counts %}
             {% set _ = member_status_counts.update({m_result.status.value: member_status_counts[m_result.status.value] + 1}) %}
           {% endif %}
         {% endfor %}
@@ -288,7 +298,7 @@
             {% for member_result in member_results_list %}
               {# The striping class here is now technically redundant because of the JS striping #}
               {# But we leave it here for clean initial page rendering #}
-              <tr class="atr-result-member atr-result-status-{{ member_result.status.value }} {% if member_result.status.value == 'success' and not all_member_are_success %}atr-hide{% endif %} {% if loop.index is odd %}page-member-visible-odd{% endif %} ">
+              <tr class="atr-result-member atr-result-status-{{ 'failure' if member_result.status.value == 'blocking' else member_result.status.value }} {% if member_result.status.value == 'success' and not all_member_are_success %}atr-hide{% endif %} {% if loop.index is odd %}page-member-visible-odd{% endif %} ">
                 <td class="align-middle">{{ member_rel_path }}</td>
                 <th scope="row" class="align-middle fw-bold">{{ function_name_from_key(member_result.checker) }}</th>
                 <td class="align-middle text-break">
@@ -296,9 +306,16 @@
                 </td>
                 <td class="align-middle text-center atr-sans">
                   <div class="d-inline-flex flex-column align-items-center gap-1">
-                    <span class="badge rounded-pill {% if member_result.status.value == "success" %}bg-success {% elif member_result.status.value == "failure" %}bg-danger {% elif member_result.status.value == "warning" %}bg-warning {% elif member_result.status.value == "exception" %}bg-danger {% else %}bg-secondary{% endif %}">
-                      {{ member_result.status.value|title }}
+                    <span class="badge rounded-pill {% if member_result.status.value == "success" %}bg-success {% elif member_result.status.value == "failure" or member_result.status.value == "blocking" %}bg-danger {% elif member_result.status.value == "warning" %}bg-warning {% elif member_result.status.value == "exception" %}bg-danger {% else %}bg-secondary{% endif %}">
+                      {{ "Failure" if member_result.status.value == "blocking" else member_result.status.value|title }}
                     </span>
+                    {% if member_result.status.value == "blocking" %}
+                      <span class="badge rounded-pill atr-bg-blocking border small"
+                            title="You cannot release when there is a blocking check result"
+                            aria-label="You cannot release when there is a blocking check result">
+                        <i class="bi bi-shield-lock me-1"></i>Blocking
+                      </span>
+                    {% endif %}
                     {% if member_result.cached %}
                       <span class="badge rounded-pill bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle small"
                             title="Cached result"

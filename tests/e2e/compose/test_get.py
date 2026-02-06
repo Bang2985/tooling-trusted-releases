@@ -45,9 +45,11 @@ def test_ongoing_tasks_banner_has_task_count(page_compose: Page) -> None:
     restart_button = page_compose.get_by_role("button", name="Restart all checks")
     restart_button.click()
 
-    count_element = page_compose.locator("#ongoing-tasks-count")
-    expect(count_element).to_be_visible(timeout=10000)
-    expect(count_element).not_to_be_empty()
+    banner = page_compose.locator("#ongoing-tasks-banner")
+    expect(banner).to_be_visible(timeout=10000)
+
+    count_element = banner.locator("#ongoing-tasks-count")
+    expect(count_element).to_have_text(re.compile(r"\d+"))
 
 
 def test_ongoing_tasks_banner_has_warning_icon(page_compose: Page) -> None:
