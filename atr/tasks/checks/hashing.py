@@ -75,7 +75,7 @@ async def check(args: checks.FunctionArguments) -> results.Results | None:
                 {"computed_hash": computed_hash, "expected_hash": expected_hash},
             )
         else:
-            await recorder.failure(
+            await recorder.blocking(
                 f"Hash ({algorithm}) mismatch",
                 {"computed_hash": computed_hash, "expected_hash": expected_hash},
             )

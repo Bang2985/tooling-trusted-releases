@@ -255,7 +255,7 @@ def _files_check_core_logic(artifact_path: str, is_podling: bool) -> Iterator[Re
     yield from _notice_results(notice_results)
     if is_podling and (not disclaimer_found):
         yield ArtifactResult(
-            status=sql.CheckResultStatus.FAILURE,
+            status=sql.CheckResultStatus.BLOCKING,
             message="No DISCLAIMER or DISCLAIMER-WIP file found",
             data=None,
         )
@@ -505,7 +505,7 @@ def _license_results(
     license_files_size = len(license_results)
     if license_files_size == 0:
         yield ArtifactResult(
-            status=sql.CheckResultStatus.FAILURE,
+            status=sql.CheckResultStatus.BLOCKING,
             message="No LICENSE file found",
             data=None,
         )
@@ -551,7 +551,7 @@ def _notice_results(
     notice_files_size = len(notice_results)
     if notice_files_size == 0:
         yield ArtifactResult(
-            status=sql.CheckResultStatus.FAILURE,
+            status=sql.CheckResultStatus.BLOCKING,
             message="No NOTICE file found",
             data=None,
         )

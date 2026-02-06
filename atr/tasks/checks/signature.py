@@ -38,7 +38,7 @@ async def check(args: checks.FunctionArguments) -> results.Results | None:
         return None
 
     if not (primary_rel_path := args.primary_rel_path):
-        await recorder.failure("Primary relative path is required", {"primary_rel_path": primary_rel_path})
+        await recorder.exception("Primary relative path is required", {"primary_rel_path": primary_rel_path})
         return None
 
     artifact_rel_path = primary_rel_path.removesuffix(".asc")
@@ -47,7 +47,7 @@ async def check(args: checks.FunctionArguments) -> results.Results | None:
 
     committee_name = args.extra_args.get("committee_name")
     if not isinstance(committee_name, str):
-        await recorder.failure("Committee name is required", {"committee_name": committee_name})
+        await recorder.exception("Committee name is required", {"committee_name": committee_name})
         return None
 
     log.info(
@@ -62,15 +62,16 @@ async def check(args: checks.FunctionArguments) -> results.Results | None:
             signature_path=str(primary_abs_path),
         )
         if result_data.get("error"):
-            await recorder.failure(result_data["error"], result_data)
+            # TODO: This should perhaps be a failure
+            await recorder.blocking(result_data["error"], result_data)
         elif result_data.get("verified"):
             await recorder.success("Signature verified successfully", result_data)
         else:
             # Shouldn't happen
-            await recorder.failure("Signature verification failed for unknown reasons", result_data)
+            await recorder.exception("Signature verification failed for unknown reasons", result_data)
 
     except Exception as e:
-        await recorder.failure("Error during signature check execution", {"error": str(e)})
+        await recorder.exception("Error during signature check execution", {"error": str(e)})
 
     return None
 

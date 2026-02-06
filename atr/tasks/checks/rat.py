@@ -167,9 +167,9 @@ async def _check_core(
 
     # Record individual file failures before the overall result
     for file in result.unknown_license_files:
-        await recorder.failure("Unknown license", None, member_rel_path=file.name)
+        await recorder.blocking("Unknown license", None, member_rel_path=file.name)
     for file in result.unapproved_files:
-        await recorder.failure("Unapproved license", {"license": file.license}, member_rel_path=file.name)
+        await recorder.blocking("Unapproved license", {"license": file.license}, member_rel_path=file.name)
 
     # Convert to dict for storage, excluding the file lists, which are already recorded
     result_data = result.model_dump(exclude={"unapproved_files", "unknown_license_files"})
