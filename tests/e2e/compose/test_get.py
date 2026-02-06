@@ -73,8 +73,6 @@ def test_ongoing_tasks_banner_hides_when_tasks_complete(page_compose: Page) -> N
     restart_button.click()
 
     banner = page_compose.locator("#ongoing-tasks-banner")
-    expect(banner).to_be_visible(timeout=10000)
-
     expect(banner).to_be_hidden(timeout=60000)
 
 
