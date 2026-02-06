@@ -180,7 +180,9 @@ async def has_failing_checks(release: sql.Release, revision_number: str, caller_
             .where(
                 sql.CheckResult.release_name == release.name,
                 sql.CheckResult.revision_number == revision_number,
-                sql.CheckResult.status == sql.CheckResultStatus.FAILURE,
+                sql.validate_instrumented_attribute(sql.CheckResult.status).in_(
+                    [sql.CheckResultStatus.BLOCKING, sql.CheckResultStatus.FAILURE]
+                ),
             )
         )
         result = await data.execute(query)

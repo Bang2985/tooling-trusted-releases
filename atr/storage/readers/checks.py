@@ -113,6 +113,9 @@ class GeneralPublic:
         if cr.status == sql.CheckResultStatus.SUCCESS:
             # Successes are never ignored
             return False
+        if cr.status == sql.CheckResultStatus.BLOCKING:
+            # Blocking results are never ignored
+            return False
         if cri.release_glob is not None:
             if not self.__check_ignore_match_pattern(cri.release_glob, cr.release_name):
                 return False

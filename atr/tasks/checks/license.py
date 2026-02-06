@@ -369,9 +369,11 @@ def _headers_check_core_logic(artifact_path: str, ignore_lines: list[str], exclu
                         match result.status:
                             case sql.CheckResultStatus.SUCCESS:
                                 artifact_data.files_with_valid_headers += 1
+                            case sql.CheckResultStatus.WARNING:
+                                artifact_data.files_with_invalid_headers += 1
                             case sql.CheckResultStatus.FAILURE:
                                 artifact_data.files_with_invalid_headers += 1
-                            case sql.CheckResultStatus.WARNING:
+                            case sql.CheckResultStatus.BLOCKING:
                                 artifact_data.files_with_invalid_headers += 1
                             case sql.CheckResultStatus.EXCEPTION:
                                 artifact_data.files_with_invalid_headers += 1
@@ -587,6 +589,8 @@ async def _record_artifact(recorder: checks.Recorder, result: ArtifactResult) ->
             await recorder.warning(result.message, result.data)
         case sql.CheckResultStatus.FAILURE:
             await recorder.failure(result.message, result.data)
+        case sql.CheckResultStatus.BLOCKING:
+            await recorder.blocking(result.message, result.data)
         case sql.CheckResultStatus.EXCEPTION:
             await recorder.exception(result.message, result.data)
 
@@ -599,5 +603,7 @@ async def _record_member(recorder: checks.Recorder, result: MemberResult) -> Non
             await recorder.warning(result.message, result.data, member_rel_path=result.path)
         case sql.CheckResultStatus.FAILURE:
             await recorder.failure(result.message, result.data, member_rel_path=result.path)
+        case sql.CheckResultStatus.BLOCKING:
+            await recorder.blocking(result.message, result.data, member_rel_path=result.path)
         case sql.CheckResultStatus.EXCEPTION:
             await recorder.exception(result.message, result.data, member_rel_path=result.path)
