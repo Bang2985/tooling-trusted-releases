@@ -18,7 +18,7 @@
       <span class="navbar-toggler-icon"></span>
     </button>
     <div class="collapse navbar-collapse navbar-adp-offset" id="navbarADP">
-      <ul class="navbar-nav me-auto">
+      <ul class="navbar-nav me-auto align-items-lg-center">
         {% if current_user %}
           <li class="nav-item dropdown">
             <button class="nav-link dropdown-toggle btn"
@@ -198,6 +198,15 @@
                     aria-controls="menuAdmin">Admin</button>
             <ul class="dropdown-menu" id="menuAdmin" aria-labelledby="dropdownAdmin">
               <li>
+                <div class="user-menu">
+                  <span>{{ current_user.fullname }}</span>
+                  (<code>{{ current_user.uid }}</code>)
+                </div>
+              </li>
+              <li>
+                <hr class="dropdown-divider" />
+              </li>
+              <li>
                 <a class="dropdown-item"
                    href="{{ as_url(admin.all_releases) }}"
                    {% if request.endpoint == 'atr_admin_all_releases' %}class="active"{% endif %}><i class="bi bi-list-ul"></i> All releases</a>
@@ -278,49 +287,38 @@
               </li>
             </ul>
           </li>
-        {% endif %}
-      </ul>
-      <ul class="navbar-nav align-items-center">
-        {% if current_user %}
-          <li class="nav-item dropdown">
-            <button class="nav-link dropdown-toggle btn"
-                    id="dropdownUser"
-                    type="button"
-                    data-bs-toggle="dropdown"
-                    aria-expanded="false"
-                    aria-controls="menuUser">User</button>
-            <ul class="dropdown-menu dropdown-menu-end"
-                id="menuUser"
-                aria-labelledby="dropdownUser">
-              <div class="user-menu">
-                <span>{{ current_user.fullname }}</span>
-                (<code>{{ current_user.uid }}</code>)
-              </div>
-            </ul>
-          </li>
-        {% endif %}
-        <li class="nav-item">
-          {% if current_user %}
-            <a href="/auth?logout=/" class="logout-link btn btn-sm btn-secondary ms-2">Log out</a>
           {% else %}
-            <a href="/auth?login={{ request.path }}" class="login-link btn btn-sm btn-secondary ms-2">Log in</a>
+            {% if current_user %}
+            <li class="nav-item dropdown">
+              <button class="nav-link dropdown-toggle btn"
+                      id="dropdownUser"
+                      type="button"
+                      data-bs-toggle="dropdown"
+                      aria-expanded="false"
+                      aria-controls="menuUser">User</button>
+              <ul class="dropdown-menu dropdown-menu"
+                  id="menuUser"
+                  aria-labelledby="dropdownUser">
+                <div class="user-menu">
+                  <span>{{ current_user.fullname }}</span>
+                  (<code>{{ current_user.uid }}</code>)
+                </div>
+              </ul>
+            </li>
           {% endif %}
-        </li>
+        {% endif %}
         <li class="nav-item dropdown">
           <button class="nav-link dropdown-toggle btn"
                   id="dropdownASF"
                   type="button"
                   data-bs-toggle="dropdown"
                   aria-expanded="false"
-                  aria-controls="menuASF">About The ASF</button>
-          <ul class="dropdown-menu dropdown-menu-end"
+                  aria-controls="menuASF">The ASF</button>
+          <ul class="dropdown-menu dropdown-menu"
               id="menuASF"
               aria-labelledby="dropdownASF">
             <li>
               <a class="dropdown-item" href="https://www.apache.org/">Foundation</a>
-            </li>
-            <li>
-              <hr class="dropdown-divider" />
             </li>
             <li>
               <a class="dropdown-item" href="https://www.apache.org/licenses/">License</a>
@@ -334,9 +332,6 @@
                  href="https://www.apache.org/foundation/thanks.html">Thanks</a>
             </li>
             <li>
-              <hr class="dropdown-divider" />
-            </li>
-            <li>
               <a class="dropdown-item" href="https://www.apache.org/security/">Security</a>
             </li>
             <li>
@@ -344,6 +339,15 @@
                  href="https://privacy.apache.org/policies/privacy-policy-public.html">Privacy Policy</a>
             </li>
           </ul>
+        </li>
+      </ul>
+      <ul class="navbar-nav align-items-lg-center">
+        <li class="nav-item">
+          {% if current_user %}
+            <a href="/auth?logout=/" class="logout-link btn btn-sm btn-secondary ms-2">Log out</a>
+          {% else %}
+            <a href="/auth?login={{ request.path }}" class="login-link btn btn-sm btn-secondary ms-2">Log in</a>
+          {% endif %}
         </li>
       </ul>
     </div>
