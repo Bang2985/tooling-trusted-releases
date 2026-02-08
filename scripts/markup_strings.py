@@ -91,7 +91,7 @@ def main() -> None:
     #     print(f"!! {filename} - ignored", file=sys.stderr)
     #     sys.exit(ExitCode.SUCCESS)
 
-    if not file_path.is_file() or (not filename.endswith(".py")):
+    if (not file_path.is_file()) or (not filename.endswith(".py")):
         print(f"!! {filename} - invalid file", file=sys.stderr)
         sys.exit(ExitCode.USAGE_ERROR)
 

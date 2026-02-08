@@ -49,7 +49,7 @@ query($owner:String!,$name:String!,$after:String){
 
 def repo_from_arg(a: str) -> tuple[str, str]:
     # Allow either owner/repo or owner repo
-    return (a.split("/", 1)[0], a.split("/", 1)[1]) if "/" in a else (a, sys.argv[2])
+    return (a.split("/", 1)[0], a.split("/", 1)[1]) if ("/" in a) else (a, sys.argv[2])
 
 
 def pick(node: dict) -> tuple[str, str, str] | None:

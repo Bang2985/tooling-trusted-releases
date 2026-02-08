@@ -87,7 +87,7 @@ def _is_main_guard(block: list[str]) -> bool:
 
 
 def _normalise(block: list[str]) -> str:
-    while block and not block[-1].strip():
+    while block and (not block[-1].strip()):
         block = block[:-1]
     return "".join(block).rstrip("\n") + "\n"
 

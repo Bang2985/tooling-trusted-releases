@@ -98,7 +98,7 @@ def main() -> None:
     file_path = pathlib.Path(sys.argv[1])
     filename = str(file_path)
 
-    if not file_path.is_file() or (not filename.endswith(".py")):
+    if (not file_path.is_file()) or (not filename.endswith(".py")):
         print(f"!! {filename} - invalid file", file=sys.stderr)
         sys.exit(ExitCode.USAGE_ERROR)
 

@@ -54,7 +54,7 @@ class HeadingProcessor(parser.HTMLParser):
             self.output.append(text)
 
     def handle_endtag(self, tag: str) -> None:
-        if self.in_heading and tag == self.heading_tag:
+        if self.in_heading and (tag == self.heading_tag):
             heading_id = self._generate_id(self.heading_content)
             self.output.append(f'<{self.heading_tag} id="{heading_id}">')
             self.output.append(self.heading_content)
@@ -100,7 +100,7 @@ def main() -> None:
 
     for file_arg in sys.argv[1:]:
         file_path = pathlib.Path(file_arg)
-        if file_path.exists() and file_path.suffix == ".html":
+        if file_path.exists() and (file_path.suffix == ".html"):
             process_html_file(file_path)
         else:
             print(f"Warning: {file_arg} not found or not an HTML file")

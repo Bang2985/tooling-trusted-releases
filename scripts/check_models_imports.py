@@ -44,7 +44,7 @@ def _check_file(path: pathlib.Path) -> list[str]:
         if isinstance(node, ast.Import):
             for alias in node.names:
                 root = alias.name.split(".")[0]
-                if not _is_stdlib(alias.name) and (root not in _ALLOWED_PACKAGES):
+                if (not _is_stdlib(alias.name)) and (root not in _ALLOWED_PACKAGES):
                     errors.append(f"{path}:{node.lineno}: disallowed import '{alias.name}'")
 
         elif isinstance(node, ast.ImportFrom):
@@ -55,7 +55,7 @@ def _check_file(path: pathlib.Path) -> list[str]:
                 # This should be unreachable
                 continue
             root = node.module.split(".")[0]
-            if not _is_stdlib(node.module) and (root not in _ALLOWED_PACKAGES):
+            if (not _is_stdlib(node.module)) and (root not in _ALLOWED_PACKAGES):
                 errors.append(f"{path}:{node.lineno}: disallowed import from '{node.module}'")
 
     return errors
