@@ -18,28 +18,30 @@
 
 import argparse
 import ast
+import collections
+import pathlib
 import re
 import sys
-from collections import defaultdict
-from pathlib import Path
+from typing import Final
 
-TEMPLATE_SUFFIXES = {".html", ".htm", ".j2", ".jinja"}
-JINJA_REF_RE = re.compile(
+JINJA_REF_RE: Final = re.compile(
     r"""{%[-+]?\s*
         (?:include|extends|import|from)
         \s+["']([^"']+)["']
         """,
     re.VERBOSE,
 )
+TEMPLATE_SUFFIXES: Final = {".html", ".htm", ".j2", ".jinja"}
 
 
 class TemplateVisitor(ast.NodeVisitor):
     def __init__(self, filename):
         self.filename = filename
-        self.found = []  # (template_name, lineno)
+        # (template_name, lineno)
+        self.found = []
 
     def visit_Call(self, node):
-        if isinstance(node.func, ast.Attribute) and node.func.attr == "render":
+        if isinstance(node.func, ast.Attribute) and (node.func.attr == "render"):
             if node.args:
                 arg = node.args[0]
                 if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
@@ -77,9 +79,9 @@ def find_template_references(locations):
     locations: {template_name: [Path, ...]}
     Returns: {template_name: set(referenced_template_names)}
     """
-    refs = defaultdict(set)
+    refs = collections.defaultdict(set)
 
-    missing_includes = defaultdict(set)
+    missing_includes = collections.defaultdict(set)
 
     known = set(locations.keys())
 
@@ -91,7 +93,7 @@ def find_template_references(locations):
                 continue
 
             for match in JINJA_REF_RE.findall(text):
-                ref = Path(match).name
+                ref = pathlib.Path(match).name
                 refs[name].add(ref)
                 if ref not in known:
                     missing_includes[name].add(ref)
@@ -99,9 +101,9 @@ def find_template_references(locations):
     return refs, missing_includes
 
 
-def find_templates_in_code(source_root: Path):
+def find_templates_in_code(source_root: pathlib.Path):
     used = set()
-    origins = defaultdict(list)
+    origins = collections.defaultdict(list)
 
     for pyfile in source_root.rglob("*.py"):
         try:
@@ -113,7 +115,7 @@ def find_templates_in_code(source_root: Path):
         visitor.visit(tree)
 
         for name, lineno in visitor.found:
-            filename_only = Path(name).name
+            filename_only = pathlib.Path(name).name
             used.add(filename_only)
             origins[filename_only].append((pyfile, lineno))
 
@@ -123,18 +125,19 @@ def find_templates_in_code(source_root: Path):
     return used, origins
 
 
-def find_template_dirs(source_root: Path):
+def find_template_dirs(source_root: pathlib.Path):
     return [p for p in source_root.rglob("templates") if p.is_dir()]
 
 
-def find_templates_on_disk(source_root: Path):
+def find_templates_on_disk(source_root: pathlib.Path):
     present = set()
-    locations = defaultdict(list)
+    locations = collections.defaultdict(list)
 
     for tdir in find_template_dirs(source_root):
         for p in tdir.rglob("*"):
             if p.suffix in TEMPLATE_SUFFIXES:
-                name = p.name  # filename-only
+                # filename-only
+                name = p.name
                 present.add(name)
                 locations[name].append(p)
 
@@ -159,7 +162,7 @@ def resolve_used_templates(python_used, template_refs):
 
 
 def reverse_refs(refs):
-    rev = defaultdict(set)
+    rev = collections.defaultdict(set)
     for src, targets in refs.items():
         for t in targets:
             rev[t].add(src)
@@ -192,7 +195,7 @@ def main():  # noqa: C901
     )
     args = parser.parse_args()
 
-    root = Path(args.source_root)
+    root = pathlib.Path(args.source_root)
 
     used, origins = find_templates_in_code(root)
     present, locations = find_templates_on_disk(root)
