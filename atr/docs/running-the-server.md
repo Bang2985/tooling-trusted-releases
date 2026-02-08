@@ -67,6 +67,7 @@ ATR serves on multiple hosts, but we recommend using `localhost.apache.org` cons
 
 ### Environment variables
 
+* `ADMIN_USERS_ADDITIONAL` : Enable additional users as admins
 * `ALLOW_TESTS=1`: Enable test mode with mock authentication
 * `APP_HOST`: Hostname for the application
 * `BIND`: Address and port to bind (default: `127.0.0.1:8080`)
@@ -99,3 +100,9 @@ To clear cached session data:
 2. Restart the server (the `atr/principal.py` module caches authorization in memory)
 
 **Note:** Session caching only works in debug mode, which is enabled when using `make serve-local`.
+
+If you are working on admin functions without LDAP credentials then start the server with:
+
+```
+ADMIN_USERS_ADDITIONAL=<uid> make serve-local`
+```
