@@ -103,6 +103,6 @@ To clear cached session data:
 
 If you are working on admin functions without LDAP credentials then start the server with:
 
-```
+```shell
 ADMIN_USERS_ADDITIONAL=<uid> make serve-local`
 ```
