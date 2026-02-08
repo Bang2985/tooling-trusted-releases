@@ -25,7 +25,7 @@ from pathlib import Path
 
 TEMPLATE_SUFFIXES = {".html", ".htm", ".j2", ".jinja"}
 JINJA_REF_RE = re.compile(
-    r"""{%\s*
+    r"""{%[-+]?\s*
         (?:include|extends|import|from)
         \s+["']([^"']+)["']
         """,
@@ -54,7 +54,7 @@ def detect_cycles(graph):
 
     def visit(node, stack):
         if node in visiting:
-            cycle = [*stack[stack.index(node) :], node]
+            cycle = stack[stack.index(node) :]
             cycles.append(cycle)
             return
         if node in visited:
@@ -222,8 +222,8 @@ def main():  # noqa: C901
     if missing_includes:
         errors = True
         print("\nMissing included templates")
-        for src, refs in missing_includes.items():
-            for ref in refs:
+        for src, missing_refs in missing_includes.items():
+            for ref in missing_refs:
                 print(f"  {src} includes missing {ref}")
 
     if duplicates:
