@@ -27,6 +27,7 @@ import atr.get.compose as compose
 import atr.get.keys as keys
 import atr.htm as htm
 import atr.models.sql as sql
+import atr.post as post
 import atr.render as render
 import atr.shared as shared
 import atr.template as template
@@ -68,8 +69,12 @@ async def selected(session: web.Committer, project_name: str, version_name: str)
     block.p["Use this form to add files to this candidate draft."]
 
     upload_session_token = secrets.token_hex(16)
-    stage_url = f"/upload/stage/{project_name}/{version_name}/{upload_session_token}"
-    finalise_url = f"/upload/finalise/{project_name}/{version_name}/{upload_session_token}"
+    stage_url = util.as_url(
+        post.upload.stage, upload_session=upload_session_token, project_name=project_name, version_name=version_name
+    )
+    finalise_url = util.as_url(
+        post.upload.finalise, upload_session=upload_session_token, project_name=project_name, version_name=version_name
+    )
 
     block.append(
         htpy.div(
