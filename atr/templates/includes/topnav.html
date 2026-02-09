@@ -208,28 +208,26 @@
               </li>
               <li>
                 <a class="dropdown-item"
-                   href="{{ as_url(admin.all_releases) }}"
-                   {% if request.endpoint == 'atr_admin_all_releases' %}class="active"{% endif %}><i class="bi bi-list-ul"></i> All releases</a>
-              </li>
-              <li>
-                <a class="dropdown-item"
                    href="{{ as_url(admin.browse_as_get) }}"
                    {% if request.endpoint == 'atr_admin_browse_as_get' %}class="active"{% endif %}><i class="bi bi-person-plus"></i> Browse as user</a>
               </li>
               <li>
                 <a class="dropdown-item"
-                   href="{{ as_url(admin.consistency) }}"
-                   {% if request.endpoint == 'atr_admin_consistency' %}class="active"{% endif %}><i class="bi bi-arrow-repeat"></i> Consistency</a>
+                   href="{{ as_url(admin.ldap_get) }}"
+                   {% if request.endpoint == 'atr_admin_ldap_get' %}class="active"{% endif %}><i class="bi bi-person-plus"></i> LDAP search</a>
               </li>
               <li>
                 <a class="dropdown-item"
-                   href="{{ as_url(admin.data) }}"
-                   {% if request.endpoint == 'atr_admin_data' %}class="active"{% endif %}><i class="bi bi-database"></i> Browse database</a>
+                   href="{{ as_url(admin.toggle_view_get) }}"
+                   {% if request.endpoint == 'atr_admin_toggle_view_get' %}class="active"{% endif %}><i class="bi bi-person-badge"></i> Toggle admin view</a>
+              </li>
+              <li>
+                <hr class="dropdown-divider" />
               </li>
               <li>
                 <a class="dropdown-item"
-                   href="{{ as_url(admin.delete_committee_keys_get) }}"
-                   {% if request.endpoint == 'atr_admin_delete_committee_keys_get' %}class="active"{% endif %}><i class="bi bi-trash"></i> Delete committee keys</a>
+                   href="{{ as_url(admin.all_releases) }}"
+                   {% if request.endpoint == 'atr_admin_all_releases' %}class="active"{% endif %}><i class="bi bi-list-ul"></i> All releases</a>
               </li>
               <li>
                 <a class="dropdown-item"
@@ -238,8 +236,16 @@
               </li>
               <li>
                 <a class="dropdown-item"
-                   href="{{ as_url(admin.env) }}"
-                   {% if request.endpoint == 'atr_admin_env' %}class="active"{% endif %}><i class="bi bi-gear"></i> Environment</a>
+                   href="{{ as_url(admin.projects_update_get) }}"
+                   {% if request.endpoint == 'atr_admin_projects_update_get' %}class="active"{% endif %}><i class="bi bi-arrow-repeat"></i> Update projects</a>
+              </li>
+              <li>
+                <hr class="dropdown-divider" />
+              </li>
+              <li>
+                <a class="dropdown-item"
+                   href="{{ as_url(admin.delete_committee_keys_get) }}"
+                   {% if request.endpoint == 'atr_admin_delete_committee_keys_get' %}class="active"{% endif %}><i class="bi bi-trash"></i> Delete committee keys</a>
               </li>
               <li>
                 <a class="dropdown-item"
@@ -257,9 +263,22 @@
                    {% if request.endpoint == 'atr_admin_keys_update_get' %}class="active"{% endif %}><i class="bi bi-key"></i> Update keys</a>
               </li>
               <li>
+                <hr class="dropdown-divider" />
+              </li>
+              <li>
                 <a class="dropdown-item"
-                   href="{{ as_url(admin.ldap_get) }}"
-                   {% if request.endpoint == 'atr_admin_ldap_get' %}class="active"{% endif %}><i class="bi bi-person-plus"></i> LDAP search</a>
+                   href="{{ as_url(admin.consistency) }}"
+                   {% if request.endpoint == 'atr_admin_consistency' %}class="active"{% endif %}><i class="bi bi-arrow-repeat"></i> Consistency</a>
+              </li>
+              <li>
+                <a class="dropdown-item"
+                   href="{{ as_url(admin.data) }}"
+                   {% if request.endpoint == 'atr_admin_data' %}class="active"{% endif %}><i class="bi bi-database"></i> Browse database</a>
+              </li>
+              <li>
+                <a class="dropdown-item"
+                   href="{{ as_url(admin.env) }}"
+                   {% if request.endpoint == 'atr_admin_env' %}class="active"{% endif %}><i class="bi bi-gear"></i> Environment</a>
               </li>
               <li>
                 <a class="dropdown-item"
@@ -268,17 +287,7 @@
               </li>
               <li>
                 <a class="dropdown-item"
-                   href="{{ as_url(admin.projects_update_get) }}"
-                   {% if request.endpoint == 'atr_admin_projects_update_get' %}class="active"{% endif %}><i class="bi bi-arrow-repeat"></i> Update projects</a>
-              </li>
-              <li>
-                <a class="dropdown-item"
                    href="{{ as_url(admin.tasks_recent, minutes=5) }}"><i class="bi bi-list-task"></i> Recent tasks</a>
-              </li>
-              <li>
-                <a class="dropdown-item"
-                   href="{{ as_url(admin.toggle_view_get) }}"
-                   {% if request.endpoint == 'atr_admin_toggle_view_get' %}class="active"{% endif %}><i class="bi bi-person-badge"></i> Toggle admin view</a>
               </li>
               <li>
                 <a class="dropdown-item"
