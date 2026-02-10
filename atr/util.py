@@ -785,6 +785,21 @@ async def paths_recursive_all(base_path: pathlib.Path) -> AsyncGenerator[pathlib
                     queue.append(entry_abs_path)
 
 
+def paths_to_inodes(directory: pathlib.Path) -> dict[str, int]:
+    result: dict[str, int] = {}
+    stack: list[pathlib.Path] = [directory]
+    while stack:
+        current = stack.pop()
+        with os.scandir(current) as entries:
+            for entry in entries:
+                if entry.is_file(follow_symlinks=False):
+                    rel_path = str(pathlib.Path(entry.path).relative_to(directory))
+                    result[rel_path] = entry.stat(follow_symlinks=False).st_ino
+                elif entry.is_dir(follow_symlinks=False):
+                    stack.append(pathlib.Path(entry.path))
+    return result
+
+
 def permitted_announce_recipients(asf_uid: str) -> list[str]:
     return [
         # f"dev@{committee.name}.apache.org",
