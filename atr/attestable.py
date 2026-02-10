@@ -131,18 +131,30 @@ def migrate_to_paths_files() -> int:
     return count
 
 
+async def paths_to_hashes_and_sizes(directory: pathlib.Path) -> tuple[dict[str, str], dict[str, int]]:
+    path_to_hash: dict[str, str] = {}
+    path_to_size: dict[str, int] = {}
+    async for rel_path in util.paths_recursive(directory):
+        full_path = directory / rel_path
+        path_key = str(rel_path)
+        if "\\" in path_key:
+            # TODO: We should centralise this, and forbid some other characters too
+            raise ValueError(f"Backslash in path is forbidden: {path_key}")
+        path_to_hash[path_key] = await compute_file_hash(full_path)
+        path_to_size[path_key] = (await aiofiles.os.stat(full_path)).st_size
+    return path_to_hash, path_to_size
+
+
 async def write(
-    release_directory: pathlib.Path,
     project_name: str,
     version_name: str,
     revision_number: str,
     uploader_uid: str,
-    parent_revision_number: str | None,
+    previous: models.AttestableV1 | None,
+    path_to_hash: dict[str, str],
+    path_to_size: dict[str, int],
 ) -> None:
-    previous: models.AttestableV1 | None = None
-    if parent_revision_number is not None:
-        previous = await load(project_name, version_name, parent_revision_number)
-    result = await _generate(release_directory, revision_number, uploader_uid, previous)
+    result = _generate(path_to_hash, path_to_size, revision_number, uploader_uid, previous)
     file_path = attestable_path(project_name, version_name, revision_number)
     await util.atomic_write_file(file_path, result.model_dump_json(indent=2))
     paths_result = models.AttestablePathsV1(paths=result.paths)
@@ -185,27 +197,15 @@ def _compute_hashes_with_attribution(
     return new_hashes
 
 
-async def _generate(
-    directory: pathlib.Path,
+def _generate(
+    path_to_hash: dict[str, str],
+    path_to_size: dict[str, int],
     revision_number: str,
     uploader_uid: str,
     previous: models.AttestableV1 | None,
 ) -> models.AttestableV1:
-    current_path_to_hash: dict[str, str] = {}
     current_hash_to_paths: dict[str, set[str]] = {}
-    path_to_size: dict[str, int] = {}
-
-    async for rel_path in util.paths_recursive(directory):
-        full_path = directory / rel_path
-        path_key = str(rel_path)
-        if "\\" in path_key:
-            # TODO: We should centralise this, and forbid some other characters too
-            raise ValueError(f"Backslash in path is forbidden: {path_key}")
-        hash_ref = await compute_file_hash(full_path)
-        file_size = (await aiofiles.os.stat(full_path)).st_size
-
-        current_path_to_hash[path_key] = hash_ref
-        path_to_size[path_key] = file_size
+    for path_key, hash_ref in path_to_hash.items():
         current_hash_to_paths.setdefault(hash_ref, set()).add(path_key)
 
     new_hashes = _compute_hashes_with_attribution(
@@ -213,6 +213,6 @@ async def _generate(
     )
 
     return models.AttestableV1(
-        paths=dict(current_path_to_hash),
+        paths=dict(path_to_hash),
         hashes=dict(new_hashes),
     )

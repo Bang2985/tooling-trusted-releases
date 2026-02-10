@@ -105,7 +105,7 @@ class CommitteeParticipant(FoundationCommitter):
         self.__committee_name = committee_name
 
     @contextlib.asynccontextmanager
-    async def create_and_manage(
+    async def create_and_manage(  # noqa: C901
         self,
         project_name: str,
         version_name: str,
@@ -165,6 +165,16 @@ class CommitteeParticipant(FoundationCommitter):
             await aioshutil.rmtree(temp_dir)
             raise
 
+        try:
+            path_to_hash, path_to_size = await attestable.paths_to_hashes_and_sizes(temp_dir_path)
+            parent_revision_number = old_revision.number if old_revision else None
+            previous_attestable = None
+            if parent_revision_number is not None:
+                previous_attestable = await attestable.load(project_name, version_name, parent_revision_number)
+        except Exception:
+            await aioshutil.rmtree(temp_dir)
+            raise
+
         async with SafeSession(temp_dir) as data:
             try:
                 # This is the only place where models.Revision is constructed
@@ -206,9 +216,14 @@ class CommitteeParticipant(FoundationCommitter):
                 await aioshutil.rmtree(temp_dir)
                 raise
 
-            parent_revision_number = old_revision.number if old_revision else None
             await attestable.write(
-                new_revision_dir, project_name, version_name, new_revision.number, asf_uid, parent_revision_number
+                project_name,
+                version_name,
+                new_revision.number,
+                asf_uid,
+                previous_attestable,
+                path_to_hash,
+                path_to_size,
             )
 
             # Commit to end the transaction started by data.begin_immediate
