@@ -419,8 +419,8 @@ span.warning {
 .warning-banner {
     border: 2px solid #dc3545;
     background: #ffcccc;
-    padding: 1rem;
-    margin: 2rem 0;
+    padding: 0.5rem;
+    margin: 0 0 1rem;
     border-radius: 4px;
 }
 
