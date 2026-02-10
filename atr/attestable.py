@@ -39,6 +39,10 @@ def attestable_path(project_name: str, version_name: str, revision_number: str) 
     return util.get_attestable_dir() / project_name / version_name / f"{revision_number}.json"
 
 
+def attestable_paths_path(project_name: str, version_name: str, revision_number: str) -> pathlib.Path:
+    return util.get_attestable_dir() / project_name / version_name / f"{revision_number}.paths.json"
+
+
 async def compute_file_hash(path: pathlib.Path) -> str:
     hasher = blake3.blake3()
     async with aiofiles.open(path, "rb") as f:
@@ -75,6 +79,58 @@ async def load(
         return None
 
 
+async def load_paths(
+    project_name: str,
+    version_name: str,
+    revision_number: str,
+) -> dict[str, str] | None:
+    file_path = attestable_paths_path(project_name, version_name, revision_number)
+    if await aiofiles.os.path.isfile(file_path):
+        try:
+            async with aiofiles.open(file_path, encoding="utf-8") as f:
+                data = json.loads(await f.read())
+            return models.AttestablePathsV1.model_validate(data).paths
+        except (json.JSONDecodeError, pydantic.ValidationError) as e:
+            # log.warning(f"Could not parse {file_path}, trying combined file: {e}")
+            log.warning(f"Could not parse {file_path}: {e}")
+    # combined = await load(project_name, version_name, revision_number)
+    # if combined is not None:
+    #     return combined.paths
+    return None
+
+
+def migrate_to_paths_files() -> int:
+    attestable_dir = util.get_attestable_dir()
+    if not attestable_dir.is_dir():
+        return 0
+    count = 0
+    for project_dir in sorted(attestable_dir.iterdir()):
+        if not project_dir.is_dir():
+            continue
+        for version_dir in sorted(project_dir.iterdir()):
+            if not version_dir.is_dir():
+                continue
+            for json_file in sorted(version_dir.glob("*.json")):
+                if "." in json_file.stem:
+                    continue
+                target = version_dir / f"{json_file.stem}.paths.json"
+                if target.exists():
+                    continue
+                try:
+                    with open(json_file, encoding="utf-8") as f:
+                        data = json.loads(f.read())
+                    validated = models.AttestableV1.model_validate(data)
+                    paths_result = models.AttestablePathsV1(paths=validated.paths)
+                    tmp = target.with_suffix(".tmp")
+                    with open(tmp, "w", encoding="utf-8") as f:
+                        f.write(paths_result.model_dump_json(indent=2))
+                    tmp.replace(target)
+                    count += 1
+                except (json.JSONDecodeError, pydantic.ValidationError):
+                    continue
+    return count
+
+
 async def write(
     release_directory: pathlib.Path,
     project_name: str,
@@ -89,6 +145,9 @@ async def write(
     result = await _generate(release_directory, revision_number, uploader_uid, previous)
     file_path = attestable_path(project_name, version_name, revision_number)
     await util.atomic_write_file(file_path, result.model_dump_json(indent=2))
+    paths_result = models.AttestablePathsV1(paths=result.paths)
+    paths_file_path = attestable_paths_path(project_name, version_name, revision_number)
+    await util.atomic_write_file(paths_file_path, paths_result.model_dump_json(indent=2))
 
 
 def _compute_hashes_with_attribution(

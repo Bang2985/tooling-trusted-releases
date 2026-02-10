@@ -46,6 +46,7 @@ import quart_wtf
 import werkzeug.routing as routing
 
 import atr
+import atr.attestable as attestable
 import atr.blueprints as blueprints
 import atr.cache as cache
 import atr.config as config
@@ -259,6 +260,10 @@ def _app_setup_lifecycle(app: base.QuartApp, app_config: type[config.AppConfig])
         """Start services before the app starts serving requests."""
 
         await asyncio.to_thread(_set_file_permissions_to_read_only)
+
+        migrated = await asyncio.to_thread(attestable.migrate_to_paths_files)
+        if migrated > 0:
+            log.info(f"Migrated {migrated} attestable files to paths format")
 
         await cache.admins_startup_load()
         admins_task = asyncio.create_task(cache.admins_refresh_loop())

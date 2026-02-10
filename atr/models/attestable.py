@@ -27,6 +27,11 @@ class HashEntry(schema.Strict):
     uploaders: list[Annotated[tuple[str, str], pydantic.BeforeValidator(tuple)]]
 
 
+class AttestablePathsV1(schema.Strict):
+    version: Literal[1] = 1
+    paths: dict[str, str] = schema.factory(dict)
+
+
 class AttestableV1(schema.Strict):
     version: Literal[1] = 1
     paths: dict[str, str] = schema.factory(dict)
