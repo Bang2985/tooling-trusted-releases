@@ -15,10 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import json
+
+import aiofiles
 import asfquart.base as base
+import werkzeug.wrappers.response as response
 
 import atr.blueprints.get as get
 import atr.config as config
+import atr.db as db
 import atr.form as form
 import atr.get.root as root
 import atr.get.vote as vote
@@ -26,6 +31,7 @@ import atr.htm as htm
 import atr.models.session
 import atr.models.sql as sql
 import atr.shared as shared
+import atr.storage as storage
 import atr.template as template
 import atr.util as util
 import atr.web as web
@@ -66,6 +72,41 @@ async def test_login(session: web.Committer | None) -> web.WerkzeugResponse:
 
     util.write_quart_session_cookie(session_data)
     return await web.redirect(root.index)
+
+
+@get.committer("/test/merge/<project_name>/<version_name>")
+async def test_merge(session: web.Committer, project_name: str, version_name: str) -> web.WerkzeugResponse:
+    if not config.get().ALLOW_TESTS:
+        raise base.ASFQuartException("Test routes not enabled", errorcode=404)
+
+    async with storage.write(session) as write_n:
+        wacp_n = await write_n.as_project_committee_participant(project_name)
+        async with wacp_n.release.create_and_manage_revision(
+            project_name, version_name, "Test merge: new revision"
+        ) as creating_n:
+            async with aiofiles.open(creating_n.interim_path / "from_new.txt", "w") as f:
+                await f.write("new content")
+
+            async with storage.write(session) as write_p:
+                wacp_p = await write_p.as_project_committee_participant(project_name)
+                async with wacp_p.release.create_and_manage_revision(
+                    project_name, version_name, "Test merge: prior revision"
+                ) as creating_p:
+                    async with aiofiles.open(creating_p.interim_path / "from_prior.txt", "w") as f:
+                        await f.write("prior content")
+
+    files: list[str] = []
+    async with db.session() as data:
+        release_name = sql.release_name(project_name, version_name)
+        release = await data.release(name=release_name, _project=True).demand(
+            RuntimeError("Release not found after merge test")
+        )
+        release_dir = util.release_directory(release)
+    async for path in util.paths_recursive(release_dir):
+        files.append(str(path))
+
+    result = json.dumps({"files": sorted(files)})
+    return response.Response(result, status=200, mimetype="application/json")
 
 
 @get.public("/test/multiple")

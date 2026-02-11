@@ -33,6 +33,7 @@ import atr.attestable as attestable
 import atr.db as db
 import atr.db.interaction as interaction
 import atr.detection as detection
+import atr.merge as merge
 import atr.models.sql as sql
 import atr.storage as storage
 import atr.storage.types as types
@@ -171,6 +172,13 @@ class CommitteeParticipant(FoundationCommitter):
             previous_attestable = None
             if parent_revision_number is not None:
                 previous_attestable = await attestable.load(project_name, version_name, parent_revision_number)
+            base_inodes: dict[str, int] = {}
+            base_hashes: dict[str, str] = {}
+            if old_revision is not None:
+                base_dir = util.release_directory(release)
+                base_inodes = await asyncio.to_thread(util.paths_to_inodes, base_dir)
+                base_hashes = dict(previous_attestable.paths) if (previous_attestable is not None) else {}
+            n_inodes = await asyncio.to_thread(util.paths_to_inodes, temp_dir_path)
         except Exception:
             await aioshutil.rmtree(temp_dir)
             raise
@@ -202,6 +210,25 @@ class CommitteeParticipant(FoundationCommitter):
                 await data.flush()
                 # Give the caller details about the new revision
                 creating.new = new_revision
+
+                # Merge with the prior revision if there was an intervening change
+                prior_name = new_revision.parent_name
+                if (old_revision is not None) and (prior_name is not None) and (prior_name != old_revision.name):
+                    prior_number = prior_name.split()[-1]
+                    prior_dir = util.release_directory_base(release) / prior_number
+                    await merge.merge(
+                        base_inodes,
+                        base_hashes,
+                        prior_dir,
+                        project_name,
+                        version_name,
+                        prior_number,
+                        temp_dir_path,
+                        n_inodes,
+                        path_to_hash,
+                        path_to_size,
+                    )
+                    previous_attestable = await attestable.load(project_name, version_name, prior_number)
 
                 # Rename the directory to the new revision number
                 await data.refresh(release)
