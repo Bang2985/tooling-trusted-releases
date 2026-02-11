@@ -100,10 +100,16 @@ repos:
   rev: v2.10.0
   hooks:
     - id: pip-audit
-      # TODO: remove when GitHub Actions has pip 26.0+
-      args: ["--ignore-vuln", "CVE-2026-1703"]
+      args:
+        - '-r'
+        - 'requirements-for-pip-audit.txt'
+        - '--disable-pip'
+        - '--no-deps'
+        # TODO: Remove when #644 is complete
+        - '--ignore-vuln'
+        - 'CVE-2026-26007'
 - repo: https://github.com/oxc-project/mirrors-oxlint
-  rev: v1.43.0
+  rev: v1.46.0
   hooks:
     - id: oxlint
       name: lint JS files with Oxlint
