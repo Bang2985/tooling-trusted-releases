@@ -436,16 +436,13 @@ async def _render_page(
     # JavaScript data
     # TODO: Add htm.script
     csrf_token = utils.generate_csrf()
+    # Should be already validated, but check again
+    safe_source_files_rel = [util.validate_path(f).as_posix() for f in sorted(source_files_rel)]
+    safe_target_dirs = [util.validate_path(d).as_posix() for d in sorted(target_dirs)]
     page.append(
-        htpy.script(id="file-data", type="application/json")[
-            markupsafe.Markup(json.dumps([str(f) for f in sorted(source_files_rel)]))
-        ]
+        htpy.script(id="file-data", type="application/json")[markupsafe.escape(json.dumps(safe_source_files_rel))]
     )
-    page.append(
-        htpy.script(id="dir-data", type="application/json")[
-            markupsafe.Markup(json.dumps(sorted([str(d) for d in target_dirs])))
-        ]
-    )
+    page.append(htpy.script(id="dir-data", type="application/json")[markupsafe.escape(json.dumps(safe_target_dirs))])
     page.append(
         htpy.script(
             id="main-script-data",

@@ -29,6 +29,7 @@ import re
 import ssl
 import tarfile
 import tempfile
+import unicodedata
 import uuid
 import zipfile
 from collections.abc import AsyncGenerator, Callable, Iterable, Sequence
@@ -1184,6 +1185,64 @@ def validate_as_type[T](value: Any, t: type[T]) -> T:
     if not isinstance(value, t):
         raise ValueError(f"Expected {t}, got {type(value)}")
     return value
+
+
+def validate_filename(filename: str) -> str:
+    return validate_path_segment(filename, "Filename")
+
+
+def validate_path(path: pathlib.Path) -> pathlib.Path:
+    for segment in path.parts:
+        validate_path_segment(segment)
+    return path
+
+
+def validate_path_segment(path_segment: str, position: str = "Path segment") -> str:
+    if not path_segment:
+        raise ValueError(f"{position} cannot be empty")
+
+    if "\0" in path_segment:
+        raise ValueError(f"{position} cannot contain null bytes")
+
+    if path_segment != unicodedata.normalize("NFC", path_segment):
+        raise ValueError(f"{position} must be in Unicode Normalization Form C (NFC)")
+
+    # TODO: Check relevant constants too?
+    if ("/" in path_segment) or ("\\" in path_segment):
+        raise ValueError(f"{position} cannot contain path separators")
+
+    if ("<" in path_segment) or (">" in path_segment) or ("&" in path_segment):
+        raise ValueError(f"{position} cannot contain markup characters")
+
+    if path_segment in (".", ".."):
+        raise ValueError(f"{position} cannot be a directory traversal")
+
+    return path_segment
+
+
+def validate_path_str(path_str: str) -> str:
+    # The pathlib module normalises empty components
+    # Therefore, we must do this check on the path string
+    if "//" in path_str:
+        raise ValueError("Path cannot contain //")
+
+    for segment in pathlib.Path(path_str).parts:
+        validate_path_segment(segment)
+    return path_str
+
+
+def validate_relative_path_str(path_str: str) -> str:
+    # Check for absolute paths using both POSIX and Windows semantics
+    # We don't support Windows paths, but we want to detect all bad inputs
+    # PurePosixPath doesn't recognise Windows drive letters as absolute
+    # PureWindowsPath treats leading "/" differently
+    posix_path = pathlib.PurePosixPath(path_str)
+    windows_path = pathlib.PureWindowsPath(path_str)
+    if posix_path.is_absolute() or windows_path.is_absolute():
+        raise ValueError("Absolute paths are not allowed")
+
+    validate_path_str(path_str)
+    return path_str
 
 
 def version_name_error(version_name: str) -> str | None:

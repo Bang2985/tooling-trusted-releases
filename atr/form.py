@@ -22,7 +22,6 @@ import json
 import pathlib
 import re
 import types
-import unicodedata
 from typing import TYPE_CHECKING, Annotated, Any, Final, Literal, TypeAliasType, get_args, get_origin
 
 import htpy
@@ -418,23 +417,9 @@ def to_filename(v: Any) -> pathlib.Path | None:
     if not v:
         return None
 
-    name = str(v).strip()
-
-    if not name:
-        raise ValueError("Filename cannot be empty")
-
-    if "\0" in name:
-        raise ValueError("Filename cannot contain null bytes")
-
-    name = unicodedata.normalize("NFC", name)
-
-    if ("/" in name) or ("\\" in name):
-        raise ValueError("Filename cannot contain path separators")
-
-    if name in (".", ".."):
-        raise ValueError("Invalid filename")
-
-    return pathlib.Path(name)
+    filename = str(v).strip()
+    filename = util.validate_filename(filename)
+    return pathlib.Path(filename)
 
 
 def to_int(v: Any) -> int:
@@ -461,8 +446,8 @@ def to_relpath(v: Any) -> pathlib.Path | None:
     if not path_str:
         raise ValueError("Path cannot be empty")
 
-    validated = _validate_relpath_string(path_str)
-    return pathlib.Path(validated)
+    util.validate_relative_path_str(path_str)
+    return pathlib.Path(path_str)
 
 
 def to_relpath_list(v: Any) -> list[pathlib.Path]:
@@ -500,8 +485,7 @@ def to_url_path(v: Any) -> str | None:
     if not path_str:
         raise ValueError("Path cannot be empty")
 
-    validated = _validate_relpath_string(path_str)
-    return str(validated)
+    return util.validate_relative_path_str(path_str)
 
 
 # Validator types come before other functions
@@ -1071,35 +1055,3 @@ def _render_widget(  # noqa: C901
         elements.append(error_div)
 
     return htm.div[elements] if (len(elements) > 1) else elements[0]
-
-
-def _validate_relpath_string(path_str: str) -> pathlib.PurePosixPath:
-    if "\0" in path_str:
-        raise ValueError("Path cannot contain null bytes")
-
-    path_str = unicodedata.normalize("NFC", path_str)
-
-    if "\\" in path_str:
-        raise ValueError("Path cannot contain backslashes")
-
-    # PurePosixPath normalises empty components
-    # Therefore, we must do this check on the path string
-    if "//" in path_str:
-        raise ValueError("Path cannot contain //")
-
-    # Check for absolute paths using both POSIX and Windows semantics
-    # We don't support Windows paths, but we want to detect all bad inputs
-    # PurePosixPath doesn't recognise Windows drive letters as absolute
-    # PureWindowsPath treats leading "/" differently
-    posix_path = pathlib.PurePosixPath(path_str)
-    windows_path = pathlib.PureWindowsPath(path_str)
-    if posix_path.is_absolute() or windows_path.is_absolute():
-        raise ValueError("Absolute paths are not allowed")
-
-    for part in posix_path.parts:
-        if part == "..":
-            raise ValueError("Parent directory references (..) are not allowed")
-        if part == ".":
-            raise ValueError("Self directory references (.) are not allowed")
-
-    return posix_path
