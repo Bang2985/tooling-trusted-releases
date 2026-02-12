@@ -28,9 +28,9 @@ anyio==4.12.1
     # via watchfiles
 arrow==1.4.0
     # via isoduration
-asfpy==0.56
+asfpy==0.58
     # via asfquart
-asfquart @ git+https://github.com/apache/infrastructure-asfquart.git@99e3ec6523a02111ab9a0dd90467d124906ce398
+asfquart @ git+https://github.com/apache/infrastructure-asfquart.git@2149346f4463247b86e21cbf71f7f80a954ce6bf
     # via tooling-trusted-releases
 asyncssh==2.22.0
     # via tooling-trusted-releases
@@ -51,7 +51,7 @@ boolean-py==5.0
     # via license-expression
 certifi==2026.1.4
     # via requests
-cffi==1.17.1
+cffi==2.0.0
     # via
     #   asfpy
     #   cmarkgfm
@@ -65,14 +65,14 @@ click==8.3.1
     #   djlint
     #   flask
     #   quart
-cmarkgfm==2024.11.20
+cmarkgfm==2025.10.22
     # via tooling-trusted-releases
 colorama==0.4.6
     # via
     #   click
     #   djlint
     #   tqdm
-cryptography==44.0.3
+cryptography==46.0.5
     # via
     #   asfpy
     #   asyncssh
@@ -112,7 +112,7 @@ ezt==1.1
     # via
     #   asfpy
     #   asfquart
-filelock==3.20.3
+filelock==3.21.0
     # via virtualenv
 flask==3.1.2
     # via quart
@@ -146,7 +146,7 @@ hypercorn==0.18.0
     #   tooling-trusted-releases
 hyperframe==6.1.0
     # via h2
-hyperscan==0.8.0
+hyperscan==0.8.1
     # via tooling-trusted-releases
 identify==2.6.16
     # via pre-commit
@@ -218,7 +218,7 @@ pathspec==1.0.4
     # via djlint
 pgpy==0.6.0
     # via tooling-trusted-releases
-platformdirs==4.5.1
+platformdirs==4.6.0
     # via virtualenv
 pre-commit==4.5.1
 priority==2.0.0
@@ -237,7 +237,7 @@ pyasn1==0.6.2
     # via
     #   ldap3
     #   pgpy
-pycparser==3.0
+pycparser==3.0 ; implementation_name != 'PyPy'
     # via cffi
 pycryptodomex==3.23.0
     # via ldap3
@@ -324,7 +324,7 @@ sqlalchemy==2.0.46
     # via
     #   alembic
     #   sqlmodel
-sqlmodel==0.0.32
+sqlmodel==0.0.33
     # via tooling-trusted-releases
 standard-imghdr==3.13.0
     # via tooling-trusted-releases
