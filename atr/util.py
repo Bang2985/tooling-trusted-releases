@@ -220,6 +220,7 @@ def chmod_files(path: pathlib.Path, permissions: int) -> None:
     """Set permissions on all files in a directory tree."""
     for file_path in path.rglob("*"):
         if file_path.is_file():
+            # codeql[py/overly-permissive-file]
             os.chmod(file_path, permissions)
 
 
