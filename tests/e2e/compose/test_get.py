@@ -20,6 +20,35 @@ import re
 from playwright.sync_api import Page, expect
 
 
+def test_file_type_badge_binary_for_artifact(page_compose: Page) -> None:
+    """The tar.gz artifact should have a binary badge."""
+    row = page_compose.locator("tr").filter(
+        has=page_compose.locator("code", has_text=re.compile(r"^apache-test-0\.2\.tar\.gz$"))
+    )
+    # All non-metadata files are binary by default
+    badge = row.locator('span[title="Binary artifact"]')
+    expect(badge).to_be_visible()
+    expect(badge).to_have_text("Ⓑ")
+
+
+def test_file_type_badge_metadata_for_asc(page_compose: Page) -> None:
+    """The .asc metadata file should have a metadata badge."""
+    row = page_compose.locator("tr").filter(has=page_compose.locator("code", has_text=re.compile(r"\.tar\.gz\.asc$")))
+    badge = row.locator('span[title="Metadata file"]')
+    expect(badge).to_be_visible()
+    expect(badge).to_have_text("Ⓜ")
+
+
+def test_file_type_badge_metadata_for_sha512(page_compose: Page) -> None:
+    """The .sha512 metadata file should have a metadata badge."""
+    row = page_compose.locator("tr").filter(
+        has=page_compose.locator("code", has_text=re.compile(r"\.tar\.gz\.sha512$"))
+    )
+    badge = row.locator('span[title="Metadata file"]')
+    expect(badge).to_be_visible()
+    expect(badge).to_have_text("Ⓜ")
+
+
 def test_ongoing_tasks_banner_appears_when_tasks_restart(page_compose: Page) -> None:
     """The ongoing tasks banner should appear when tasks are restarted."""
     banner = page_compose.locator("#ongoing-tasks-banner")

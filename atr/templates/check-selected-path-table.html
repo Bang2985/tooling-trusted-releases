@@ -20,15 +20,16 @@
           {% set path_style_class = "text-warning" %}
         {% endif %}
 
-        <tr class="{{ row_bg_class }}">
-          <td class="text-center px-1 py-2 page-icon-cell">
-            {% set icon_class = "text-success" %}
-            {% if has_errors %}
-              {% set icon_class = "text-danger" %}
-            {% elif has_warnings %}
-              {% set icon_class = "text-warning" %}
-            {% endif %}
+        {% set icon_class = "text-success" %}
+        {% if has_errors %}
+          {% set icon_class = "text-danger" %}
+        {% elif has_warnings %}
+          {% set icon_class = "text-warning" %}
+        {% endif %}
 
+        <tr class="{{ row_bg_class }}">
+          {#
+          <td class="text-center px-1 py-2 page-icon-cell">
             {% if info and (path in info.artifacts) %}
               <i class="bi bi-archive {{ icon_class }}"
                  title="Artifact"
@@ -41,6 +42,25 @@
               <i class="bi bi-file-earmark {{ icon_class }}"
                  title="File"
                  aria-label="File"></i>
+            {% endif %}
+          </td>
+          #}
+          <td class="text-center px-0 py-2 atr-sans {{ icon_class }}">
+            {% if info and (path in info.sources) %}
+              {% set file_type = "source" %}
+            {% elif info and (path in info.metadata) %}
+              {% set file_type = "metadata" %}
+            {% else %}
+              {% set file_type = "binary" %}
+            {% endif %}
+
+            {% if file_type == "source" %}
+              <span title="Source artifact">Ⓢ</span>
+            {% elif file_type == "metadata" %}
+              <span title="Metadata file">Ⓜ</span>
+            {# elif file_type == "binary" #}
+            {% else %}
+              <span title="Binary artifact">Ⓑ</span>
             {% endif %}
           </td>
           <td class="py-2">

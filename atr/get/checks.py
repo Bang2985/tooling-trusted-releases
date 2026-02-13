@@ -146,7 +146,8 @@ async def selected_revision(
             project_name=project_name,
             version=version_name,
             _committee=True,
-            _project=True,
+            # _project=True is included in _project_release_policy=True
+            _project_release_policy=True,
         ).demand(base.ASFQuartException("Release does not exist", errorcode=404))
 
     base_path = util.release_directory(release)

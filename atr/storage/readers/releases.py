@@ -27,6 +27,7 @@ import atr.db as db
 import atr.models.sql as sql
 import atr.storage as storage
 import atr.storage.types as types
+import atr.util as util
 
 
 @dataclasses.dataclass
@@ -67,6 +68,13 @@ class GeneralPublic:
                     info.artifacts.add(path)
                 elif search.group("metadata"):
                     info.metadata.add(path)
+        source_artifact_paths = release.project.policy_source_artifact_paths
+        if source_artifact_paths and info.artifacts:
+            base_path = util.release_directory(release)
+            source_matcher = util.create_path_matcher(source_artifact_paths, base_path / ".ignore", base_path)
+            for path in info.artifacts:
+                if source_matcher(str(base_path / path)):
+                    info.sources.add(path)
         self.__compute_checker_stats(info, paths)
         return info
 
