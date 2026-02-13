@@ -324,7 +324,9 @@ async def create_hard_link_clone(
     await _clone_recursive(source_dir, dest_dir)
 
 
-def create_path_matcher(lines: Iterable[str], full_path: pathlib.Path, base_dir: pathlib.Path) -> Callable[[str], bool]:
+def create_path_matcher(
+    lines: Iterable[str], full_path: pathlib.Path | None, base_dir: pathlib.Path
+) -> Callable[[str], bool]:
     rules = []
     negation = False
     for line_no, line in enumerate(lines, start=1):

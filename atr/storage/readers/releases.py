@@ -20,9 +20,8 @@ from __future__ import annotations
 
 import dataclasses
 import pathlib
-import re
 
-import atr.analysis as analysis
+import atr.classify as classify
 import atr.db as db
 import atr.models.sql as sql
 import atr.storage as storage
@@ -60,21 +59,13 @@ class GeneralPublic:
         if latest_revision_number is None:
             return None
         await self.__successes_errors_warnings(release, latest_revision_number, info)
-        for path in paths:
-            # Get artifacts and metadata
-            search = re.search(analysis.extension_pattern(), str(path))
-            if search:
-                if search.group("artifact"):
-                    info.artifacts.add(path)
-                elif search.group("metadata"):
-                    info.metadata.add(path)
+        base_path = util.release_directory(release)
+        source_matcher = None
         source_artifact_paths = release.project.policy_source_artifact_paths
-        if source_artifact_paths and info.artifacts:
-            base_path = util.release_directory(release)
-            source_matcher = util.create_path_matcher(source_artifact_paths, base_path / ".ignore", base_path)
-            for path in info.artifacts:
-                if source_matcher(str(base_path / path)):
-                    info.sources.add(path)
+        if source_artifact_paths:
+            source_matcher = util.create_path_matcher(source_artifact_paths, None, base_path)
+        for path in paths:
+            info.file_types[path] = classify.classify(path, base_path=base_path, source_matcher=source_matcher)
         self.__compute_checker_stats(info, paths)
         return info
 

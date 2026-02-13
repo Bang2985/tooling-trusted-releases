@@ -182,9 +182,7 @@ class Recorder:
         project = await self.project()
         if not project.policy_binary_artifact_paths:
             return False
-        matches = util.create_path_matcher(
-            project.policy_binary_artifact_paths, self.abs_path_base() / ".ignore", self.abs_path_base()
-        )
+        matches = util.create_path_matcher(project.policy_binary_artifact_paths, None, self.abs_path_base())
         abs_path = await self.abs_path()
         return matches(str(abs_path))
 
@@ -194,9 +192,7 @@ class Recorder:
         project = await self.project()
         if not project.policy_source_artifact_paths:
             return False
-        matches = util.create_path_matcher(
-            project.policy_source_artifact_paths, self.abs_path_base() / ".ignore", self.abs_path_base()
-        )
+        matches = util.create_path_matcher(project.policy_source_artifact_paths, None, self.abs_path_base())
         abs_path = await self.abs_path()
         return matches(str(abs_path))
 
