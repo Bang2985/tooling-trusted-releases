@@ -140,6 +140,8 @@ async def _check_metadata_rules(
     errors: list[str],
     blockers: list[str],
     warnings: list[str],
+    *,
+    is_standalone: bool = False,
 ) -> None:
     """Check rules specific to metadata files (.asc, .sha*, etc.)."""
     suffixes = set(relative_path.suffixes)
@@ -166,11 +168,17 @@ async def _check_metadata_rules(
 
     # Check whether the corresponding artifact exists
     artifact_path_base = str(relative_path).removesuffix(ext_metadata)
-    if artifact_path_base not in relative_paths:
+    if is_standalone:
+        has_artifact = any((p.startswith(artifact_path_base + ".") and analysis.is_artifact(p)) for p in relative_paths)
+        if not has_artifact:
+            errors.append(
+                f"Metadata file exists but no corresponding artifact with base '{artifact_path_base}' was found"
+            )
+    elif artifact_path_base not in relative_paths:
         errors.append(f"Metadata file exists but corresponding artifact '{artifact_path_base}' is missing")
 
 
-async def _check_path_process_single(
+async def _check_path_process_single(  # noqa: C901
     asf_uid: str,
     base_path: pathlib.Path,
     relative_path: pathlib.Path,
@@ -213,13 +221,30 @@ async def _check_path_process_single(
     ext_artifact = search.group("artifact") if search else None
     ext_metadata = search.group("metadata") if search else None
 
+    is_standalone_metadata = False
+    if (not ext_artifact) and (not ext_metadata):
+        for suffix in analysis.STANDALONE_METADATA_SUFFIXES:
+            if relative_path_str.endswith(suffix):
+                ext_metadata = suffix
+                is_standalone_metadata = True
+                break
+
     allowed_top_level = _ALLOWED_TOP_LEVEL
     if ext_artifact:
         log.info(f"Checking artifact rules for {full_path}")
         await _check_artifact_rules(base_path, relative_path, relative_paths, errors, blockers, is_podling)
     elif ext_metadata:
         log.info(f"Checking metadata rules for {full_path}")
-        await _check_metadata_rules(base_path, relative_path, relative_paths, ext_metadata, errors, blockers, warnings)
+        await _check_metadata_rules(
+            base_path,
+            relative_path,
+            relative_paths,
+            ext_metadata,
+            errors,
+            blockers,
+            warnings,
+            is_standalone=is_standalone_metadata,
+        )
     else:
         log.info(f"Checking general rules for {full_path}")
         if (relative_path.parent == pathlib.Path(".")) and (relative_path.name not in allowed_top_level):
