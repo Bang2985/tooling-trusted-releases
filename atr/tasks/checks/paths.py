@@ -196,7 +196,11 @@ async def _check_path_process_single(
     # We assume that LICENSE and NOTICE are permitted also
     if relative_path.name == "KEYS":
         errors.append("The KEYS file should be uploaded via the 'Keys' section, not included in the artifact bundle")
-    if any(part.startswith(".") for part in relative_path.parts):
+    if relative_path.name in analysis.DISALLOWED_FILENAMES:
+        blockers.append(f"Disallowed file: {relative_path.name}")
+    elif relative_path.suffix in analysis.DISALLOWED_SUFFIXES:
+        blockers.append(f"Disallowed file type: {relative_path.suffix}")
+    elif any(part.startswith(".") for part in relative_path.parts):
         # TODO: There is not a a policy for this
         # We should enquire as to whether such a policy should be instituted
         # We're forbidding dotfiles to catch accidental uploads of e.g. .git or .htaccess

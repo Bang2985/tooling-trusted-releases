@@ -58,6 +58,27 @@ ARTIFACT_SUFFIXES: Final[list[str]] = [
     "zip",
 ]
 
+DISALLOWED_FILENAMES: Final[frozenset[str]] = frozenset(
+    {
+        ".DS_Store",
+        ".git",
+        ".htaccess",
+        ".htpasswd",
+        "desktop.ini",
+        "id_dsa",
+        "id_ecdsa",
+        "id_ed25519",
+        "id_rsa",
+        "Thumbs.db",
+    }
+)
+
+DISALLOWED_SUFFIXES: Final[frozenset[str]] = frozenset(
+    {
+        ".key",
+    }
+)
+
 # "mds" is used in ozone
 # "SHA256" and "SHA512" are used in ranger
 # "MD5" is used in samza
