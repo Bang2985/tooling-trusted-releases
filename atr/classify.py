@@ -38,8 +38,13 @@ def classify(
     if (path.name in analysis.DISALLOWED_FILENAMES) or (path.suffix in analysis.DISALLOWED_SUFFIXES):
         return FileType.DISALLOWED
 
-    search = re.search(analysis.extension_pattern(), str(path))
+    path_str = str(path)
+
+    search = re.search(analysis.extension_pattern(), path_str)
     if search and search.group("metadata"):
+        return FileType.METADATA
+
+    if any(path_str.endswith(s) for s in analysis.STANDALONE_METADATA_SUFFIXES):
         return FileType.METADATA
 
     if search and search.group("artifact") and (source_matcher is not None) and (base_path is not None):

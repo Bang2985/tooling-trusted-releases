@@ -129,6 +129,12 @@ SKIPPABLE_SUFFIXES: Final[list[str]] = [
     ".yaml",
 ]
 
+STANDALONE_METADATA_SUFFIXES: Final[frozenset[str]] = frozenset(
+    {
+        ".cdx.json",
+    }
+)
+
 # Should perhaps not include javadoc
 # app
 # doc
