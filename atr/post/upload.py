@@ -76,6 +76,14 @@ async def finalise(
 
         await aioshutil.rmtree(staging_dir)
 
+        if creating.failed is not None:
+            await quart.flash(str(creating.failed), "error")
+            return await session.redirect(
+                get.upload.selected,
+                project_name=project_name,
+                version_name=version_name,
+            )
+
         return await session.redirect(
             get.compose.selected,
             success=f"{util.plural(number_of_files, 'file')} added successfully",
@@ -154,7 +162,17 @@ async def _add_files(
 
         async with storage.write(session) as write:
             wacp = await write.as_project_committee_participant(project_name)
-            number_of_files = await wacp.release.upload_files(project_name, version_name, file_name, file_data)
+            creation_error, number_of_files = await wacp.release.upload_files(
+                project_name, version_name, file_name, file_data
+            )
+
+        if creation_error is not None:
+            await quart.flash(creation_error, "error")
+            return await session.redirect(
+                get.upload.selected,
+                project_name=project_name,
+                version_name=version_name,
+            )
 
         return await session.redirect(
             get.compose.selected,

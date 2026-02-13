@@ -454,7 +454,7 @@ class CommitteeParticipant(FoundationCommitter):
         version_name: str,
         file_name: pathlib.Path | None,
         files: Sequence[datastructures.FileStorage],
-    ) -> int:
+    ) -> tuple[str | None, int]:
         """Process and save the uploaded files into a new draft revision."""
         number_of_files = len(files)
         description = f"Upload of {util.plural(number_of_files, 'file')} through web interface"
@@ -479,7 +479,8 @@ class CommitteeParticipant(FoundationCommitter):
                 # Ensure parent directories exist within the new revision
                 await aiofiles.os.makedirs(target_path.parent, exist_ok=True)
                 await self.__save_file(file, target_path)
-        return len(files)
+        creation_error = str(creating.failed) if (creating.failed is not None) else None
+        return creation_error, len(files)
 
     async def __current_paths(self, creating: types.Creating) -> list[pathlib.Path]:
         all_current_paths_interim: list[pathlib.Path] = []
