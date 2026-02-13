@@ -888,7 +888,9 @@ async def toggle_view_post(session: web.Committer) -> web.WerkzeugResponse:
     message = "Viewing as regular user" if downgrade else "Viewing as admin"
     await quart.flash(message, "success")
     referrer = quart.request.referrer
-    return quart.redirect(referrer or util.as_url(data))
+    if referrer and web.valid_url(referrer, quart.request.host):
+        return quart.redirect(referrer)
+    return quart.redirect("https://" + quart.request.host + "/")
 
 
 @admin.get("/validate")
