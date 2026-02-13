@@ -205,9 +205,27 @@ async def _check_path_process_single(  # noqa: C901
     if relative_path.name == "KEYS":
         errors.append("The KEYS file should be uploaded via the 'Keys' section, not included in the artifact bundle")
     if relative_path.name in analysis.DISALLOWED_FILENAMES:
-        blockers.append(f"Disallowed file: {relative_path.name}")
+        await _record(
+            recorder_errors,
+            recorder_warnings,
+            recorder_success,
+            relative_path_str,
+            errors,
+            [f"Disallowed file: {relative_path.name}"],
+            warnings,
+        )
+        return
     elif relative_path.suffix in analysis.DISALLOWED_SUFFIXES:
-        blockers.append(f"Disallowed file type: {relative_path.suffix}")
+        await _record(
+            recorder_errors,
+            recorder_warnings,
+            recorder_success,
+            relative_path_str,
+            errors,
+            [f"Disallowed file type: {relative_path.suffix}"],
+            warnings,
+        )
+        return
     elif any(part.startswith(".") for part in relative_path.parts):
         # TODO: There is not a a policy for this
         # We should enquire as to whether such a policy should be instituted
