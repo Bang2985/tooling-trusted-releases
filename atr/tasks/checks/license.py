@@ -79,6 +79,10 @@ INCLUDED_PATTERNS: Final[list[str]] = [
     r"\.(pl|pm|t)$",  # Perl
 ]
 
+# Release policy fields which this check relies on - used for result caching
+INPUT_POLICY_KEYS: Final[list[str]] = [""]
+INPUT_EXTRA_ARGS: Final[list[str]] = ["is_podling"]
+
 # Types
 
 
@@ -134,10 +138,12 @@ async def files(args: checks.FunctionArguments) -> results.Results | None:
         if project.policy_license_check_mode == sql.LicenseCheckMode.RAT:
             return None
 
+    is_podling = args.extra_args.get("is_podling", False)
+    await recorder.cache_key_set(INPUT_POLICY_KEYS, INPUT_EXTRA_ARGS)
+
     log.info(f"Checking license files for {artifact_abs_path} (rel: {args.primary_rel_path})")
 
     try:
-        is_podling = args.extra_args.get("is_podling", False)
         for result in await asyncio.to_thread(_files_check_core_logic, str(artifact_abs_path), is_podling):
             match result:
                 case ArtifactResult():
@@ -166,9 +172,11 @@ async def headers(args: checks.FunctionArguments) -> results.Results | None:
         if project.policy_license_check_mode == sql.LicenseCheckMode.RAT:
             return None
 
-    if await recorder.check_cache(artifact_abs_path):
-        log.info(f"Using cached license headers result for {artifact_abs_path} (rel: {args.primary_rel_path})")
-        return None
+    await recorder.cache_key_set(INPUT_POLICY_KEYS, INPUT_EXTRA_ARGS)
+
+    # if await recorder.check_cache(artifact_abs_path):
+    #     log.info(f"Using cached license headers result for {artifact_abs_path} (rel: {args.primary_rel_path})")
+    #     return None
 
     log.info(f"Checking license headers for {artifact_abs_path} (rel: {args.primary_rel_path})")
 

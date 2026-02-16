@@ -18,6 +18,7 @@
 import datetime
 import pathlib
 from collections.abc import Awaitable, Callable
+from typing import Any
 
 import atr.models.sql as sql
 import atr.tasks.checks as checks
@@ -39,6 +40,11 @@ class RecorderStub(checks.Recorder):
 
     async def abs_path(self, rel_path: str | None = None) -> pathlib.Path | None:
         return self._path if (rel_path is None) else self._path / rel_path
+
+    async def cache_key_set(
+        self, policy_keys: list[str], input_args: list[str] | None = None, checker: str | None = None
+    ) -> bool:
+        return False
 
     async def primary_path_is_binary(self) -> bool:
         return False
@@ -63,8 +69,28 @@ class RecorderStub(checks.Recorder):
             status=status,
             message=message,
             data=data,
-            input_hash=None,
+            inputs_hash=None,
         )
+
+    async def exception(
+        self, message: str, data: Any, primary_rel_path: str | None = None, member_rel_path: str | None = None
+    ) -> sql.CheckResult:
+        return await self._add(sql.CheckResultStatus.EXCEPTION, message, data, primary_rel_path, member_rel_path)
+
+    async def failure(
+        self, message: str, data: Any, primary_rel_path: str | None = None, member_rel_path: str | None = None
+    ) -> sql.CheckResult:
+        return await self._add(sql.CheckResultStatus.FAILURE, message, data, primary_rel_path, member_rel_path)
+
+    async def success(
+        self, message: str, data: Any, primary_rel_path: str | None = None, member_rel_path: str | None = None
+    ) -> sql.CheckResult:
+        return await self._add(sql.CheckResultStatus.SUCCESS, message, data, primary_rel_path, member_rel_path)
+
+    async def warning(
+        self, message: str, data: Any, primary_rel_path: str | None = None, member_rel_path: str | None = None
+    ) -> sql.CheckResult:
+        return await self._add(sql.CheckResultStatus.WARNING, message, data, primary_rel_path, member_rel_path)
 
 
 def get_recorder(recorder: checks.Recorder) -> Callable[[], Awaitable[checks.Recorder]]:

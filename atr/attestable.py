@@ -18,21 +18,20 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Any, Final
+from typing import TYPE_CHECKING, Any
 
 import aiofiles
 import aiofiles.os
-import blake3
 import pydantic
 
+import atr.hashes as hashes
 import atr.log as log
 import atr.models.attestable as models
 import atr.util as util
+from atr.models.attestable import AttestableChecksV1
 
 if TYPE_CHECKING:
     import pathlib
-
-_HASH_CHUNK_SIZE: Final[int] = 4 * 1024 * 1024
 
 
 def attestable_path(project_name: str, version_name: str, revision_number: str) -> pathlib.Path:
@@ -43,16 +42,12 @@ def attestable_paths_path(project_name: str, version_name: str, revision_number:
     return util.get_attestable_dir() / project_name / version_name / f"{revision_number}.paths.json"
 
 
-async def compute_file_hash(path: pathlib.Path) -> str:
-    hasher = blake3.blake3()
-    async with aiofiles.open(path, "rb") as f:
-        while chunk := await f.read(_HASH_CHUNK_SIZE):
-            hasher.update(chunk)
-    return f"blake3:{hasher.hexdigest()}"
-
-
 def github_tp_payload_path(project_name: str, version_name: str, revision_number: str) -> pathlib.Path:
     return util.get_attestable_dir() / project_name / version_name / f"{revision_number}.github-tp.json"
+
+
+def attestable_checks_path(project_name: str, version_name: str, revision_number: str) -> pathlib.Path:
+    return util.get_attestable_dir() / project_name / version_name / f"{revision_number}.checks.json"
 
 
 async def github_tp_payload_write(
@@ -99,6 +94,22 @@ async def load_paths(
     return None
 
 
+async def load_checks(
+    project_name: str,
+    version_name: str,
+    revision_number: str,
+) -> list[int] | None:
+    file_path = attestable_checks_path(project_name, version_name, revision_number)
+    if await aiofiles.os.path.isfile(file_path):
+        try:
+            async with aiofiles.open(file_path, encoding="utf-8") as f:
+                data = json.loads(await f.read())
+            return models.AttestableChecksV1.model_validate(data).checks
+        except (json.JSONDecodeError, pydantic.ValidationError) as e:
+            log.warning(f"Could not parse {file_path}: {e}")
+    return []
+
+
 def migrate_to_paths_files() -> int:
     attestable_dir = util.get_attestable_dir()
     if not attestable_dir.is_dir():
@@ -140,26 +151,52 @@ async def paths_to_hashes_and_sizes(directory: pathlib.Path) -> tuple[dict[str, 
         if "\\" in path_key:
             # TODO: We should centralise this, and forbid some other characters too
             raise ValueError(f"Backslash in path is forbidden: {path_key}")
-        path_to_hash[path_key] = await compute_file_hash(full_path)
+        path_to_hash[path_key] = await hashes.compute_file_hash(full_path)
         path_to_size[path_key] = (await aiofiles.os.stat(full_path)).st_size
     return path_to_hash, path_to_size
 
 
-async def write(
+async def write_files_data(
     project_name: str,
     version_name: str,
     revision_number: str,
+    release_policy: dict[str, Any] | None,
     uploader_uid: str,
     previous: models.AttestableV1 | None,
     path_to_hash: dict[str, str],
     path_to_size: dict[str, int],
 ) -> None:
-    result = _generate(path_to_hash, path_to_size, revision_number, uploader_uid, previous)
+    result = _generate_files_data(path_to_hash, path_to_size, revision_number, release_policy, uploader_uid, previous)
     file_path = attestable_path(project_name, version_name, revision_number)
     await util.atomic_write_file(file_path, result.model_dump_json(indent=2))
     paths_result = models.AttestablePathsV1(paths=result.paths)
     paths_file_path = attestable_paths_path(project_name, version_name, revision_number)
     await util.atomic_write_file(paths_file_path, paths_result.model_dump_json(indent=2))
+    checks_file_path = attestable_checks_path(project_name, version_name, revision_number)
+    if not checks_file_path.exists():
+        async with aiofiles.open(checks_file_path, "w", encoding="utf-8") as f:
+            await f.write(models.AttestableChecksV1().model_dump_json(indent=2))
+
+
+async def write_checks_data(
+    project_name: str,
+    version_name: str,
+    revision_number: str,
+    checks: list[int],
+) -> None:
+    log.info(f"Writing checks for {project_name}/{version_name}/{revision_number}: {checks}")
+
+    def modify(content: str) -> str:
+        try:
+            current = AttestableChecksV1.model_validate_json(content).checks
+        except pydantic.ValidationError:
+            current = []
+        new_checks = set(current or [])
+        new_checks.update(checks)
+        result = models.AttestableChecksV1(checks=sorted(new_checks))
+        return result.model_dump_json(indent=2)
+
+    await util.atomic_modify_file(attestable_checks_path(project_name, version_name, revision_number), modify)
 
 
 def _compute_hashes_with_attribution(
@@ -197,10 +234,11 @@ def _compute_hashes_with_attribution(
     return new_hashes
 
 
-def _generate(
+def _generate_files_data(
     path_to_hash: dict[str, str],
     path_to_size: dict[str, int],
     revision_number: str,
+    release_policy: dict[str, Any] | None,
     uploader_uid: str,
     previous: models.AttestableV1 | None,
 ) -> models.AttestableV1:
@@ -215,4 +253,5 @@ def _generate(
     return models.AttestableV1(
         paths=dict(path_to_hash),
         hashes=dict(new_hashes),
+        policy=release_policy or {},
     )

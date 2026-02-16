@@ -41,7 +41,7 @@ In `atr/tasks/checks` you will find several modules that perform these check tas
 In `atr/tasks/__init__.py` you will see imports for existing modules where you can add an import for new check task, for example:
 
 ```python
-import atr.tasks.checks.hashing as hashing
+import atr.tasks.checks.hashing as file_hash
 import atr.tasks.checks.license as license
 ```
 

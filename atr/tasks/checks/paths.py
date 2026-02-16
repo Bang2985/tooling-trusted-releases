@@ -37,6 +37,9 @@ _ALLOWED_TOP_LEVEL: Final = frozenset(
         "README",
     }
 )
+# Release policy fields which this check relies on - used for result caching
+INPUT_POLICY_KEYS: Final[list[str]] = []
+INPUT_EXTRA_ARGS: Final[list[str]] = ["is_podling", "all_files"]
 
 
 async def check(args: checks.FunctionArguments) -> results.Results | None:
@@ -85,6 +88,11 @@ async def check(args: checks.FunctionArguments) -> results.Results | None:
     is_podling = args.extra_args.get("is_podling", False)
     relative_paths = [p async for p in util.paths_recursive(base_path)]
     relative_paths_set = set(str(p) for p in relative_paths)
+
+    await recorder_errors.cache_key_set(INPUT_POLICY_KEYS, INPUT_EXTRA_ARGS, checker=checks.function_key(check))
+    await recorder_warnings.cache_key_set(INPUT_POLICY_KEYS, INPUT_EXTRA_ARGS, checker=checks.function_key(check))
+    await recorder_success.cache_key_set(INPUT_POLICY_KEYS, INPUT_EXTRA_ARGS, checker=checks.function_key(check))
+
     for relative_path in relative_paths:
         # Delegate processing of each path to the helper function
         await _check_path_process_single(
@@ -289,12 +297,14 @@ async def _record(
     warnings: list[str],
 ) -> None:
     for error in errors:
-        await recorder_errors.failure(error, {}, primary_rel_path=relative_path_str)
+        await recorder_errors.failure(f"{relative_path_str}: {error}", {}, primary_rel_path=relative_path_str)
     for item in blockers:
-        await recorder_errors.blocker(item, {}, primary_rel_path=relative_path_str)
+        await recorder_errors.blocker(f"{relative_path_str}: {item}", {}, primary_rel_path=relative_path_str)
     for warning in warnings:
-        await recorder_warnings.warning(warning, {}, primary_rel_path=relative_path_str)
+        await recorder_warnings.warning(f"{relative_path_str}: {warning}", {}, primary_rel_path=relative_path_str)
     if not (errors or blockers or warnings):
         await recorder_success.success(
-            "Path structure and naming conventions conform to policy", {}, primary_rel_path=relative_path_str
+            f"{relative_path_str}: Path structure and naming conventions conform to policy",
+            {},
+            primary_rel_path=relative_path_str,
         )

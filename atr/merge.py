@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING
 import aiofiles.os
 
 import atr.attestable as attestable
+import atr.hashes as hashes
 import atr.util as util
 
 if TYPE_CHECKING:
@@ -131,7 +132,7 @@ async def _add_from_prior(
     if (prior_hashes is not None) and (path in prior_hashes):
         n_hashes[path] = prior_hashes[path]
     else:
-        n_hashes[path] = await attestable.compute_file_hash(target)
+        n_hashes[path] = await hashes.compute_file_hash(target)
     stat_result = await aiofiles.os.stat(target)
     n_sizes[path] = stat_result.st_size
     return prior_hashes
@@ -211,7 +212,7 @@ async def _merge_all_present(
         if (prior_hashes is not None) and (path in prior_hashes):
             p_hash = prior_hashes[path]
         else:
-            p_hash = await attestable.compute_file_hash(prior_dir / path)
+            p_hash = await hashes.compute_file_hash(prior_dir / path)
         if p_hash != b_hash:
             # Case 11 via hash: base and new have the same content but prior differs
             return await _replace_with_prior(
@@ -250,7 +251,7 @@ async def _replace_with_prior(
     if (prior_hashes is not None) and (path in prior_hashes):
         n_hashes[path] = prior_hashes[path]
     else:
-        n_hashes[path] = await attestable.compute_file_hash(file_path)
+        n_hashes[path] = await hashes.compute_file_hash(file_path)
     stat_result = await aiofiles.os.stat(file_path)
     n_sizes[path] = stat_result.st_size
     return prior_hashes

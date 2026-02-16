@@ -155,6 +155,7 @@ class Session(sqlalchemy.ext.asyncio.AsyncSession):
     def check_result(
         self,
         id: Opt[int] = NOT_SET,
+        id_in: Opt[list[int]] = NOT_SET,
         release_name: Opt[str] = NOT_SET,
         revision_number: Opt[str] = NOT_SET,
         checker: Opt[str] = NOT_SET,
@@ -164,12 +165,17 @@ class Session(sqlalchemy.ext.asyncio.AsyncSession):
         status: Opt[sql.CheckResultStatus] = NOT_SET,
         message: Opt[str] = NOT_SET,
         data: Opt[Any] = NOT_SET,
+        inputs_hash: Opt[str] = NOT_SET,
         _release: bool = False,
     ) -> Query[sql.CheckResult]:
         query = sqlmodel.select(sql.CheckResult)
 
+        via = sql.validate_instrumented_attribute
+
         if is_defined(id):
             query = query.where(sql.CheckResult.id == id)
+        if is_defined(id_in):
+            query = query.where(via(sql.CheckResult.id).in_(id_in))
         if is_defined(release_name):
             query = query.where(sql.CheckResult.release_name == release_name)
         if is_defined(revision_number):
@@ -188,6 +194,8 @@ class Session(sqlalchemy.ext.asyncio.AsyncSession):
             query = query.where(sql.CheckResult.message == message)
         if is_defined(data):
             query = query.where(sql.CheckResult.data == data)
+        if is_defined(inputs_hash):
+            query = query.where(sql.CheckResult.inputs_hash == inputs_hash)
 
         if _release:
             query = query.options(joined_load(sql.CheckResult.release))

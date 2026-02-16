@@ -18,7 +18,7 @@
 import asyncio
 import os
 import zipfile
-from typing import Any
+from typing import Any, Final
 
 import atr.log as log
 import atr.models.results as results
@@ -26,12 +26,18 @@ import atr.tarzip as tarzip
 import atr.tasks.checks as checks
 import atr.util as util
 
+# Release policy fields which this check relies on - used for result caching
+INPUT_POLICY_KEYS: Final[list[str]] = []
+INPUT_EXTRA_ARGS: Final[list[str]] = []
+
 
 async def integrity(args: checks.FunctionArguments) -> results.Results | None:
     """Check that the zip archive is not corrupted and can be opened."""
     recorder = await args.recorder()
     if not (artifact_abs_path := await recorder.abs_path()):
         return None
+
+    await recorder.cache_key_set(INPUT_POLICY_KEYS, INPUT_EXTRA_ARGS)
 
     log.info(f"Checking zip integrity for {artifact_abs_path} (rel: {args.primary_rel_path})")
 
@@ -56,6 +62,8 @@ async def structure(args: checks.FunctionArguments) -> results.Results | None:
         return None
     if await recorder.primary_path_is_binary():
         return None
+
+    await recorder.cache_key_set(INPUT_POLICY_KEYS, INPUT_EXTRA_ARGS)
 
     log.info(f"Checking zip structure for {artifact_abs_path} (rel: {args.primary_rel_path})")
 

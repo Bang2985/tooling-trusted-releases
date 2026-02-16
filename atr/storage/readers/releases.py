@@ -21,6 +21,7 @@ from __future__ import annotations
 import dataclasses
 import pathlib
 
+import atr.attestable as attestable
 import atr.classify as classify
 import atr.db as db
 import atr.models.sql as sql
@@ -122,36 +123,29 @@ class GeneralPublic:
         self, release: sql.Release, latest_revision_number: str, info: types.PathInfo
     ) -> None:
         match_ignore = await self.__read_as.checks.ignores_matcher(release.project_name)
+        check_ids = await attestable.load_checks(release.project_name, release.version, latest_revision_number)
+        attestable_checks = [a for a in await self.__data.check_result(id_in=check_ids).all()] if check_ids else []
 
         cs = types.ChecksSubset(
-            release=release,
-            latest_revision_number=latest_revision_number,
+            checks=attestable_checks,
             info=info,
             match_ignore=match_ignore,
         )
+        # TODO: These get just the ones for the revision.
+        # It might be better to get all like we do in by_release_path, filter by hash, then filter by status
         await self.__successes(cs)
         await self.__warnings(cs)
         await self.__errors(cs)
         await self.__blocker(cs)
 
     async def __blocker(self, cs: types.ChecksSubset) -> None:
-        blocker = await self.__data.check_result(
-            release_name=cs.release.name,
-            revision_number=cs.latest_revision_number,
-            member_rel_path=None,
-            status=sql.CheckResultStatus.BLOCKER,
-        ).all()
+        blocker = [cr for cr in cs.checks if cr.status == sql.CheckResultStatus.BLOCKER]
         for result in blocker:
             if primary_rel_path := result.primary_rel_path:
                 cs.info.errors.setdefault(pathlib.Path(primary_rel_path), []).append(result)
 
     async def __errors(self, cs: types.ChecksSubset) -> None:
-        errors = await self.__data.check_result(
-            release_name=cs.release.name,
-            revision_number=cs.latest_revision_number,
-            member_rel_path=None,
-            status=sql.CheckResultStatus.FAILURE,
-        ).all()
+        errors = [cr for cr in cs.checks if cr.status == sql.CheckResultStatus.FAILURE]
         for error in errors:
             if cs.match_ignore(error):
                 cs.info.ignored_errors.append(error)
@@ -160,24 +154,14 @@ class GeneralPublic:
                 cs.info.errors.setdefault(pathlib.Path(primary_rel_path), []).append(error)
 
     async def __successes(self, cs: types.ChecksSubset) -> None:
-        successes = await self.__data.check_result(
-            release_name=cs.release.name,
-            revision_number=cs.latest_revision_number,
-            member_rel_path=None,
-            status=sql.CheckResultStatus.SUCCESS,
-        ).all()
+        successes = [cr for cr in cs.checks if cr.status == sql.CheckResultStatus.SUCCESS]
         for success in successes:
             # Successes cannot be ignored
             if primary_rel_path := success.primary_rel_path:
                 cs.info.successes.setdefault(pathlib.Path(primary_rel_path), []).append(success)
 
     async def __warnings(self, cs: types.ChecksSubset) -> None:
-        warnings = await self.__data.check_result(
-            release_name=cs.release.name,
-            revision_number=cs.latest_revision_number,
-            member_rel_path=None,
-            status=sql.CheckResultStatus.WARNING,
-        ).all()
+        warnings = [cr for cr in cs.checks if cr.status == sql.CheckResultStatus.WARNING]
         for warning in warnings:
             if cs.match_ignore(warning):
                 cs.info.ignored_warnings.append(warning)

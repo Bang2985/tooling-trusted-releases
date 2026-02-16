@@ -242,6 +242,11 @@ class RecorderStub(atr.tasks.checks.Recorder):
         self.success_calls: list[tuple[str, object]] = []
         self._is_source = is_source
 
+    async def cache_key_set(
+        self, policy_keys: list[str], input_args: list[str] | None = None, checker: str | None = None
+    ) -> bool:
+        return False
+
     async def primary_path_is_source(self) -> bool:
         return self._is_source
 

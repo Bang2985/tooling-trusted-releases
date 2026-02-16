@@ -682,7 +682,9 @@ def test_checks_04_paths(page: Page, credentials: Credentials) -> None:
     # TODO: It's a bit strange to have the status in the check name
     # But we have to do this because we need separate Recorder objects
     logging.info("Verifying Paths Check Success status")
-    check_row_locator = page.locator("tr.atr-result-primary:has(th:has-text('Paths Check Success'))")
+    check_row_locator = page.locator(
+        f"tr.atr-result-primary:has(th:has-text('Paths Check Success')):has(td:has-text('{filename_sha512}'))"
+    )
     expect(check_row_locator).to_be_visible()
     logging.info("Located Paths Check Success row")
 

@@ -52,7 +52,7 @@ This check records separate checker keys for errors, warnings, and success. Use 
 
 For each `.sha256` or `.sha512` file, ATR computes the hash of the referenced artifact and compares it with the expected value. It supports files that contain just the hash as well as files that include a filename and hash on the same line. If the suffix does not indicate `sha256` or `sha512`, the check fails.
 
-The checker key is `atr.tasks.checks.hashing.check`.
+The checker key is `atr.tasks.checks.file_hash.check`.
 
 ### Signature verification
 

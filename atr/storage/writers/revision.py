@@ -118,7 +118,7 @@ class CommitteeParticipant(FoundationCommitter):
         # Get the release
         release_name = sql.release_name(project_name, version_name)
         async with db.session() as data:
-            release = await data.release(name=release_name).demand(
+            release = await data.release(name=release_name, _release_policy=True, _project_release_policy=True).demand(
                 RuntimeError("Release does not exist for new revision creation")
             )
             old_revision = await interaction.latest_revision(release)
@@ -243,10 +243,13 @@ class CommitteeParticipant(FoundationCommitter):
                 await aioshutil.rmtree(temp_dir)
                 raise
 
-            await attestable.write(
+            policy = release.release_policy or release.project.release_policy
+
+            await attestable.write_files_data(
                 project_name,
                 version_name,
                 new_revision.number,
+                policy.model_dump() if policy else None,
                 asf_uid,
                 previous_attestable,
                 path_to_hash,

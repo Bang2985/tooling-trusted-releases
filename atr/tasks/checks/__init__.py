@@ -20,25 +20,26 @@ from __future__ import annotations
 import dataclasses
 import datetime
 import functools
-import pathlib
 from typing import TYPE_CHECKING, Any, Final
 
 import aiofiles
 import aiofiles.os
-import blake3
 import sqlmodel
 
 if TYPE_CHECKING:
+    import pathlib
     from collections.abc import Awaitable, Callable
 
     import atr.models.schema as schema
 
+import atr.attestable as attestable
 import atr.config as config
 import atr.db as db
+import atr.file_paths as file_paths
+import atr.hashes as hashes
+import atr.log as log
 import atr.models.sql as sql
 import atr.util as util
-
-_HASH_CHUNK_SIZE: Final[int] = 4 * 1024 * 1024
 
 
 # Pydantic does not like Callable types, so we use a dataclass instead
@@ -61,7 +62,7 @@ class Recorder:
     version_name: str
     primary_rel_path: str | None
     member_rel_path: str | None
-    revision: str
+    revision_number: str
     afresh: bool
     __cached: bool
     __input_hash: str | None
@@ -77,7 +78,7 @@ class Recorder:
         member_rel_path: str | None = None,
         afresh: bool = True,
     ) -> None:
-        self.checker = function_key(checker) if callable(checker) else checker
+        self.checker = function_key(checker)
         self.release_name = sql.release_name(project_name, version_name)
         self.revision_number = revision_number
         self.primary_rel_path = primary_rel_path
@@ -142,7 +143,7 @@ class Recorder:
             message=message,
             data=data,
             cached=False,
-            input_hash=self.__input_hash,
+            inputs_hash=self.input_hash,
         )
 
         # It would be more efficient to keep a session open
@@ -167,7 +168,7 @@ class Recorder:
         return self.abs_path_base() / rel_path_part
 
     def abs_path_base(self) -> pathlib.Path:
-        return pathlib.Path(util.get_unfinished_dir(), self.project_name, self.version_name, self.revision_number)
+        return file_paths.base_path_for_revision(self.project_name, self.version_name, self.revision_number)
 
     async def project(self) -> sql.Project:
         # TODO: Cache project
@@ -196,13 +197,10 @@ class Recorder:
         abs_path = await self.abs_path()
         return matches(str(abs_path))
 
-    @property
-    def cached(self) -> bool:
-        return self.__cached
-
-    async def check_cache(self, path: pathlib.Path) -> bool:
-        if not await aiofiles.os.path.isfile(path):
-            return False
+    async def cache_key_set(
+        self, policy_keys: list[str], input_args: list[str] | None = None, checker: str | None = None
+    ) -> bool:
+        # TODO: Should this just be in the constructor?
 
         if config.get().DISABLE_CHECK_CACHE:
             return False
@@ -214,47 +212,20 @@ class Recorder:
         if await aiofiles.os.path.exists(no_cache_file):
             return False
 
-        self.__input_hash = await _compute_file_hash(path)
-
         async with db.session() as data:
-            via = sql.validate_instrumented_attribute
-            subquery = (
-                sqlmodel.select(
-                    sql.CheckResult.member_rel_path,
-                    sqlmodel.func.max(via(sql.CheckResult.id)).label("max_id"),
-                )
-                .where(sql.CheckResult.checker == self.checker)
-                .where(sql.CheckResult.input_hash == self.__input_hash)
-                .where(sql.CheckResult.primary_rel_path == self.primary_rel_path)
-                .group_by(sql.CheckResult.member_rel_path)
-                .subquery()
+            release = await data.release(
+                name=self.release_name, _release_policy=True, _project_release_policy=True, _project=True
+            ).demand(RuntimeError(f"Release {self.release_name} not found"))
+            args = await resolve_extra_args(input_args or [], release)
+            cache_key = await resolve_cache_key(
+                checker or self.checker, policy_keys, release, self.revision_number, args, file=self.primary_rel_path
             )
-            stmt = sqlmodel.select(sql.CheckResult).join(subquery, via(sql.CheckResult.id) == subquery.c.max_id)
-            results = await data.execute(stmt)
-            cached_results = results.scalars().all()
-
-            if not cached_results:
-                return False
-
-            for cached in cached_results:
-                new_result = sql.CheckResult(
-                    release_name=self.release_name,
-                    revision_number=self.revision_number,
-                    checker=self.checker,
-                    primary_rel_path=self.primary_rel_path,
-                    member_rel_path=cached.member_rel_path,
-                    created=datetime.datetime.now(datetime.UTC),
-                    status=cached.status,
-                    message=cached.message,
-                    data=cached.data,
-                    cached=True,
-                    input_hash=self.__input_hash,
-                )
-                data.add(new_result)
-            await data.commit()
-
-        self.__cached = True
+            self.__input_hash = hashes.compute_dict_hash(cache_key) if cache_key else None
         return True
+
+    @property
+    def cached(self) -> bool:
+        return self.__cached
 
     async def clear(self, primary_rel_path: str | None = None, member_rel_path: str | None = None) -> None:
         async with db.session() as data:
@@ -273,48 +244,72 @@ class Recorder:
         return self.__input_hash
 
     async def blocker(
-        self, message: str, data: Any, primary_rel_path: str | None = None, member_rel_path: str | None = None
+        self,
+        message: str,
+        data: Any,
+        primary_rel_path: str | None = None,
+        member_rel_path: str | None = None,
     ) -> sql.CheckResult:
-        return await self._add(
+        result = await self._add(
             sql.CheckResultStatus.BLOCKER,
             message,
             data,
             primary_rel_path=primary_rel_path,
             member_rel_path=member_rel_path,
         )
+        await attestable.write_checks_data(self.project_name, self.version_name, self.revision_number, [result.id])
+        return result
 
     async def exception(
-        self, message: str, data: Any, primary_rel_path: str | None = None, member_rel_path: str | None = None
+        self,
+        message: str,
+        data: Any,
+        primary_rel_path: str | None = None,
+        member_rel_path: str | None = None,
     ) -> sql.CheckResult:
-        return await self._add(
+        result = await self._add(
             sql.CheckResultStatus.EXCEPTION,
             message,
             data,
             primary_rel_path=primary_rel_path,
             member_rel_path=member_rel_path,
         )
+        await attestable.write_checks_data(self.project_name, self.version_name, self.revision_number, [result.id])
+        return result
 
     async def failure(
-        self, message: str, data: Any, primary_rel_path: str | None = None, member_rel_path: str | None = None
+        self,
+        message: str,
+        data: Any,
+        primary_rel_path: str | None = None,
+        member_rel_path: str | None = None,
     ) -> sql.CheckResult:
-        return await self._add(
+        result = await self._add(
             sql.CheckResultStatus.FAILURE,
             message,
             data,
             primary_rel_path=primary_rel_path,
             member_rel_path=member_rel_path,
         )
+        await attestable.write_checks_data(self.project_name, self.version_name, self.revision_number, [result.id])
+        return result
 
     async def success(
-        self, message: str, data: Any, primary_rel_path: str | None = None, member_rel_path: str | None = None
+        self,
+        message: str,
+        data: Any,
+        primary_rel_path: str | None = None,
+        member_rel_path: str | None = None,
     ) -> sql.CheckResult:
-        return await self._add(
+        result = await self._add(
             sql.CheckResultStatus.SUCCESS,
             message,
             data,
             primary_rel_path=primary_rel_path,
             member_rel_path=member_rel_path,
         )
+        await attestable.write_checks_data(self.project_name, self.version_name, self.revision_number, [result.id])
+        return result
 
     async def use_check_cache(self) -> bool:
         if self.__use_check_cache is not None:
@@ -329,19 +324,73 @@ class Recorder:
         return self.__use_check_cache
 
     async def warning(
-        self, message: str, data: Any, primary_rel_path: str | None = None, member_rel_path: str | None = None
+        self,
+        message: str,
+        data: Any,
+        primary_rel_path: str | None = None,
+        member_rel_path: str | None = None,
     ) -> sql.CheckResult:
-        return await self._add(
+        result = await self._add(
             sql.CheckResultStatus.WARNING,
             message,
             data,
             primary_rel_path=primary_rel_path,
             member_rel_path=member_rel_path,
         )
+        await attestable.write_checks_data(self.project_name, self.version_name, self.revision_number, [result.id])
+        return result
 
 
-def function_key(func: Callable[..., Any]) -> str:
-    return func.__module__ + "." + func.__name__
+def function_key(func: Callable[..., Any] | str) -> str:
+    return func.__module__ + "." + func.__name__ if callable(func) else func
+
+
+async def resolve_cache_key(
+    checker: str | Callable[..., Any],
+    policy_keys: list[str],
+    release: sql.Release,
+    revision: str,
+    args: dict[str, Any] | None = None,
+    file: str | None = None,
+    path: pathlib.Path | None = None,
+    ignore_path: bool = False,
+) -> dict[str, Any] | None:
+    if not args:
+        args = {}
+    cache_key = {"checker": function_key(checker)}
+    file_hash = None
+    attestable_data = await attestable.load(release.project_name, release.version, revision)
+    if attestable_data:
+        policy = sql.ReleasePolicy.model_validate(attestable_data.policy)
+        if not ignore_path:
+            file_hash = attestable_data.paths.get(file) if file else None
+    else:
+        # TODO: Is this fallback valid / necessary? Or should we bail out if there's no attestable data?
+        policy = release.release_policy or release.project.release_policy
+        if not ignore_path:
+            if path is None:
+                path = file_paths.revision_path_for_file(release.project_name, release.version, revision, file or "")
+            file_hash = await hashes.compute_file_hash(path)
+    if file_hash:
+        cache_key["file_hash"] = file_hash
+
+    if len(policy_keys) > 0 and policy is not None:
+        policy_dict = policy.model_dump(exclude_none=True)
+        return {**cache_key, **args, **{k: policy_dict[k] for k in policy_keys if k in policy_dict}}
+    else:
+        return {**cache_key, **args}
+
+
+async def resolve_extra_args(arg_names: list[str], release: sql.Release) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for name in arg_names:
+        resolver = _EXTRA_ARG_RESOLVERS.get(name, None)
+        # If we can't find a resolver, we'll carry on anyway since it'll just mean no cache potentially
+        if resolver is None:
+            log.warning(f"Unknown extra arg resolver: {name}")
+            return {}
+        result[name] = await resolver(release)
+    return result
 
 
 def with_model(cls: type[schema.Strict]) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
@@ -358,9 +407,36 @@ def with_model(cls: type[schema.Strict]) -> Callable[[Callable[..., Any]], Calla
     return decorator
 
 
-async def _compute_file_hash(path: pathlib.Path) -> str:
-    hasher = blake3.blake3()
-    async with aiofiles.open(path, "rb") as f:
-        while chunk := await f.read(_HASH_CHUNK_SIZE):
-            hasher.update(chunk)
-    return f"blake3:{hasher.hexdigest()}"
+async def _resolve_all_files(release: sql.Release) -> list[str]:
+    if not release.latest_revision_number:
+        return []
+    if not (
+        base_path := file_paths.base_path_for_revision(
+            release.project_name, release.version, release.latest_revision_number
+        )
+    ):
+        return []
+
+    if not await aiofiles.os.path.isdir(base_path):
+        log.error(f"Base release directory does not exist or is not a directory: {base_path}")
+        return []
+    relative_paths = [p async for p in util.paths_recursive(base_path)]
+    relative_paths_set = set(str(p) for p in relative_paths)
+    return list(relative_paths_set)
+
+
+async def _resolve_is_podling(release: sql.Release) -> bool:
+    return (release.committee is not None) and release.committee.is_podling
+
+
+async def _resolve_committee_name(release: sql.Release) -> str:
+    if release.committee is None:
+        raise ValueError("Release has no committee")
+    return release.committee.name
+
+
+_EXTRA_ARG_RESOLVERS: Final[dict[str, Callable[[sql.Release], Any]]] = {
+    "all_files": _resolve_all_files,
+    "is_podling": _resolve_is_podling,
+    "committee_name": _resolve_committee_name,
+}

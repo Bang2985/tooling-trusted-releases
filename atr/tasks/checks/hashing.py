@@ -17,12 +17,17 @@
 
 import hashlib
 import secrets
+from typing import Final
 
 import aiofiles
 
 import atr.log as log
 import atr.models.results as results
 import atr.tasks.checks as checks
+
+# Release policy fields which this check relies on - used for result caching
+INPUT_POLICY_KEYS: Final[list[str]] = []
+INPUT_EXTRA_ARGS: Final[list[str]] = []
 
 
 async def check(args: checks.FunctionArguments) -> results.Results | None:
@@ -35,6 +40,8 @@ async def check(args: checks.FunctionArguments) -> results.Results | None:
     if algorithm not in {"sha256", "sha512"}:
         await recorder.failure("Unsupported hash algorithm", {"algorithm": algorithm})
         return None
+
+    await recorder.cache_key_set(INPUT_POLICY_KEYS, INPUT_EXTRA_ARGS)
 
     # Remove the hash file suffix to get the artifact path
     # This replaces the last suffix, which is what we want

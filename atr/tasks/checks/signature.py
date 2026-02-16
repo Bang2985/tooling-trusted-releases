@@ -30,6 +30,10 @@ import atr.models.sql as sql
 import atr.tasks.checks as checks
 import atr.util as util
 
+# Release policy fields which this check relies on - used for result caching
+INPUT_POLICY_KEYS: Final[list[str]] = []
+INPUT_EXTRA_ARGS: Final[list[str]] = ["committee_name"]
+
 
 async def check(args: checks.FunctionArguments) -> results.Results | None:
     """Check a signature file."""
@@ -49,6 +53,8 @@ async def check(args: checks.FunctionArguments) -> results.Results | None:
     if not isinstance(committee_name, str):
         await recorder.exception("Committee name is required", {"committee_name": committee_name})
         return None
+
+    await recorder.cache_key_set(INPUT_POLICY_KEYS, INPUT_EXTRA_ARGS)
 
     log.info(
         f"Checking signature {primary_abs_path} for {artifact_abs_path}"

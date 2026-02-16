@@ -75,8 +75,7 @@ class PathInfo(schema.Strict):
 
 @dataclasses.dataclass
 class ChecksSubset:
-    release: sql.Release
-    latest_revision_number: str
+    checks: list[sql.CheckResult]
     info: PathInfo
     match_ignore: Callable[[sql.CheckResult], bool]
 

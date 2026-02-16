@@ -21,6 +21,7 @@ import binascii
 import contextlib
 import dataclasses
 import datetime
+import fcntl
 import hashlib
 import json
 import os
@@ -205,6 +206,27 @@ async def atomic_write_file(file_path: pathlib.Path, content: str, encoding: str
         with contextlib.suppress(FileNotFoundError):
             await aiofiles.os.remove(temp_path)
         raise
+
+
+async def atomic_modify_file(
+    file_path: pathlib.Path,
+    modify: Callable[[str], str],
+) -> None:
+    # This function assumes that file_path already exists and its a regular file
+    lock_path = file_path.with_suffix(file_path.suffix + ".lock")
+    lock_fd = await asyncio.to_thread(os.open, str(lock_path), os.O_CREAT | os.O_RDWR)
+    try:
+        await asyncio.to_thread(fcntl.flock, lock_fd, fcntl.LOCK_EX)
+        try:
+            async with aiofiles.open(file_path, encoding="utf-8") as rf:
+                old_value = await rf.read()
+            new_value = modify(old_value)
+            if new_value != old_value:
+                await atomic_write_file(file_path, new_value)
+        finally:
+            fcntl.flock(lock_fd, fcntl.LOCK_UN)
+    finally:
+        await asyncio.to_thread(os.close, lock_fd)
 
 
 def chmod_directories(path: pathlib.Path, permissions: int = DIRECTORY_PERMISSIONS) -> None:

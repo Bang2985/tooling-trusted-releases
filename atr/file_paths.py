@@ -15,30 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from typing import Annotated, Any, Literal
+import pathlib
 
-import pydantic
-
-from . import schema
+import atr.util as util
 
 
-class HashEntry(schema.Strict):
-    size: int
-    uploaders: list[Annotated[tuple[str, str], pydantic.BeforeValidator(tuple)]]
+def base_path_for_revision(project_name: str, version_name: str, revision: str) -> pathlib.Path:
+    return pathlib.Path(util.get_unfinished_dir(), project_name, version_name, revision)
 
 
-class AttestableChecksV1(schema.Strict):
-    version: Literal[1] = 1
-    checks: list[int] = schema.factory(list)
-
-
-class AttestablePathsV1(schema.Strict):
-    version: Literal[1] = 1
-    paths: dict[str, str] = schema.factory(dict)
-
-
-class AttestableV1(schema.Strict):
-    version: Literal[1] = 1
-    paths: dict[str, str] = schema.factory(dict)
-    hashes: dict[str, HashEntry] = schema.factory(dict)
-    policy: dict[str, Any] = schema.factory(dict)
+def revision_path_for_file(project_name: str, version_name: str, revision: str, file_name: str) -> pathlib.Path:
+    return base_path_for_revision(project_name, version_name, revision) / file_name

@@ -15,30 +15,28 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from typing import Annotated, Any, Literal
+import pathlib
+from typing import Any, Final
 
-import pydantic
+import aiofiles
+import aiofiles.os
+import blake3
 
-from . import schema
-
-
-class HashEntry(schema.Strict):
-    size: int
-    uploaders: list[Annotated[tuple[str, str], pydantic.BeforeValidator(tuple)]]
+_HASH_CHUNK_SIZE: Final[int] = 4 * 1024 * 1024
 
 
-class AttestableChecksV1(schema.Strict):
-    version: Literal[1] = 1
-    checks: list[int] = schema.factory(list)
+async def compute_file_hash(path: str | pathlib.Path) -> str:
+    path = pathlib.Path(path)
+    hasher = blake3.blake3()
+    async with aiofiles.open(path, "rb") as f:
+        while chunk := await f.read(_HASH_CHUNK_SIZE):
+            hasher.update(chunk)
+    return f"blake3:{hasher.hexdigest()}"
 
 
-class AttestablePathsV1(schema.Strict):
-    version: Literal[1] = 1
-    paths: dict[str, str] = schema.factory(dict)
-
-
-class AttestableV1(schema.Strict):
-    version: Literal[1] = 1
-    paths: dict[str, str] = schema.factory(dict)
-    hashes: dict[str, HashEntry] = schema.factory(dict)
-    policy: dict[str, Any] = schema.factory(dict)
+def compute_dict_hash(to_hash: dict[Any, Any]) -> str:
+    hasher = blake3.blake3()
+    for k in sorted(to_hash.keys()):
+        hasher.update(str(k).encode("utf-8"))
+        hasher.update(str(to_hash[k]).encode("utf-8"))
+    return f"blake3:{hasher.hexdigest()}"
