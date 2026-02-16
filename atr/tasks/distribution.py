@@ -77,15 +77,12 @@ async def status_check(args: DistributionStatusCheckArgs, *, task_id: int | None
         except (distribution.DistributionError, storage.AccessError) as e:
             msg = f"Failed to record distribution: {e}"
             log.error(msg)
-        finally:
-            if args.next_schedule_seconds:
-                next_schedule = datetime.datetime.now(datetime.UTC) + datetime.timedelta(
-                    seconds=args.next_schedule_seconds
-                )
-                await tasks.distribution_status_check(args.asf_uid, schedule=next_schedule, schedule_next=True)
-                log.info(
-                    f"Scheduled next workflow status update for: {next_schedule.strftime('%Y-%m-%d %H:%M:%S')}",
-                )
+    if args.next_schedule_seconds:
+        next_schedule = datetime.datetime.now(datetime.UTC) + datetime.timedelta(seconds=args.next_schedule_seconds)
+        await tasks.distribution_status_check(args.asf_uid, schedule=next_schedule, schedule_next=True)
+        log.info(
+            f"Scheduled next workflow status update for: {next_schedule.strftime('%Y-%m-%d %H:%M:%S')}",
+        )
     return results.DistributionStatusCheck(
         kind="distribution_status",
     )
