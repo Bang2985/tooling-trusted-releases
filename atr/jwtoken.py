@@ -105,6 +105,10 @@ def verify(token: str) -> dict[str, Any]:
 
 
 async def verify_github_oidc(token: str) -> dict[str, Any]:
+    header = jwt.get_unverified_header(token)
+    dangerous_headers = {"jku", "x5u", "jwk"}
+    if dangerous_headers.intersection(header.keys()):
+        raise base.ASFQuartException("JWT contains disallowed headers", errorcode=401)
     try:
         async with util.create_secure_session() as session:
             r = await session.get(
