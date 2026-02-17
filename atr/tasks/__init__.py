@@ -17,7 +17,6 @@
 
 import asyncio
 import datetime
-import logging
 import pathlib
 from collections.abc import Awaitable, Callable, Coroutine
 from typing import Any, Final
@@ -220,24 +219,24 @@ async def _draft_file_checks(
     # TODO: Should we check .json files for their content?
     # Ideally we would not have to do that
     if path.name.endswith(".cdx.json"):
-        data.add(
-            await queued(
-                asf_uid,
-                sql.TaskType.SBOM_TOOL_SCORE,
-                release,
-                revision_number,
-                caller_data,
-                path_str,
-                extra_args={
-                    "project_name": project_name,
-                    "version_name": release_version,
-                    "revision_number": revision_number,
-                    "previous_release_version": previous_version.version if previous_version else None,
-                    "file_path": path_str,
-                    "asf_uid": asf_uid,
-                },
-            )
+        cdx_task = await queued(
+            asf_uid,
+            sql.TaskType.SBOM_TOOL_SCORE,
+            release,
+            revision_number,
+            caller_data,
+            path_str,
+            extra_args={
+                "project_name": project_name,
+                "version_name": release_version,
+                "revision_number": revision_number,
+                "previous_release_version": previous_version.version if previous_version else None,
+                "file_path": path_str,
+                "asf_uid": asf_uid,
+            },
         )
+        if cdx_task:
+            data.add(cdx_task)
 
 
 async def keys_import_file(
@@ -299,17 +298,29 @@ async def queued(
     extra_args: dict[str, Any] | None = None,
     check_cache_key: dict[str, Any] | None = None,
 ) -> sql.Task | None:
+    # If there's a queued or running task for this same set of inputs and hash value, don't start a new one
+    # If there isn't one, but there is an existing check result, also don't run a new task, just use the existing one
     if check_cache_key is not None:
-        logging.info("cache key", check_cache_key)
         hash_val = hashes.compute_dict_hash(check_cache_key)
         if not data:
             raise RuntimeError("DB Session is required for check_cache_key")
-        existing = await data.check_result(inputs_hash=hash_val, release_name=release.name).all()
-        if existing:
-            await attestable.write_checks_data(
-                release.project.name, release.version, revision_number, [c.id for c in existing]
-            )
+        existing_task = await data.task(
+            inputs_hash=hash_val,
+            project_name=release.project_name,
+            version_name=release.version,
+            task_args=extra_args or {},
+            status_in=[sql.TaskStatus.QUEUED, sql.TaskStatus.ACTIVE],
+        ).all()
+        if existing_task:
             return None
+        else:
+            existing = await data.check_result(inputs_hash=hash_val, release_name=release.name).all()
+            if existing:
+                await attestable.write_checks_data(
+                    release.project.name, release.version, revision_number, [c.id for c in existing]
+                )
+                return None
+
     return sql.Task(
         status=sql.TaskStatus.QUEUED,
         task_type=task_type,

@@ -670,8 +670,10 @@ class Session(sqlalchemy.ext.asyncio.AsyncSession):
         self,
         id: Opt[int] = NOT_SET,
         status: Opt[sql.TaskStatus] = NOT_SET,
+        status_in: Opt[list[sql.TaskStatus]] = NOT_SET,
         task_type: Opt[str] = NOT_SET,
         task_args: Opt[Any] = NOT_SET,
+        inputs_hash: Opt[str] = NOT_SET,
         asf_uid: Opt[str] = NOT_SET,
         added: Opt[datetime.datetime] = NOT_SET,
         started: Opt[datetime.datetime | None] = NOT_SET,
@@ -687,14 +689,19 @@ class Session(sqlalchemy.ext.asyncio.AsyncSession):
     ) -> Query[sql.Task]:
         query = sqlmodel.select(sql.Task)
 
+        via = sql.validate_instrumented_attribute
         if is_defined(id):
             query = query.where(sql.Task.id == id)
         if is_defined(status):
             query = query.where(sql.Task.status == status)
+        if is_defined(status_in):
+            query = query.where(via(sql.Task.status).in_(status_in))
         if is_defined(task_type):
             query = query.where(sql.Task.task_type == task_type)
         if is_defined(task_args):
             query = query.where(sql.Task.task_args == task_args)
+        if is_defined(inputs_hash):
+            query = query.where(sql.Task.inputs_hash == inputs_hash)
         if is_defined(asf_uid):
             query = query.where(sql.Task.asf_uid == asf_uid)
         if is_defined(added):
