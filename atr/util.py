@@ -639,6 +639,10 @@ async def is_dir_resolve(path: pathlib.Path) -> pathlib.Path | None:
     return resolved_path
 
 
+def is_ldap_configured() -> bool:
+    return ldap.get_bind_credentials() is not None
+
+
 def is_user_viewing_as_admin(uid: str | None) -> bool:
     """Check whether a user is currently viewing the site with active admin privileges."""
     if not user.is_admin(uid):
