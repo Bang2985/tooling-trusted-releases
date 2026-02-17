@@ -56,6 +56,7 @@ def issue(uid: str, *, ttl: int = _ATR_JWT_TTL) -> str:
         "iss": _ATR_JWT_ISSUER,
         "aud": _ATR_JWT_AUDIENCE,
         "iat": now,
+        "nbf": now,
         "exp": now + datetime.timedelta(seconds=ttl),
         "jti": secrets.token_hex(128 // 8),
     }
