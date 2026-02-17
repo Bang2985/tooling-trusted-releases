@@ -35,6 +35,7 @@ from typing import Any, Final
 import sqlmodel
 
 import atr.db as db
+import atr.ldap as ldap
 import atr.log as log
 import atr.models.results as results
 import atr.models.sql as sql
@@ -219,6 +220,10 @@ async def _task_next_claim() -> tuple[int, str, list[str] | dict[str, Any], str]
 
 async def _task_process(task_id: int, task_type: str, task_args: list[str] | dict[str, Any], asf_uid: str) -> None:
     """Process a claimed task."""
+    import atr.config as config
+
+    conf = config.get()
+
     log.info(f"Processing task {task_id} ({task_type}) with raw args {task_args}")
     try:
         task_type_member = sql.TaskType(task_type)
@@ -229,6 +234,11 @@ async def _task_process(task_id: int, task_type: str, task_args: list[str] | dic
 
     task_results: results.Results | None
     try:
+        if asf_uid != "system" and not (conf.ALLOW_TESTS and asf_uid == "test"):
+            user_account = await ldap.account_lookup(asf_uid)
+            if user_account is None or ldap.is_banned(user_account):
+                raise RuntimeError(f"Account '{asf_uid}' is banned or does not exist")
+
         handler = tasks.resolve(task_type_member)
         sig = inspect.signature(handler)
         params = list(sig.parameters.values())
