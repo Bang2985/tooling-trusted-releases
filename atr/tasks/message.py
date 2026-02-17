@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import atr.ldap as ldap
 import atr.log as log
 import atr.mail as mail
 import atr.models.results as results
@@ -46,6 +47,12 @@ async def send(args: Send) -> results.Results | None:
         sender_asf_uid = args.email_sender.split("@")[0]
     else:
         raise SendError(f"Invalid email sender: {args.email_sender}")
+
+    sender_account = await ldap.account_lookup(sender_asf_uid)
+    if sender_account is None:
+        raise SendError(f"Invalid email account: {args.email_sender}")
+    if ldap.is_banned(sender_account):
+        raise SendError(f"Email account {args.email_sender} is banned")
 
     recipient_domain = args.email_recipient.split("@")[-1]
     sending_to_self = recipient_domain == f"{sender_asf_uid}@apache.org"
