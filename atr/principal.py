@@ -20,7 +20,7 @@
 import asyncio
 import re
 import time
-from typing import Any, Final
+from typing import Final
 
 import asfquart.session
 
@@ -98,7 +98,7 @@ class Committer:
 
         self.__bind_dn, self.__bind_password = get_ldap_bind_dn_and_password()
 
-    def verify(self) -> dict[str, Any]:
+    def verify(self) -> None:
         with ldap.Search(self.__bind_dn, self.__bind_password) as ldap_search:
             start = time.perf_counter_ns()
             self._get_committer_details(ldap_search)
@@ -138,8 +138,6 @@ class Committer:
             if is_tooling:
                 self.pmcs.append("tooling")
                 self.projects.append("tooling")
-
-        return self.__dict__
 
     def _get_committer_details(self, ldap_search: ldap.Search) -> None:
         try:
