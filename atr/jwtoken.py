@@ -82,17 +82,6 @@ def require[**P, R](func: Callable[P, Coroutine[Any, Any, R]]) -> Callable[P, Aw
     return wrapper
 
 
-def unverified_header_and_payload(jwt_value: str) -> dict[str, Any]:
-    header = jwt.get_unverified_header(jwt_value)
-
-    try:
-        payload = jwt.decode(jwt_value, options={"verify_signature": False})
-    except jwt.PyJWTError as e:
-        raise RuntimeError(f"Failed to decode JWT: {e}") from e
-
-    return {"header": header, "payload": payload}
-
-
 def verify(token: str) -> dict[str, Any]:
     return jwt.decode(
         token,
