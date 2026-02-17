@@ -121,7 +121,7 @@ async def browse_as_get(session: web.Committer) -> str | web.WerkzeugResponse:
 @admin.form(BrowseAsUserForm)
 async def browse_as_post(session: web.Committer, browse_form: BrowseAsUserForm) -> str | web.WerkzeugResponse:
     """Allows an admin to browse as another user."""
-    # TODO: Enable this in debugging mode only?
+    # We specifically need to use this on the production server
     import atr.get.root as root
 
     new_uid = browse_form.uid
