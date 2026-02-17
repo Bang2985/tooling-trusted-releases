@@ -96,7 +96,7 @@ dnspython==2.8.0
     #   tooling-trusted-releases
 dulwich==1.0.0
     # via tooling-trusted-releases
-dunamai==1.25.0
+dunamai==1.26.0
     # via tooling-trusted-releases
 easydict==1.13
     # via
@@ -112,7 +112,7 @@ ezt==1.1
     # via
     #   asfpy
     #   asfquart
-filelock==3.21.0
+filelock==3.24.2
     # via virtualenv
 flask==3.1.2
     # via quart
@@ -218,7 +218,7 @@ pathspec==1.0.4
     # via djlint
 pgpy==0.6.0
     # via tooling-trusted-releases
-platformdirs==4.6.0
+platformdirs==4.9.2
     # via virtualenv
 pre-commit==4.5.1
 priority==2.0.0
@@ -250,7 +250,7 @@ pydantic-core==2.41.5
     # via
     #   pydantic
     #   pydantic-xml
-pydantic-xml==2.18.0
+pydantic-xml==2.19.0
     # via tooling-trusted-releases
 pygments==2.19.2
     # via rich
@@ -309,7 +309,7 @@ rpds-py==0.30.0
     # via
     #   jsonschema
     #   referencing
-ruff==0.15.0
+ruff==0.15.1
 semver==3.0.4
     # via tooling-trusted-releases
 six==1.17.0
@@ -324,7 +324,7 @@ sqlalchemy==2.0.46
     # via
     #   alembic
     #   sqlmodel
-sqlmodel==0.0.33
+sqlmodel==0.0.34
     # via tooling-trusted-releases
 standard-imghdr==3.13.0
     # via tooling-trusted-releases
@@ -358,7 +358,7 @@ urllib3==2.6.3
     #   requests
 uvloop==0.22.1
     # via hypercorn
-virtualenv==20.36.1
+virtualenv==20.37.0
     # via pre-commit
 watchfiles==1.1.1
     # via

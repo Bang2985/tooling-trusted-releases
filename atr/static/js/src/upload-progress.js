@@ -55,15 +55,15 @@ function setupXhrHandlers(
 	ui,
 	index,
 	state,
-	addRetryButton,
-	checkAllComplete,
+	addRetryButtonFn,
+	checkAllCompleteFn,
 ) {
 	const ctx = {
 		ui,
 		index,
 		state,
-		addRetryButton,
-		checkAllComplete,
+		addRetryButton: addRetryButtonFn,
+		checkAllComplete: checkAllCompleteFn,
 		activeUploads: state.activeUploads,
 		statusEl: ui.querySelector(".upload-status"),
 		cancelBtn: ui.querySelector(".cancel-btn"),
@@ -109,13 +109,13 @@ function startUpload(
 	state,
 	stageUrl,
 	csrfToken,
-	addRetryButton,
+	addRetryButtonFn,
 	checkComplete,
 ) {
 	const ui = document.getElementById(`upload-file-${index}`);
 	const xhr = new XMLHttpRequest();
 	state.activeUploads.set(index, xhr);
-	setupXhrHandlers(xhr, ui, index, state, addRetryButton, checkComplete);
+	setupXhrHandlers(xhr, ui, index, state, addRetryButtonFn, checkComplete);
 	const formData = new FormData();
 	formData.append("csrf_token", csrfToken);
 	formData.append("file", file, file.name);

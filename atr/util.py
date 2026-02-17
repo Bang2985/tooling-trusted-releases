@@ -34,7 +34,7 @@ import unicodedata
 import uuid
 import zipfile
 from collections.abc import AsyncGenerator, Callable, Iterable, Sequence
-from typing import Any, Final, TypeVar
+from typing import Any, Final
 
 import aiofiles.os
 import aiohttp
@@ -57,8 +57,6 @@ import atr.models.validation as validation
 import atr.registry as registry
 import atr.tarzip as tarzip
 import atr.user as user
-
-T = TypeVar("T")
 
 ARCHIVE_ROOT_SUFFIXES: Final[tuple[str, ...]] = ("-source", "-src")
 DIRECTORY_PERMISSIONS: Final[int] = 0o755
@@ -1152,7 +1150,7 @@ def unwrap[T](value: T | None, error_message: str = "unexpected None when unwrap
         return value
 
 
-def unwrap_type(value: T | None, t: type[T], error_message: str = "unexpected None when unwrapping value") -> T:
+def unwrap_type[T](value: T | None, t: type[T], error_message: str = "unexpected None when unwrapping value") -> T:
     """
     Will unwrap the given value or raise a TypeError if it is not of the expected type
 
