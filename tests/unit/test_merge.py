@@ -17,7 +17,7 @@
 
 import os
 import pathlib
-from unittest.mock import AsyncMock, patch
+import unittest.mock as mock
 
 import pytest
 
@@ -39,7 +39,7 @@ async def test_case_09_prior_adds_file(tmp_path: pathlib.Path):
 
     mock_prior_hashes = {"added.txt": "blake3:abc123"}
 
-    with patch("atr.attestable.load_paths", new_callable=AsyncMock, return_value=mock_prior_hashes):
+    with mock.patch("atr.attestable.load_paths", new_callable=mock.AsyncMock, return_value=mock_prior_hashes):
         await merge.merge(
             base_inodes,
             base_hashes,
@@ -74,7 +74,7 @@ async def test_case_09_prior_adds_file_in_subdirectory(tmp_path: pathlib.Path):
 
     mock_prior_hashes = {"apple/banana.txt": "blake3:xyz890"}
 
-    with patch("atr.attestable.load_paths", new_callable=AsyncMock, return_value=mock_prior_hashes):
+    with mock.patch("atr.attestable.load_paths", new_callable=mock.AsyncMock, return_value=mock_prior_hashes):
         await merge.merge(
             base_inodes,
             base_hashes,
@@ -108,7 +108,7 @@ async def test_case_10_prior_deletion_via_hash(tmp_path: pathlib.Path):
     n_hashes = {"removed.txt": "blake3:matching"}
     n_sizes = {"removed.txt": len("same content")}
 
-    with patch("atr.attestable.load_paths", new_callable=AsyncMock, return_value={}):
+    with mock.patch("atr.attestable.load_paths", new_callable=mock.AsyncMock, return_value={}):
         await merge.merge(
             base_inodes,
             base_hashes,
@@ -140,7 +140,7 @@ async def test_case_10_prior_deletion_via_inode(tmp_path: pathlib.Path):
     n_hashes = {"removed.txt": "blake3:aaa"}
     n_sizes = {"removed.txt": len("to be deleted")}
 
-    with patch("atr.attestable.load_paths", new_callable=AsyncMock, return_value={}):
+    with mock.patch("atr.attestable.load_paths", new_callable=mock.AsyncMock, return_value={}):
         await merge.merge(
             base_inodes,
             base_hashes,
@@ -181,7 +181,7 @@ async def test_case_11_prior_replacement_via_hash(tmp_path: pathlib.Path):
 
     mock_prior_hashes = {"shared.txt": "blake3:updated"}
 
-    with patch("atr.attestable.load_paths", new_callable=AsyncMock, return_value=mock_prior_hashes):
+    with mock.patch("atr.attestable.load_paths", new_callable=mock.AsyncMock, return_value=mock_prior_hashes):
         await merge.merge(
             base_inodes,
             base_hashes,
@@ -216,7 +216,7 @@ async def test_case_11_prior_replacement_via_inode(tmp_path: pathlib.Path):
 
     mock_prior_hashes = {"shared.txt": "blake3:updated"}
 
-    with patch("atr.attestable.load_paths", new_callable=AsyncMock, return_value=mock_prior_hashes):
+    with mock.patch("atr.attestable.load_paths", new_callable=mock.AsyncMock, return_value=mock_prior_hashes):
         await merge.merge(
             base_inodes,
             base_hashes,
@@ -248,7 +248,7 @@ async def test_case_13_new_wins_when_prior_deletes(tmp_path: pathlib.Path):
     n_hashes = {"modified.txt": "blake3:new"}
     n_sizes = {"modified.txt": len("new content")}
 
-    with patch("atr.attestable.load_paths", new_callable=AsyncMock, return_value={}):
+    with mock.patch("atr.attestable.load_paths", new_callable=mock.AsyncMock, return_value={}):
         await merge.merge(
             base_inodes,
             base_hashes,
@@ -282,7 +282,7 @@ async def test_noop_when_base_and_prior_agree(tmp_path: pathlib.Path):
     n_hashes = {"unchanged.txt": "blake3:modified"}
     n_sizes = {"unchanged.txt": len("modified by new")}
 
-    with patch("atr.attestable.load_paths", new_callable=AsyncMock, return_value={}) as mock_load:
+    with mock.patch("atr.attestable.load_paths", new_callable=mock.AsyncMock, return_value={}) as mock_load:
         await merge.merge(
             base_inodes,
             base_hashes,
@@ -315,7 +315,7 @@ async def test_type_conflict_prior_file_vs_new_directory(tmp_path: pathlib.Path)
     n_hashes = {"docs/guide.txt": "blake3:guide"}
     n_sizes = {"docs/guide.txt": len("a file under a directory in new")}
 
-    with patch("atr.attestable.load_paths", new_callable=AsyncMock, return_value={"docs": "blake3:docs"}):
+    with mock.patch("atr.attestable.load_paths", new_callable=mock.AsyncMock, return_value={"docs": "blake3:docs"}):
         await merge.merge(
             base_inodes,
             base_hashes,
@@ -348,7 +348,7 @@ async def test_type_conflict_prior_file_vs_new_empty_directory(tmp_path: pathlib
     n_hashes: dict[str, str] = {}
     n_sizes: dict[str, int] = {}
 
-    with patch("atr.attestable.load_paths", new_callable=AsyncMock, return_value={"empty": "blake3:empty"}):
+    with mock.patch("atr.attestable.load_paths", new_callable=mock.AsyncMock, return_value={"empty": "blake3:empty"}):
         await merge.merge(
             base_inodes,
             base_hashes,
@@ -380,7 +380,9 @@ async def test_type_conflict_prior_subdir_vs_new_file(tmp_path: pathlib.Path):
     n_hashes = {"docs": "blake3:docs"}
     n_sizes = {"docs": len("a file in new")}
 
-    with patch("atr.attestable.load_paths", new_callable=AsyncMock, return_value={"docs/guide.txt": "blake3:guide"}):
+    with mock.patch(
+        "atr.attestable.load_paths", new_callable=mock.AsyncMock, return_value={"docs/guide.txt": "blake3:guide"}
+    ):
         await merge.merge(
             base_inodes,
             base_hashes,

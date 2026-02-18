@@ -19,8 +19,8 @@
 
 import email.message as emailmessage
 import email.policy as policy
+import unittest.mock as mock
 from typing import TYPE_CHECKING
-from unittest.mock import AsyncMock
 
 import pytest
 
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 @pytest.mark.asyncio
 async def test_address_objects_used_for_from_to_headers(monkeypatch: "MonkeyPatch") -> None:
     """Test that Address objects are used for From/To headers."""
-    mock_send_many = AsyncMock(return_value=[])
+    mock_send_many = mock.AsyncMock(return_value=[])
     monkeypatch.setattr("atr.mail._send_many", mock_send_many)
 
     legitimate_message = mail.Message(
@@ -61,7 +61,7 @@ async def test_address_objects_used_for_from_to_headers(monkeypatch: "MonkeyPatc
 @pytest.mark.asyncio
 async def test_send_accepts_legitimate_message(monkeypatch: "MonkeyPatch") -> None:
     """Test that a legitimate message without CRLF is accepted."""
-    mock_send_many = AsyncMock(return_value=[])
+    mock_send_many = mock.AsyncMock(return_value=[])
     monkeypatch.setattr("atr.mail._send_many", mock_send_many)
 
     # Create a legitimate message without any CRLF injection attempts
@@ -94,7 +94,7 @@ async def test_send_accepts_legitimate_message(monkeypatch: "MonkeyPatch") -> No
 @pytest.mark.asyncio
 async def test_send_accepts_message_with_reply_to(monkeypatch: "MonkeyPatch") -> None:
     """Test that a legitimate message with in_reply_to is accepted."""
-    mock_send_many = AsyncMock(return_value=[])
+    mock_send_many = mock.AsyncMock(return_value=[])
     monkeypatch.setattr("atr.mail._send_many", mock_send_many)
 
     # Create a legitimate message with a valid in_reply_to
@@ -122,7 +122,7 @@ async def test_send_accepts_message_with_reply_to(monkeypatch: "MonkeyPatch") ->
 @pytest.mark.asyncio
 async def test_send_handles_non_ascii_headers(monkeypatch: "MonkeyPatch") -> None:
     """Test that non-ASCII characters in headers are handled correctly."""
-    mock_send_many = AsyncMock(return_value=[])
+    mock_send_many = mock.AsyncMock(return_value=[])
     monkeypatch.setattr("atr.mail._send_many", mock_send_many)
 
     # Create a message with non-ASCII characters in the subject
@@ -152,7 +152,7 @@ async def test_send_handles_non_ascii_headers(monkeypatch: "MonkeyPatch") -> Non
 @pytest.mark.asyncio
 async def test_send_rejects_bcc_header_injection(monkeypatch: "MonkeyPatch") -> None:
     """Test a realistic Bcc header injection attack scenario."""
-    mock_send_many = AsyncMock(return_value=[])
+    mock_send_many = mock.AsyncMock(return_value=[])
     monkeypatch.setattr("atr.mail._send_many", mock_send_many)
 
     # Create a malicious message attempting to inject a Bcc header
@@ -177,7 +177,7 @@ async def test_send_rejects_bcc_header_injection(monkeypatch: "MonkeyPatch") -> 
 @pytest.mark.asyncio
 async def test_send_rejects_content_type_injection(monkeypatch: "MonkeyPatch") -> None:
     """Test injection attempting to override Content-Type header."""
-    mock_send_many = AsyncMock(return_value=[])
+    mock_send_many = mock.AsyncMock(return_value=[])
     monkeypatch.setattr("atr.mail._send_many", mock_send_many)
 
     # Create a malicious message attempting to inject Content-Type
@@ -202,7 +202,7 @@ async def test_send_rejects_content_type_injection(monkeypatch: "MonkeyPatch") -
 @pytest.mark.asyncio
 async def test_send_rejects_cr_only_injection(monkeypatch: "MonkeyPatch") -> None:
     """Test that injection with CR only (\\r) is also rejected."""
-    mock_send_many = AsyncMock(return_value=[])
+    mock_send_many = mock.AsyncMock(return_value=[])
     monkeypatch.setattr("atr.mail._send_many", mock_send_many)
 
     # Create a malicious message with just CR (no LF)
@@ -231,7 +231,7 @@ async def test_send_rejects_crlf_in_from_address(monkeypatch: "MonkeyPatch") -> 
     Note: The from_addr validation happens before EmailMessage processing,
     so this test verifies the early validation layer also protects against injection.
     """
-    mock_send_many = AsyncMock(return_value=[])
+    mock_send_many = mock.AsyncMock(return_value=[])
     monkeypatch.setattr("atr.mail._send_many", mock_send_many)
 
     # Create a malicious message with CRLF in the from address
@@ -253,7 +253,7 @@ async def test_send_rejects_crlf_in_from_address(monkeypatch: "MonkeyPatch") -> 
 @pytest.mark.asyncio
 async def test_send_rejects_crlf_in_reply_to(monkeypatch: "MonkeyPatch") -> None:
     """Test that CRLF injection in in_reply_to field is rejected."""
-    mock_send_many = AsyncMock(return_value=[])
+    mock_send_many = mock.AsyncMock(return_value=[])
     monkeypatch.setattr("atr.mail._send_many", mock_send_many)
 
     # Create a malicious message with CRLF in the in_reply_to field
@@ -280,7 +280,7 @@ async def test_send_rejects_crlf_in_reply_to(monkeypatch: "MonkeyPatch") -> None
 async def test_send_rejects_crlf_in_subject(monkeypatch: "MonkeyPatch") -> None:
     """Test that CRLF injection in subject field is rejected."""
     # Mock _send_many to ensure we never actually send emails
-    mock_send_many = AsyncMock(return_value=[])
+    mock_send_many = mock.AsyncMock(return_value=[])
     monkeypatch.setattr("atr.mail._send_many", mock_send_many)
 
     # Create a malicious message with CRLF in the subject
@@ -309,7 +309,7 @@ async def test_send_rejects_crlf_in_to_address(monkeypatch: "MonkeyPatch") -> No
     Note: The _validate_recipient check happens before EmailMessage processing,
     so this test verifies the early validation layer also protects against injection.
     """
-    mock_send_many = AsyncMock(return_value=[])
+    mock_send_many = mock.AsyncMock(return_value=[])
     monkeypatch.setattr("atr.mail._send_many", mock_send_many)
 
     # Create a malicious message with CRLF in the to address
@@ -331,7 +331,7 @@ async def test_send_rejects_crlf_in_to_address(monkeypatch: "MonkeyPatch") -> No
 @pytest.mark.asyncio
 async def test_send_rejects_lf_only_injection(monkeypatch: "MonkeyPatch") -> None:
     """Test that injection with LF only (\\n) is also rejected."""
-    mock_send_many = AsyncMock(return_value=[])
+    mock_send_many = mock.AsyncMock(return_value=[])
     monkeypatch.setattr("atr.mail._send_many", mock_send_many)
 
     # Create a malicious message with just LF (no CR)

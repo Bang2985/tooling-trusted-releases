@@ -115,15 +115,15 @@ async def test_admins_get_async_uses_extensions_when_available(mock_app: MockApp
     assert result == frozenset({"async_alice"})
 
 
+def test_admins_get_returns_empty_frozenset_when_not_set(mock_app: MockApp):
+    result = cache.admins_get()
+    assert result == frozenset()
+
+
 def test_admins_get_returns_frozenset_from_extensions(mock_app: MockApp):
     mock_app.extensions["admins"] = frozenset({"alice", "bob"})
     result = cache.admins_get()
     assert result == frozenset({"alice", "bob"})
-
-
-def test_admins_get_returns_empty_frozenset_when_not_set(mock_app: MockApp):
-    result = cache.admins_get()
-    assert result == frozenset()
 
 
 @pytest.mark.asyncio

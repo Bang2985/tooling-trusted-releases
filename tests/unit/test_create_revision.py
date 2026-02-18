@@ -17,7 +17,7 @@
 
 import os
 import pathlib
-from unittest.mock import AsyncMock, MagicMock, patch
+import unittest.mock as mock
 
 import pytest
 
@@ -35,13 +35,13 @@ async def test_modify_failed_error_propagates_and_cleans_up(tmp_path: pathlib.Pa
         (path / "file.txt").write_text("Should be cleaned up.")
         raise types.FailedError("Intentional error")
 
-    mock_session = _mock_db_session(MagicMock())
+    mock_session = _mock_db_session(mock.MagicMock())
     participant = _make_participant()
 
     with (
-        patch.object(revision.db, "session", return_value=mock_session),
-        patch.object(revision.interaction, "latest_revision", new_callable=AsyncMock, return_value=None),
-        patch.object(revision.util, "get_tmp_dir", return_value=tmp_path),
+        mock.patch.object(revision.db, "session", return_value=mock_session),
+        mock.patch.object(revision.interaction, "latest_revision", new_callable=mock.AsyncMock, return_value=None),
+        mock.patch.object(revision.util, "get_tmp_dir", return_value=tmp_path),
     ):
         with pytest.raises(types.FailedError, match="Intentional error"):
             await participant.create_revision("proj", "1.0", "test", modify=modify)
@@ -52,16 +52,16 @@ async def test_modify_failed_error_propagates_and_cleans_up(tmp_path: pathlib.Pa
 
 
 def _make_participant() -> revision.CommitteeParticipant:
-    mock_write = MagicMock()
+    mock_write = mock.MagicMock()
     mock_write.authorisation.asf_uid = "test"
-    return revision.CommitteeParticipant(mock_write, MagicMock(), MagicMock(), "test")
+    return revision.CommitteeParticipant(mock_write, mock.MagicMock(), mock.MagicMock(), "test")
 
 
-def _mock_db_session(release: MagicMock) -> MagicMock:
-    mock_query = MagicMock()
-    mock_query.demand = AsyncMock(return_value=release)
-    mock_data = AsyncMock()
-    mock_data.release = MagicMock(return_value=mock_query)
-    mock_data.__aenter__ = AsyncMock(return_value=mock_data)
-    mock_data.__aexit__ = AsyncMock(return_value=False)
+def _mock_db_session(release: mock.MagicMock) -> mock.MagicMock:
+    mock_query = mock.MagicMock()
+    mock_query.demand = mock.AsyncMock(return_value=release)
+    mock_data = mock.AsyncMock()
+    mock_data.release = mock.MagicMock(return_value=mock_query)
+    mock_data.__aenter__ = mock.AsyncMock(return_value=mock_data)
+    mock_data.__aexit__ = mock.AsyncMock(return_value=False)
     return mock_data

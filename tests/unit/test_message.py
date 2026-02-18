@@ -18,8 +18,8 @@
 """Tests for ASF ID validation in atr.tasks.message module."""
 
 import contextlib
+import unittest.mock as mock
 from typing import TYPE_CHECKING
-from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -29,52 +29,35 @@ if TYPE_CHECKING:
     from pytest import MonkeyPatch
 
 
-def _send_args(
-    email_sender: str = "validuser@apache.org",
-    email_recipient: str = "dev@project.apache.org",
-    subject: str = "Test Subject",
-    body: str = "Test body",
-    in_reply_to: str | None = None,
-) -> dict[str, str | None]:
-    """Build an argument dict matching the Send schema."""
-    return {
-        "email_sender": email_sender,
-        "email_recipient": email_recipient,
-        "subject": subject,
-        "body": body,
-        "in_reply_to": in_reply_to,
-    }
-
-
 @pytest.mark.asyncio
-async def test_send_rejects_invalid_asf_id(monkeypatch: "MonkeyPatch") -> None:
-    """Test that an ASF UID not found in LDAP raises SendError."""
-    # ldap.account_lookup returns None for an unknown UID
-    monkeypatch.setattr("atr.tasks.message.ldap.account_lookup", AsyncMock(return_value=None))
+async def test_send_rejects_banned_asf_account(monkeypatch: "MonkeyPatch") -> None:
+    """Test that a banned ASF account raises SendError."""
+    monkeypatch.setattr(
+        "atr.tasks.message.ldap.account_lookup",
+        mock.AsyncMock(return_value={"uid": "banneduser", "cn": "Banned User", "asf-banned": "yes"}),
+    )
 
-    with pytest.raises(message.SendError, match=r"Invalid email account"):
-        await message.send(_send_args(email_sender="nosuchuser@apache.org"))
+    with pytest.raises(message.SendError, match=r"banned"):
+        await message.send(_send_args(email_sender="banneduser@apache.org"))
 
 
 @pytest.mark.asyncio
 async def test_send_rejects_bare_invalid_asf_id(monkeypatch: "MonkeyPatch") -> None:
     """Test that a bare ASF UID (no @) not found in LDAP raises SendError."""
-    monkeypatch.setattr("atr.tasks.message.ldap.account_lookup", AsyncMock(return_value=None))
+    monkeypatch.setattr("atr.tasks.message.ldap.account_lookup", mock.AsyncMock(return_value=None))
 
     with pytest.raises(message.SendError, match=r"Invalid email account"):
         await message.send(_send_args(email_sender="nosuchuser"))
 
 
 @pytest.mark.asyncio
-async def test_send_rejects_banned_asf_account(monkeypatch: "MonkeyPatch") -> None:
-    """Test that a banned ASF account raises SendError."""
-    monkeypatch.setattr(
-        "atr.tasks.message.ldap.account_lookup",
-        AsyncMock(return_value={"uid": "banneduser", "cn": "Banned User", "asf-banned": "yes"}),
-    )
+async def test_send_rejects_invalid_asf_id(monkeypatch: "MonkeyPatch") -> None:
+    """Test that an ASF UID not found in LDAP raises SendError."""
+    # ldap.account_lookup returns None for an unknown UID
+    monkeypatch.setattr("atr.tasks.message.ldap.account_lookup", mock.AsyncMock(return_value=None))
 
-    with pytest.raises(message.SendError, match=r"banned"):
-        await message.send(_send_args(email_sender="banneduser@apache.org"))
+    with pytest.raises(message.SendError, match=r"Invalid email account"):
+        await message.send(_send_args(email_sender="nosuchuser@apache.org"))
 
 
 @pytest.mark.asyncio
@@ -83,15 +66,15 @@ async def test_send_succeeds_with_valid_asf_id(monkeypatch: "MonkeyPatch") -> No
     # ldap.account_lookup returns a dict for a known UID
     monkeypatch.setattr(
         "atr.tasks.message.ldap.account_lookup",
-        AsyncMock(return_value={"uid": "validuser", "cn": "Valid User"}),
+        mock.AsyncMock(return_value={"uid": "validuser", "cn": "Valid User"}),
     )
 
     # Mock the storage.write async context manager chain:
     #   storage.write(uid) -> write -> write.as_foundation_committer() -> wafc -> wafc.mail.send() -> (mid, [])
-    mock_mail_send = AsyncMock(return_value=("test-mid@apache.org", []))
-    mock_wafc = MagicMock()
+    mock_mail_send = mock.AsyncMock(return_value=("test-mid@apache.org", []))
+    mock_wafc = mock.MagicMock()
     mock_wafc.mail.send = mock_mail_send
-    mock_write = MagicMock()
+    mock_write = mock.MagicMock()
     mock_write.as_foundation_committer.return_value = mock_wafc
 
     @contextlib.asynccontextmanager
@@ -109,3 +92,20 @@ async def test_send_succeeds_with_valid_asf_id(monkeypatch: "MonkeyPatch") -> No
 
     # Verify mail.send was called exactly once
     mock_mail_send.assert_called_once()
+
+
+def _send_args(
+    email_sender: str = "validuser@apache.org",
+    email_recipient: str = "dev@project.apache.org",
+    subject: str = "Test Subject",
+    body: str = "Test body",
+    in_reply_to: str | None = None,
+) -> dict[str, str | None]:
+    """Build an argument dict matching the Send schema."""
+    return {
+        "email_sender": email_sender,
+        "email_recipient": email_recipient,
+        "subject": subject,
+        "body": body,
+        "in_reply_to": in_reply_to,
+    }

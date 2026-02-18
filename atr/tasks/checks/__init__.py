@@ -374,7 +374,7 @@ async def resolve_cache_key(
     if file_hash:
         cache_key["file_hash"] = file_hash
 
-    if len(policy_keys) > 0 and policy is not None:
+    if (len(policy_keys) > 0) and (policy is not None):
         policy_dict = policy.model_dump(exclude_none=True)
         return {**cache_key, **args, **{k: policy_dict[k] for k in policy_keys if k in policy_dict}}
     else:
