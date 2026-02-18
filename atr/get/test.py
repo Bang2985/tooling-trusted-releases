@@ -16,6 +16,7 @@
 # under the License.
 
 import json
+import pathlib
 
 import aiofiles
 import asfquart.base as base
@@ -81,19 +82,33 @@ async def test_merge(session: web.Committer, project_name: str, version_name: st
 
     async with storage.write(session) as write_n:
         wacp_n = await write_n.as_project_committee_participant(project_name)
-        async with wacp_n.release.create_and_manage_revision(
-            project_name, version_name, "Test merge: new revision"
-        ) as creating_n:
-            async with aiofiles.open(creating_n.interim_path / "from_new.txt", "w") as f:
+
+        async def modify_new(path_new: pathlib.Path, _old_rev_new: sql.Revision | None) -> None:
+            async with aiofiles.open(path_new / "from_new.txt", "w") as f:
                 await f.write("new content")
 
             async with storage.write(session) as write_p:
                 wacp_p = await write_p.as_project_committee_participant(project_name)
-                async with wacp_p.release.create_and_manage_revision(
-                    project_name, version_name, "Test merge: prior revision"
-                ) as creating_p:
-                    async with aiofiles.open(creating_p.interim_path / "from_prior.txt", "w") as f:
+
+                async def modify_prior(path_prior: pathlib.Path, _old_rev_prior: sql.Revision | None) -> None:
+                    async with aiofiles.open(path_prior / "from_prior.txt", "w") as f:
                         await f.write("prior content")
+
+                await wacp_p.revision.create_revision(
+                    project_name,
+                    version_name,
+                    session.uid,
+                    description="Test merge: prior revision",
+                    modify=modify_prior,
+                )
+
+        await wacp_n.revision.create_revision(
+            project_name,
+            version_name,
+            session.uid,
+            description="Test merge: new revision",
+            modify=modify_new,
+        )
 
     files: list[str] = []
     async with db.session() as data:
