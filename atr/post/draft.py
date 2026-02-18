@@ -17,6 +17,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import aiofiles.os
 import aioshutil
 import asfquart.base as base
@@ -32,6 +34,9 @@ import atr.shared as shared
 import atr.storage as storage
 import atr.util as util
 import atr.web as web
+
+if TYPE_CHECKING:
+    import pathlib
 
 
 @post.committer("/compose/<project_name>/<version_name>")
@@ -196,13 +201,11 @@ async def sbomgen(session: web.Committer, project_name: str, version_name: str, 
         description = "SBOM generation through web interface"
         async with storage.write(session) as write:
             wacp = await write.as_project_committee_participant(project_name)
-            async with wacp.revision.create_and_manage(
-                project_name, version_name, session.uid, description=description
-            ) as creating:
-                # Uses new_revision_number in a functional way
-                path_in_new_revision = creating.interim_path / rel_path
+
+            async def modify(path: pathlib.Path, old_rev: sql.Revision | None) -> None:
+                path_in_new_revision = path / rel_path
                 sbom_path_rel = rel_path.with_suffix(rel_path.suffix + ".cdx.json").name
-                sbom_path_in_new_revision = creating.interim_path / rel_path.parent / sbom_path_rel
+                sbom_path_in_new_revision = path / rel_path.parent / sbom_path_rel
 
                 # Check that the source file exists in the new revision
                 if not await aiofiles.os.path.exists(path_in_new_revision):
@@ -214,16 +217,20 @@ async def sbomgen(session: web.Committer, project_name: str, version_name: str, 
                     raise base.ASFQuartException("SBOM file already exists", errorcode=400)
 
                 # This shouldn't happen as we need a revision to kick the task off from
-                if creating.old is None:
+                if old_rev is None:
                     raise web.FlashError("Internal error: Revision not found")
 
                 # Create and queue the task, using paths within the new revision
                 sbom_task = await wacp.sbom.generate_cyclonedx(
-                    project_name, version_name, creating.old.number, path_in_new_revision, sbom_path_in_new_revision
+                    project_name, version_name, old_rev.number, path_in_new_revision, sbom_path_in_new_revision
                 )
                 success = await interaction.wait_for_task(sbom_task)
                 if not success:
                     raise web.FlashError("Internal error: SBOM generation timed out")
+
+            await wacp.revision.create_revision(
+                project_name, version_name, session.uid, description=description, modify=modify
+            )
 
     except Exception as e:
         log.exception("Error generating SBOM:")

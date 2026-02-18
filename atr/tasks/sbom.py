@@ -18,7 +18,8 @@
 import asyncio
 import json
 import os
-from typing import TYPE_CHECKING, Any, Final
+import pathlib
+from typing import Any, Final
 
 import aiofiles
 import aiofiles.os
@@ -28,13 +29,11 @@ import atr.config as config
 import atr.log as log
 import atr.models.results as results
 import atr.models.schema as schema
+import atr.models.sql as sql
 import atr.sbom as sbom
 import atr.storage as storage
 import atr.tasks.checks as checks
 import atr.util as util
-
-if TYPE_CHECKING:
-    import pathlib
 
 _CONFIG: Final = config.get()
 
@@ -100,10 +99,10 @@ async def augment(args: FileArgs) -> results.Results | None:
         description = "SBOM augmentation through web interface"
         async with storage.write(args.asf_uid) as write:
             wacp = await write.as_project_committee_participant(args.project_name)
-            async with wacp.revision.create_and_manage(
-                args.project_name, args.version_name, args.asf_uid or "unknown", description=description
-            ) as creating:
-                new_full_path = creating.interim_path / args.file_path
+
+            async def modify(path: pathlib.Path, _old_rev: sql.Revision | None) -> None:
+                nonlocal new_full_path, new_full_path_str
+                new_full_path = path / args.file_path
                 new_full_path_str = str(new_full_path)
                 # Write to the new revision
                 log.info(f"Writing augmented SBOM to {new_full_path_str}")
@@ -111,8 +110,9 @@ async def augment(args: FileArgs) -> results.Results | None:
                 async with aiofiles.open(new_full_path, "w", encoding="utf-8") as f:
                     await f.write(merged.dumps())
 
-            if creating.new is None:
-                raise RuntimeError("Internal error: New revision not found")
+            await wacp.revision.create_revision(
+                args.project_name, args.version_name, args.asf_uid or "unknown", description=description, modify=modify
+            )
 
     return results.SBOMAugment(
         kind="sbom_augment",
@@ -168,10 +168,10 @@ async def osv_scan(args: FileArgs) -> results.Results | None:
     description = "SBOM vulnerability scan through web interface"
     async with storage.write(args.asf_uid) as write:
         wacp = await write.as_project_committee_participant(args.project_name)
-        async with wacp.revision.create_and_manage(
-            args.project_name, args.version_name, args.asf_uid or "unknown", description=description
-        ) as creating:
-            new_full_path = creating.interim_path / args.file_path
+
+        async def modify(path: pathlib.Path, _old_rev: sql.Revision | None) -> None:
+            nonlocal new_full_path, new_full_path_str
+            new_full_path = path / args.file_path
             new_full_path_str = str(new_full_path)
             # Write to the new revision
             log.info(f"Writing updated SBOM to {new_full_path_str}")
@@ -179,8 +179,9 @@ async def osv_scan(args: FileArgs) -> results.Results | None:
             async with aiofiles.open(new_full_path, "w", encoding="utf-8") as f:
                 await f.write(merged.dumps())
 
-        if creating.new is None:
-            raise RuntimeError("Internal error: New revision not found")
+        await wacp.revision.create_revision(
+            args.project_name, args.version_name, args.asf_uid or "unknown", description=description, modify=modify
+        )
 
     return results.SBOMOSVScan(
         kind="sbom_osv_scan",
