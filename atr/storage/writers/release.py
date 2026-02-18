@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import asyncio
 import base64
-import contextlib
 import datetime
 import hashlib
 from typing import TYPE_CHECKING, Final
@@ -44,7 +43,7 @@ import atr.util as util
 
 if TYPE_CHECKING:
     import pathlib
-    from collections.abc import AsyncGenerator, Sequence
+    from collections.abc import Sequence
 
     import werkzeug.datastructures as datastructures
 
@@ -93,15 +92,6 @@ class CommitteeParticipant(FoundationCommitter):
             raise storage.AccessError("Not authorized")
         self.__asf_uid = asf_uid
         self.__committee_name = committee_name
-
-    @contextlib.asynccontextmanager
-    async def create_and_manage_revision(
-        self, project_name: str, version: str, description: str
-    ) -> AsyncGenerator[types.Creating]:
-        async with self.__write_as.revision.create_and_manage(
-            project_name, version, self.__asf_uid, description=description
-        ) as _creating:
-            yield _creating
 
     async def delete(
         self,

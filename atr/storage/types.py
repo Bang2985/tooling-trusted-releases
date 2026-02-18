@@ -99,11 +99,3 @@ class PublicKeyError(Exception):
 
 class FailedError(Exception):
     pass
-
-
-@dataclasses.dataclass
-class Creating:
-    old: sql.Revision | None
-    interim_path: pathlib.Path
-    new: sql.Revision | None
-    failed: FailedError | None = None
