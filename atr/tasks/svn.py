@@ -25,6 +25,7 @@ import aioshutil
 import atr.log as log
 import atr.models.results as results
 import atr.models.schema as schema
+import atr.models.sql as sql
 import atr.storage as storage
 import atr.tasks.checks as checks
 
@@ -74,24 +75,21 @@ async def _import_files_core(args: SvnImport) -> str:
     description = "Import of files from subversion"
     async with storage.write(args.asf_uid) as write:
         wacp = await write.as_project_committee_participant(args.project_name)
-        async with wacp.revision.create_and_manage(
-            args.project_name, args.version_name, args.asf_uid, description=description
-        ) as creating:
-            # Uses creating.new after this block
-            log.debug(f"Created revision directory: {creating.interim_path}")
 
-            final_target_path = creating.interim_path
+        async def modify(path: pathlib.Path, _old_rev: sql.Revision | None) -> None:
+            log.debug(f"Created revision directory: {path}")
+
+            final_target_path = path
             if args.target_subdirectory:
-                final_target_path = creating.interim_path / args.target_subdirectory
+                final_target_path = path / args.target_subdirectory
                 # Validate that final_target_path is a subdirectory of new_revision_dir
-                if not final_target_path.is_relative_to(creating.interim_path):
+                if not final_target_path.is_relative_to(path):
                     raise SvnImportError(
-                        f"Target subdirectory {args.target_subdirectory}"
-                        f" is not a subdirectory of {creating.interim_path}"
+                        f"Target subdirectory {args.target_subdirectory} is not a subdirectory of {path}"
                     )
                 await aiofiles.os.makedirs(final_target_path, exist_ok=True)
 
-            temp_export_path = creating.interim_path / temp_export_dir_name
+            temp_export_path = path / temp_export_dir_name
 
             svn_command = [
                 "svn",
@@ -123,9 +121,10 @@ async def _import_files_core(args: SvnImport) -> str:
             await aiofiles.os.rmdir(temp_export_path)
             log.info(f"Removed temporary export directory: {temp_export_path}")
 
-        if creating.new is None:
-            raise SvnImportError("Internal error: New revision not found")
-        return f"Successfully imported files from SVN into revision {creating.new.number}"
+        new_revision = await wacp.revision.create_revision(
+            args.project_name, args.version_name, args.asf_uid, description=description, modify=modify
+        )
+        return f"Successfully imported files from SVN into revision {new_revision.number}"
 
 
 async def _import_files_core_run_svn_export(svn_command: list[str], temp_export_path: pathlib.Path) -> None:

@@ -22,6 +22,7 @@ import asyncio.subprocess
 import datetime
 import glob
 import os
+import pathlib
 import stat
 import string
 import time
@@ -564,22 +565,21 @@ async def _step_07b_process_validated_rsync_write(
     description = "File synchronisation through ssh, using rsync"
     async with storage.write(asf_uid) as write:
         wacp = await write.as_project_committee_participant(project_name)
-        async with wacp.revision.create_and_manage(
-            project_name, version_name, asf_uid, description=description
-        ) as creating:
-            # Uses new_revision_number for logging only
-            if creating.old is not None:
-                log.info(f"Using old revision {creating.old.number} and interim path {creating.interim_path}")
+
+        async def modify(path: pathlib.Path, old_rev: sql.Revision | None) -> None:
+            nonlocal exit_status
+            if old_rev is not None:
+                log.info(f"Using old revision {old_rev.number} and interim path {path}")
             # Update the rsync command path to the new revision directory
-            argv[-1] = str(creating.interim_path)
+            argv[-1] = str(path)
 
             ###################################################
             ### Calls _step_08_execute_rsync_upload_command ###
             ###################################################
             exit_status = await _step_08_execute_rsync(process, argv)
             if exit_status != 0:
-                if creating.old is not None:
-                    for_revision = f"successor of revision {creating.old.number}"
+                if old_rev is not None:
+                    for_revision = f"successor of revision {old_rev.number}"
                 else:
                     for_revision = f"initial revision for release {release_name}"
                 log.error(
@@ -588,20 +588,23 @@ async def _step_07b_process_validated_rsync_write(
                 )
                 raise types.FailedError(f"rsync upload failed with exit status {exit_status} for {for_revision}")
 
-        if creating.new is not None:
+        try:
+            new_revision = await wacp.revision.create_revision(
+                project_name, version_name, asf_uid, description=description, modify=modify
+            )
             github_payload = server._get_github_payload(process)
             if github_payload is not None:
                 await attestable.github_tp_payload_write(
-                    project_name, version_name, creating.new.number, github_payload
+                    project_name, version_name, new_revision.number, github_payload
                 )
-            log.info(f"rsync upload successful for revision {creating.new.number}")
+            log.info(f"rsync upload successful for revision {new_revision.number}")
             host = config.get().APP_HOST
-            message = f"\nATR: Created revision {creating.new.number} of {project_name} {version_name}\n"
+            message = f"\nATR: Created revision {new_revision.number} of {project_name} {version_name}\n"
             message += f"ATR: https://{host}/compose/{project_name}/{version_name}\n"
             if not process.stderr.is_closing():
                 process.stderr.write(message.encode())
                 await process.stderr.drain()
-        else:
+        except types.FailedError:
             log.info(f"rsync upload unsuccessful for release {release_name}")
 
         # If we got here, there was no exception

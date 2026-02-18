@@ -31,8 +31,10 @@ import atr.db as db
 import atr.form as form
 import atr.get as get
 import atr.log as log
+import atr.models.sql as sql
 import atr.shared as shared
 import atr.storage as storage
+import atr.storage.types as types
 import atr.util as util
 import atr.web as web
 
@@ -68,25 +70,29 @@ async def finalise(
             number_of_files = len(staged_files)
             description = f"Upload of {util.plural(number_of_files, 'file')} through web interface"
 
-            async with wacp.release.create_and_manage_revision(project_name, version_name, description) as creating:
+            async def modify(path: pathlib.Path, _old_rev: sql.Revision | None) -> None:
                 for filename in staged_files:
                     src = staging_dir / filename
-                    dst = creating.interim_path / filename
+                    dst = path / filename
                     await aioshutil.move(str(src), str(dst))
 
-        await aioshutil.rmtree(staging_dir)
-
-        if creating.failed is not None:
-            await quart.flash(str(creating.failed), "error")
-            return await session.redirect(
-                get.upload.selected,
-                project_name=project_name,
-                version_name=version_name,
+            await wacp.revision.create_revision(
+                project_name, version_name, session.uid, description=description, modify=modify
             )
+
+        await aioshutil.rmtree(staging_dir)
 
         return await session.redirect(
             get.compose.selected,
             success=f"{util.plural(number_of_files, 'file')} added successfully",
+            project_name=project_name,
+            version_name=version_name,
+        )
+    except types.FailedError as e:
+        await aioshutil.rmtree(staging_dir)
+        await quart.flash(str(e), "error")
+        return await session.redirect(
+            get.upload.selected,
             project_name=project_name,
             version_name=version_name,
         )

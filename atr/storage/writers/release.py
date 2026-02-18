@@ -461,20 +461,23 @@ class CommitteeParticipant(FoundationCommitter):
         if validated_path is None:
             raise storage.AccessError("Invalid file path")
         description = f"Upload via API: {validated_path}"
-        async with self.create_and_manage_revision(args.project, args.version, description) as creating:
-            target_path = creating.interim_path / validated_path
+
+        async def modify(path: pathlib.Path, _old_rev: sql.Revision | None) -> None:
+            target_path = path / validated_path
             await aiofiles.os.makedirs(target_path.parent, exist_ok=True)
-            if target_path.exists():
+            if await aiofiles.os.path.exists(target_path):
                 raise storage.AccessError("File already exists")
             async with aiofiles.open(target_path, "wb") as f:
                 await f.write(file_bytes)
-        if creating.new is None:
-            raise storage.AccessError("Failed to create revision")
+
+        revision = await self.__write_as.revision.create_revision(
+            args.project, args.version, self.__asf_uid, description=description, modify=modify
+        )
         async with db.session() as data:
             release_name = sql.release_name(args.project, args.version)
             return await data.revision(
                 release_name=release_name,
-                number=creating.new.number,
+                number=revision.number,
             ).demand(storage.AccessError("Revision not found"))
 
     async def upload_files(
@@ -487,7 +490,8 @@ class CommitteeParticipant(FoundationCommitter):
         """Process and save the uploaded files into a new draft revision."""
         number_of_files = len(files)
         description = f"Upload of {util.plural(number_of_files, 'file')} through web interface"
-        async with self.create_and_manage_revision(project_name, version_name, description) as creating:
+
+        async def modify(path: pathlib.Path, _old_rev: sql.Revision | None) -> None:
             # Save each uploaded file to the new revision directory
             for file in files:
                 # Determine the target path within the new revision directory
@@ -504,12 +508,18 @@ class CommitteeParticipant(FoundationCommitter):
                     relative_file_path = file_name
 
                 # Construct path inside the new revision directory
-                target_path = creating.interim_path / relative_file_path
+                target_path = path / relative_file_path
                 # Ensure parent directories exist within the new revision
                 await aiofiles.os.makedirs(target_path.parent, exist_ok=True)
                 await self.__save_file(file, target_path)
-        creation_error = str(creating.failed) if (creating.failed is not None) else None
-        return creation_error, len(files)
+
+        try:
+            await self.__write_as.revision.create_revision(
+                project_name, version_name, self.__asf_uid, description=description, modify=modify
+            )
+        except types.FailedError as e:
+            return str(e), len(files)
+        return None, len(files)
 
     async def __current_paths(self, interim_path: pathlib.Path) -> list[pathlib.Path]:
         all_current_paths_interim: list[pathlib.Path] = []
