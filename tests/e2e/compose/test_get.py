@@ -55,7 +55,8 @@ def test_ongoing_tasks_banner_appears_when_tasks_restart(page_compose: Page) -> 
     expect(banner).to_be_hidden()
 
     restart_button = page_compose.get_by_role("button", name="Restart all checks")
-    restart_button.click()
+    with page_compose.expect_navigation():
+        restart_button.click()
 
     expect(banner).to_be_visible(timeout=10000)
 
@@ -63,7 +64,8 @@ def test_ongoing_tasks_banner_appears_when_tasks_restart(page_compose: Page) -> 
 def test_ongoing_tasks_banner_has_progress_bar(page_compose: Page) -> None:
     """The ongoing tasks banner should have a progress bar."""
     restart_button = page_compose.get_by_role("button", name="Restart all checks")
-    restart_button.click()
+    with page_compose.expect_navigation():
+        restart_button.click()
 
     progress_bar = page_compose.locator("#poll-progress")
     expect(progress_bar).to_be_visible(timeout=10000)
@@ -72,7 +74,8 @@ def test_ongoing_tasks_banner_has_progress_bar(page_compose: Page) -> None:
 def test_ongoing_tasks_banner_has_task_count(page_compose: Page) -> None:
     """The ongoing tasks banner should display the task count."""
     restart_button = page_compose.get_by_role("button", name="Restart all checks")
-    restart_button.click()
+    with page_compose.expect_navigation():
+        restart_button.click()
 
     banner = page_compose.locator("#ongoing-tasks-banner")
     expect(banner).to_be_visible(timeout=10000)
@@ -84,7 +87,8 @@ def test_ongoing_tasks_banner_has_task_count(page_compose: Page) -> None:
 def test_ongoing_tasks_banner_has_warning_icon(page_compose: Page) -> None:
     """The ongoing tasks banner should have a warning icon when visible."""
     restart_button = page_compose.get_by_role("button", name="Restart all checks")
-    restart_button.click()
+    with page_compose.expect_navigation():
+        restart_button.click()
 
     warning_icon = page_compose.locator("#ongoing-tasks-banner i.bi-exclamation-triangle")
     expect(warning_icon).to_be_visible(timeout=10000)
