@@ -20,8 +20,10 @@ then
 fi
 
 docker compose build e2e-dev
-if ! docker compose run --rm e2e-dev pytest e2e/ -v
+if docker compose run --rm e2e-dev pytest e2e/ -v
 then
+  :
+else
   exit_code=$?
   echo "ERROR: e2e tests failed with exit code ${exit_code}"
   echo "View the container logs with 'docker compose logs atr-dev --tail 100'"

@@ -90,6 +90,9 @@ def test_ongoing_tasks_banner_has_warning_icon(page_compose: Page) -> None:
     with page_compose.expect_navigation():
         restart_button.click()
 
+    banner = page_compose.locator("#ongoing-tasks-banner")
+    expect(banner).to_be_visible(timeout=10000)
+
     warning_icon = page_compose.locator("#ongoing-tasks-banner i.bi-exclamation-triangle")
     expect(warning_icon).to_be_visible(timeout=10000)
 
