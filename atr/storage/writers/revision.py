@@ -277,7 +277,7 @@ class CommitteeParticipant(FoundationCommitter):
         asf_uid: str,
         description: str | None = None,
         use_check_cache: bool = True,
-        modifier: Callable[[pathlib.Path, sql.Revision | None], Awaitable[None]] | None = None,
+        modify: Callable[[pathlib.Path, sql.Revision | None], Awaitable[None]] | None = None,
     ) -> sql.Revision:
         """Create a new revision."""
         # Get the release
@@ -302,8 +302,8 @@ class CommitteeParticipant(FoundationCommitter):
                 old_release_dir = util.release_directory(release)
                 await util.create_hard_link_clone(old_release_dir, temp_dir_path, do_not_create_dest_dir=True)
             # The directory is either empty or its files are hard linked to the previous revision
-            if modifier is not None:
-                await modifier(temp_dir_path, old_revision)
+            if modify is not None:
+                await modify(temp_dir_path, old_revision)
         except types.FailedError:
             await aioshutil.rmtree(temp_dir)
             raise

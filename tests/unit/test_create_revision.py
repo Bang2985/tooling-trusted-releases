@@ -26,10 +26,10 @@ import atr.storage.writers.revision as revision
 
 
 @pytest.mark.asyncio
-async def test_modifier_failed_error_propagates_and_cleans_up(tmp_path: pathlib.Path):
+async def test_modify_failed_error_propagates_and_cleans_up(tmp_path: pathlib.Path):
     received_args: dict[str, object] = {}
 
-    async def modifier(path: pathlib.Path, old_rev: object) -> None:
+    async def modify(path: pathlib.Path, old_rev: object) -> None:
         received_args["path"] = path
         received_args["old_rev"] = old_rev
         (path / "file.txt").write_text("Should be cleaned up.")
@@ -44,7 +44,7 @@ async def test_modifier_failed_error_propagates_and_cleans_up(tmp_path: pathlib.
         patch.object(revision.util, "get_tmp_dir", return_value=tmp_path),
     ):
         with pytest.raises(types.FailedError, match="Intentional error"):
-            await participant.create_revision("proj", "1.0", "test", modifier=modifier)
+            await participant.create_revision("proj", "1.0", "test", modify=modify)
 
     assert isinstance(received_args["path"], pathlib.Path)
     assert received_args["old_rev"] is None

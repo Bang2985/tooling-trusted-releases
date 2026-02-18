@@ -25,7 +25,10 @@ import asyncio
 import datetime
 import tempfile
 import textwrap
-from typing import NoReturn
+from typing import TYPE_CHECKING, NoReturn
+
+if TYPE_CHECKING:
+    import pathlib
 
 import aiofiles
 import aiofiles.os
@@ -481,11 +484,14 @@ class CommitteeParticipant(FoundationCommitter):
         # Remove the KEYS file if 100% imported
         if (outcomes.result_count > 0) and (outcomes.error_count == 0):
             description = "Removed KEYS file after successful import through web interface"
-            async with self.__write_as.revision.create_and_manage(
-                project_name, version_name, self.__asf_uid, description=description
-            ) as creating:
-                path_in_new_revision = creating.interim_path / "KEYS"
+
+            async def modify(path: pathlib.Path, _old_rev: sql.Revision | None) -> None:
+                path_in_new_revision = path / "KEYS"
                 await aiofiles.os.remove(path_in_new_revision)
+
+            await self.__write_as.revision.create_revision(
+                project_name, version_name, self.__asf_uid, description=description, modify=modify
+            )
         return outcomes
 
     def __block_models(self, key_block: str, ldap_data: dict[str, str]) -> list[types.Key | Exception]:
