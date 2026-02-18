@@ -94,7 +94,7 @@ dnspython==2.8.0
     # via
     #   email-validator
     #   tooling-trusted-releases
-dulwich==1.0.0
+dulwich==1.1.0
     # via tooling-trusted-releases
 dunamai==1.26.0
     # via tooling-trusted-releases
