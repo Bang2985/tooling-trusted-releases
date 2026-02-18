@@ -104,10 +104,7 @@ async def fresh(session: web.Committer, project_name: str, version_name: str) ->
     description = "Empty revision to restart all checks for the whole release candidate draft"
     async with storage.write(session) as write:
         wacp = await write.as_project_committee_participant(project_name)
-        async with wacp.revision.create_and_manage(
-            project_name, version_name, session.uid, description=description
-        ) as _creating:
-            pass
+        await wacp.revision.create_revision(project_name, version_name, session.uid, description=description)
 
     return await session.redirect(
         get.compose.selected,
@@ -157,14 +154,13 @@ async def recheck(session: web.Committer, project_name: str, version_name: str) 
     description = "Empty revision to restart all checks without cache for the whole release candidate draft"
     async with storage.write(session) as write:
         wacp = await write.as_project_committee_participant(project_name)
-        async with wacp.revision.create_and_manage(
+        await wacp.revision.create_revision(
             project_name,
             version_name,
             session.uid,
             description=description,
             use_check_cache=False,
-        ) as _creating:
-            pass
+        )
 
     return await session.redirect(
         get.compose.selected,

@@ -414,10 +414,7 @@ class CommitteeParticipant(FoundationCommitter):
         await self.__data.refresh(release)
 
         description = "Creation of empty release candidate draft through web interface"
-        async with self.__write_as.revision.create_and_manage(
-            project_name, version, self.__asf_uid, description=description
-        ) as _creating:
-            pass
+        await self.__write_as.revision.create_revision(project_name, version, self.__asf_uid, description=description)
         self.__write_as.append_to_audit_log(
             asf_uid=self.__asf_uid,
             project_name=project_name,

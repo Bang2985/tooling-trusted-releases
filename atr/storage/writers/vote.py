@@ -283,10 +283,9 @@ class CommitteeMember(CommitteeParticipant):
             success_message = "Vote marked as passed"
 
             description = "Create a preview revision from the last candidate draft"
-            async with self.__write_as.revision.create_and_manage(
+            await self.__write_as.revision.create_revision(
                 project_name, release.version, self.__asf_uid, description=description
-            ) as _creating:
-                pass
+            )
         else:
             release.phase = sql.ReleasePhase.RELEASE_CANDIDATE_DRAFT
             await self.__data.commit()
@@ -371,10 +370,9 @@ class CommitteeMember(CommitteeParticipant):
             success_message = "Vote marked as passed"
 
             description = "Create a preview revision from the last candidate draft"
-            async with self.__write_as.revision.create_and_manage(
+            await self.__write_as.revision.create_revision(
                 project_name, release.version, self.__asf_uid, description=description
-            ) as _creating:
-                pass
+            )
             if (voting_round == 2) and (release.podling_thread_id is not None):
                 round_one_email_address, round_one_message_id = await util.email_mid_from_thread_id(
                     release.podling_thread_id
