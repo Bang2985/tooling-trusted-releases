@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import aioshutil
 import asfquart.base as base
 
 import atr.blueprints.post as post
@@ -24,7 +23,6 @@ import atr.get as get
 import atr.models.sql as sql
 import atr.shared as shared
 import atr.storage as storage
-import atr.util as util
 import atr.web as web
 
 
@@ -50,7 +48,6 @@ async def _set_revision(
 
     async with db.session() as data:
         release = await session.release(project_name, version_name, phase=None, data=data)
-        selected_revision_dir = util.release_directory_base(release) / selected_revision_number
         if release.phase not in {sql.ReleasePhase.RELEASE_CANDIDATE_DRAFT, sql.ReleasePhase.RELEASE_PREVIEW}:
             raise base.ASFQuartException("Cannot set revision for non-draft or preview release", errorcode=400)
 
@@ -67,18 +64,12 @@ async def _set_revision(
     description = f"Copy of revision {selected_revision_number} through web interface"
     async with storage.write(session) as write:
         wacp = await write.as_project_committee_participant(project_name)
-        async with wacp.revision.create_and_manage(
-            project_name, version_name, session.uid, description=description
-        ) as creating:
-            # TODO: Stop create_and_manage from hard linking the parent first
-            await aioshutil.rmtree(creating.interim_path)
-            await util.create_hard_link_clone(selected_revision_dir, creating.interim_path)
-
-        if creating.new is None:
-            raise base.ASFQuartException("Internal error: New revision not found", errorcode=500)
+        new_revision = await wacp.revision.create_revision(
+            project_name, version_name, session.uid, description=description, clone_from=selected_revision_number
+        )
         return await session.redirect(
             get.revisions.selected,
-            success=f"Copied revision {selected_revision_number} to new latest revision, {creating.new.number}",
+            success=f"Copied revision {selected_revision_number} to new latest revision, {new_revision.number}",
             project_name=project_name,
             version_name=version_name,
         )

@@ -21,8 +21,156 @@ import unittest.mock as mock
 
 import pytest
 
+import atr.models.sql as sql
 import atr.storage.types as types
 import atr.storage.writers.revision as revision
+
+
+class AsyncContextManager:
+    async def __aenter__(self):
+        return None
+
+    async def __aexit__(self, _exc_type, _exc, _tb):
+        return False
+
+
+class FakeRevision:
+    def __init__(
+        self,
+        release_name: str,
+        release: object,
+        asfuid: str,
+        created: object,
+        phase: sql.ReleasePhase,
+        description: str | None,
+        use_check_cache: bool,
+    ):
+        self.asfuid = asfuid
+        self.created = created
+        self.description = description
+        self.name = ""
+        self.number = ""
+        self.parent_name: str | None = None
+        self.phase = phase
+        self.release = release
+        self.release_name = release_name
+        self.use_check_cache = use_check_cache
+
+
+class MockSafeData:
+    def __init__(self, parent_name: str):
+        self._new_revision: FakeRevision | None = None
+        self._parent_name = parent_name
+        self.add = mock.MagicMock(side_effect=self._add)
+        self.begin = mock.MagicMock(return_value=AsyncContextManager())
+        self.begin_immediate = mock.AsyncMock()
+        self.commit = mock.AsyncMock()
+        self.flush = mock.AsyncMock(side_effect=self._flush)
+        self.refresh = mock.AsyncMock()
+
+    def _add(self, new_revision: "FakeRevision") -> None:
+        self._new_revision = new_revision
+
+    async def _flush(self) -> None:
+        if self._new_revision is None:
+            raise RuntimeError("Expected data.add to set _new_revision before flush")
+        self._new_revision.name = f"{self._new_revision.release_name} 00006"
+        self._new_revision.number = "00006"
+        self._new_revision.parent_name = self._parent_name
+
+
+class MockSafeSession:
+    def __init__(self, data: MockSafeData):
+        self._data = data
+
+    async def __aenter__(self) -> MockSafeData:
+        return self._data
+
+    async def __aexit__(self, _exc_type, _exc, _tb):
+        return False
+
+
+@pytest.mark.asyncio
+async def test_clone_from_older_revision_skips_merge_without_intervening_change(tmp_path: pathlib.Path):
+    release = mock.MagicMock()
+    release.phase = sql.ReleasePhase.RELEASE_PREVIEW
+    release.project = mock.MagicMock()
+    release.project.release_policy = None
+    release.release_policy = None
+    release_name = sql.release_name("proj", "1.0")
+
+    latest_revision = mock.MagicMock()
+    latest_revision.name = f"{release_name} 00005"
+    latest_revision.number = "00005"
+
+    selected_revision = mock.MagicMock()
+    selected_revision.name = f"{release_name} 00002"
+    selected_revision.number = "00002"
+
+    mock_session = _mock_db_session(release, selected_revision=selected_revision)
+    participant = _make_participant()
+    safe_data = MockSafeData(parent_name=latest_revision.name)
+    merge_mock = mock.AsyncMock()
+
+    with (
+        mock.patch.object(revision.aiofiles.os, "makedirs", new_callable=mock.AsyncMock),
+        mock.patch.object(revision.aiofiles.os, "rename", new_callable=mock.AsyncMock),
+        mock.patch.object(
+            revision.attestable, "load", new_callable=mock.AsyncMock, return_value=mock.MagicMock(paths={})
+        ),
+        mock.patch.object(
+            revision.attestable, "paths_to_hashes_and_sizes", new_callable=mock.AsyncMock, return_value=({}, {})
+        ),
+        mock.patch.object(revision.attestable, "write_files_data", new_callable=mock.AsyncMock),
+        mock.patch.object(revision.db, "session", return_value=mock_session),
+        mock.patch.object(revision.detection, "validate_directory", return_value=[]),
+        mock.patch.object(
+            revision.interaction, "latest_revision", new_callable=mock.AsyncMock, return_value=latest_revision
+        ),
+        mock.patch.object(revision.merge, "merge", new=merge_mock),
+        mock.patch.object(revision.sql, "Revision", side_effect=_make_fake_revision),
+        mock.patch.object(revision, "SafeSession", return_value=MockSafeSession(safe_data)),
+        mock.patch.object(revision.tasks, "draft_checks", new_callable=mock.AsyncMock),
+        mock.patch.object(revision.util, "chmod_directories"),
+        mock.patch.object(revision.util, "chmod_files"),
+        mock.patch.object(
+            revision.util, "create_hard_link_clone", new_callable=mock.AsyncMock
+        ) as create_hard_link_clone_mock,
+        mock.patch.object(revision.util, "get_tmp_dir", return_value=tmp_path),
+        mock.patch.object(revision.util, "paths_to_inodes", return_value={}) as paths_to_inodes_mock,
+        mock.patch.object(revision.util, "release_directory", return_value=tmp_path / "releases" / "00006"),
+        mock.patch.object(revision.util, "release_directory_base", return_value=tmp_path / "releases"),
+    ):
+        await participant.create_revision("proj", "1.0", "test", clone_from="00002")
+
+    if merge_mock.called:
+        raise AssertionError(
+            "Expected create_revision(clone_from=...) to skip merge when no concurrent revision exists"
+        )
+    if create_hard_link_clone_mock.await_count != 1:
+        raise AssertionError("Expected one hard-link clone from clone_from source revision")
+    if paths_to_inodes_mock.call_count != 1:
+        raise AssertionError("Expected one paths_to_inodes call when clone_from disables merge")
+
+    clone_await_args = create_hard_link_clone_mock.await_args
+    inodes_call_args = paths_to_inodes_mock.call_args
+    if clone_await_args is None:
+        raise AssertionError("Expected create_hard_link_clone await args")
+    if inodes_call_args is None:
+        raise AssertionError("Expected paths_to_inodes call args")
+
+    clone_source = clone_await_args.args[0]
+    clone_destination = clone_await_args.args[1]
+    clone_kwargs = clone_await_args.kwargs
+    inodes_input = inodes_call_args.args[0]
+    expected_clone_source = tmp_path / "releases" / "00002"
+
+    if clone_source != expected_clone_source:
+        raise AssertionError("Expected hard-link clone source to match clone_from revision directory")
+    if clone_kwargs.get("do_not_create_dest_dir") is not True:
+        raise AssertionError("Expected hard-link clone to use do_not_create_dest_dir=True")
+    if clone_destination != inodes_input:
+        raise AssertionError("Expected inode scan to run only for the temporary working directory")
 
 
 @pytest.mark.asyncio
@@ -51,17 +199,24 @@ async def test_modify_failed_error_propagates_and_cleans_up(tmp_path: pathlib.Pa
     assert not os.listdir(tmp_path)
 
 
+def _make_fake_revision(**kwargs) -> FakeRevision:
+    return FakeRevision(**kwargs)
+
+
 def _make_participant() -> revision.CommitteeParticipant:
     mock_write = mock.MagicMock()
     mock_write.authorisation.asf_uid = "test"
     return revision.CommitteeParticipant(mock_write, mock.MagicMock(), mock.MagicMock(), "test")
 
 
-def _mock_db_session(release: mock.MagicMock) -> mock.MagicMock:
+def _mock_db_session(release: mock.MagicMock, selected_revision: mock.MagicMock | None = None) -> mock.MagicMock:
     mock_query = mock.MagicMock()
     mock_query.demand = mock.AsyncMock(return_value=release)
+    mock_selected_query = mock.MagicMock()
+    mock_selected_query.demand = mock.AsyncMock(return_value=selected_revision)
     mock_data = mock.AsyncMock()
     mock_data.release = mock.MagicMock(return_value=mock_query)
+    mock_data.revision = mock.MagicMock(return_value=mock_selected_query)
     mock_data.__aenter__ = mock.AsyncMock(return_value=mock_data)
     mock_data.__aexit__ = mock.AsyncMock(return_value=False)
     return mock_data

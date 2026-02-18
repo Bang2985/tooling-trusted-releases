@@ -278,6 +278,7 @@ class CommitteeParticipant(FoundationCommitter):
         description: str | None = None,
         use_check_cache: bool = True,
         modify: Callable[[pathlib.Path, sql.Revision | None], Awaitable[None]] | None = None,
+        clone_from: str | None = None,
     ) -> sql.Revision:
         """Create a new revision."""
         # Get the release
@@ -286,7 +287,18 @@ class CommitteeParticipant(FoundationCommitter):
             release = await data.release(name=release_name, _release_policy=True, _project_release_policy=True).demand(
                 RuntimeError("Release does not exist for new revision creation")
             )
-            old_revision = await interaction.latest_revision(release)
+            if clone_from is not None:
+                old_revision = await data.revision(release_name=release_name, number=clone_from).demand(
+                    RuntimeError(f"Revision {clone_from} does not exist")
+                )
+            else:
+                old_revision = await interaction.latest_revision(release)
+
+        if clone_from is not None:
+            old_release_dir = util.release_directory_base(release) / clone_from
+        else:
+            old_release_dir = util.release_directory(release)
+        merge_enabled = clone_from is None
 
         # Create a temporary directory
         # We ensure, below, that it's removed on any exception
@@ -299,7 +311,6 @@ class CommitteeParticipant(FoundationCommitter):
             # The directory was created by mkdtemp, but it's empty
             if old_revision is not None:
                 # If this is not the first revision, hard link the previous revision
-                old_release_dir = util.release_directory(release)
                 await util.create_hard_link_clone(old_release_dir, temp_dir_path, do_not_create_dest_dir=True)
             # The directory is either empty or its files are hard linked to the previous revision
             if modify is not None:
@@ -338,8 +349,8 @@ class CommitteeParticipant(FoundationCommitter):
                 previous_attestable = await attestable.load(project_name, version_name, parent_revision_number)
             base_inodes: dict[str, int] = {}
             base_hashes: dict[str, str] = {}
-            if old_revision is not None:
-                base_dir = util.release_directory(release)
+            if merge_enabled and (old_revision is not None):
+                base_dir = old_release_dir
                 base_inodes = await asyncio.to_thread(util.paths_to_inodes, base_dir)
                 base_hashes = dict(previous_attestable.paths) if (previous_attestable is not None) else {}
             n_inodes = await asyncio.to_thread(util.paths_to_inodes, temp_dir_path)
@@ -375,7 +386,12 @@ class CommitteeParticipant(FoundationCommitter):
 
                 # Merge with the prior revision if there was an intervening change
                 prior_name = new_revision.parent_name
-                if (old_revision is not None) and (prior_name is not None) and (prior_name != old_revision.name):
+                if (
+                    merge_enabled
+                    and (old_revision is not None)
+                    and (prior_name is not None)
+                    and (prior_name != old_revision.name)
+                ):
                     prior_number = prior_name.split()[-1]
                     prior_dir = util.release_directory_base(release) / prior_number
                     await merge.merge(
