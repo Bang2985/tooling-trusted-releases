@@ -58,10 +58,10 @@ RUN [ -f apache-rat-${RAT_VERSION}.jar ] || mv $(find . -maxdepth 1 -type f -nam
 RUN mv apache-rat-${RAT_VERSION}.jar /opt/tools
 
 # WORKDIR /var/run
-# ENV SYFT_VERSION=1.38.2
+ENV SYFT_VERSION=1.38.2
 # RUN GOPATH=/usr/local go install github.com/anchore/syft/cmd/syft@v${SYFT_VERSION}
 # TODO: This is much faster than the above, but we should figure out how to pin the binaries
-RUN curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+RUN curl -sSfL https://raw.githubusercontent.com/anchore/syft/v${SYFT_VERSION}/install.sh | sh -s -- -b /usr/local/bin
 ENV PARLAY_VERSION=0.9.0
 RUN GOPATH=/usr/local go install github.com/snyk/parlay@v${PARLAY_VERSION}
 ENV SBOMQS_VERSION=1.1.0
