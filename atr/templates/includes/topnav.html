@@ -277,6 +277,11 @@
               </li>
               <li>
                 <a class="dropdown-item"
+                   href="{{ as_url(admin.configuration) }}"
+                   {% if request.endpoint == 'atr_admin_configuration' %}class="active"{% endif %}><i class="bi bi-gear"></i> Configuration</a>
+              </li>
+              <li>
+                <a class="dropdown-item"
                    href="{{ as_url(admin.env) }}"
                    {% if request.endpoint == 'atr_admin_env' %}class="active"{% endif %}><i class="bi bi-gear"></i> Environment</a>
               </li>
