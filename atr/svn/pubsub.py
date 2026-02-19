@@ -65,9 +65,9 @@ class SVNListener:
             log.warning("SVNListener disabled: missing credentials")
             return
 
-        if not self.url.startswith(("http://", "https://")):
+        if not self.url.startswith("https://"):
             log.error(
-                f"Invalid PubSub URL: {self.url!r}. Expected full URL like 'https://pubsub.apache.org:2069'",
+                f"PubSub URL must use HTTPS protocol: {self.url!r}. Example: 'https://pubsub.apache.org:2069'",
             )
             log.warning("SVNListener disabled due to invalid URL")
             return
