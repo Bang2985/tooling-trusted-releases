@@ -914,7 +914,7 @@ async def release_delete(data: models.api.ReleaseDeleteArgs) -> DictResponse:
     """
     asf_uid = _jwt_asf_uid()
     if not user.is_admin(asf_uid):
-        raise exceptions.Forbidden("You do not have permission to create a release")
+        raise exceptions.Forbidden("You do not have permission to delete a release")
 
     async with storage.write(asf_uid) as write:
         wafa = write.as_foundation_admin(data.project)
