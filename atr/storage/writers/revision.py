@@ -250,11 +250,23 @@ class CommitteeParticipant(FoundationCommitter):
                 # Ensure that the parent directory exists
                 await aiofiles.os.makedirs(new_revision_dir.parent, exist_ok=True)
 
+                # Raise an error if the destination directory already exists
+                # This can happen for example if there was a previous failed cleanup
+                if await aiofiles.os.path.exists(new_revision_dir):
+                    raise types.FailedError(f"Revision directory {new_revision_dir} already exists")
+
                 # Rename the temporary interim directory to the new revision number
                 await aiofiles.os.rename(temp_dir, new_revision_dir)
             except Exception:
                 await aioshutil.rmtree(temp_dir)
                 raise
+
+            # Change permissions of all directories in the new revision directory to 555
+            # This prevents accidental modifications to any directory in the new revision
+            # This must be done after the rename, otherwise the rename will fail
+            # The ".." entry in a directory is modified when it is moved between parents
+            # (Additionally, on macOS a 555 directory cannot be renamed within the same parent)
+            await asyncio.to_thread(util.chmod_directories, new_revision_dir, 0o555)
 
             policy = release.release_policy or release.project.release_policy
 

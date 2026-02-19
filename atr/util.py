@@ -385,6 +385,14 @@ def create_secure_ssl_context() -> ssl.SSLContext:
     return ctx
 
 
+async def delete_immutable_directory(path: pathlib.Path, reason: str) -> None:
+    if not reason:
+        raise ValueError("Reason is required to delete an immutable directory")
+    log.info(f"Deleting immutable directory {path} because {reason}")
+    await asyncio.to_thread(chmod_directories, path, 0o755)
+    await aioshutil.rmtree(path)
+
+
 def email_from_uid(uid: str) -> str | None:
     if m := re.search(r"<([^>]+)>", uid):
         return m.group(1).lower()

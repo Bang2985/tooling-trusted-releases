@@ -918,7 +918,10 @@ async def release_delete(data: models.api.ReleaseDeleteArgs) -> DictResponse:
 
     async with storage.write(asf_uid) as write:
         wafa = write.as_foundation_admin(data.project)
-        await wafa.release.delete(data.project, data.version)
+        error = await wafa.release.delete(data.project, data.version)
+        # Ensure that deletion errors are reported to the user
+        if error is not None:
+            raise RuntimeError(error)
     return models.api.ReleaseDeleteResults(
         endpoint="/release/delete",
         deleted=True,

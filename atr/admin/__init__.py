@@ -993,7 +993,10 @@ async def _delete_releases(session: web.Committer, releases_to_delete: list[str]
                     raise RuntimeError(f"Release {release_name} has no committee")
             async with storage.write(session) as write:
                 wafa = write.as_foundation_admin(release.committee.name)
-                await wafa.release.delete(release.project.name, release.version)
+                error = await wafa.release.delete(release.project.name, release.version)
+                # Ensure that deletion errors are reported to the user
+                if error is not None:
+                    raise RuntimeError(error)
             success_count += 1
         except base.ASFQuartException as e:
             log.error(f"Error deleting release {release_name}: {e}")

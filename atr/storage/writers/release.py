@@ -25,7 +25,6 @@ import hashlib
 from typing import TYPE_CHECKING, Final
 
 import aiofiles.os
-import aioshutil
 import sqlalchemy
 import sqlalchemy.engine as engine
 import sqlmodel
@@ -104,7 +103,10 @@ class CommitteeParticipant(FoundationCommitter):
         release = await self.__data.release(
             project_name=project_name, version=version, phase=phase, _committee=True
         ).demand(storage.AccessError(f"Release '{project_name} {version}' not found."))
-        release_dir = util.release_directory_base(release)
+        release_dirs = [
+            util.release_directory_base(release),
+            util.get_attestable_dir() / project_name / version,
+        ]
 
         # Delete from the database using bulk SQL DELETE for efficiency
         log.info(f"Deleting database records for release: {project_name} {version}")
@@ -144,18 +146,21 @@ class CommitteeParticipant(FoundationCommitter):
             await self.__data.execute(counter_delete_stmt)
             log.info(f"Deleted revision counter for test release: {release_name}")
 
-        await self.__data.commit()
-
+        # Filesystem deletions are more likely to have permission errors than database deletions
+        # Therefore we do filesystem deletions first
         if include_downloads:
             await self.__delete_release_data_downloads(release)
-        warning = await self.__delete_release_data_filesystem(release_dir, project_name, version)
+        error = await self.__delete_release_data_filesystem(release_dirs, project_name, version)
+
+        await self.__data.commit()
+
         self.__write_as.append_to_audit_log(
             asf_uid=self.__asf_uid,
             project_name=project_name,
             version=version,
-            warning=warning,
+            error=error,
         )
-        return warning
+        return error
 
     async def delete_empty_directory(
         self, project_name: str, version_name: str, dir_to_delete_rel: pathlib.Path
@@ -545,21 +550,26 @@ class CommitteeParticipant(FoundationCommitter):
                         continue
 
     async def __delete_release_data_filesystem(
-        self, release_dir: pathlib.Path, project_name: str, version: str
+        self, release_dirs: Sequence[pathlib.Path], project_name: str, version: str
     ) -> str | None:
-        # Delete from the filesystem
-        try:
+        delete_errors: list[str] = []
+        for release_dir in release_dirs:
             if await aiofiles.os.path.isdir(release_dir):
-                log.info(f"Deleting filesystem directory: {release_dir}")
-                await aioshutil.rmtree(release_dir)
-                log.info(f"Successfully deleted directory: {release_dir}")
+                try:
+                    log.info(f"Deleting filesystem directory: {release_dir}")
+                    await util.delete_immutable_directory(
+                        release_dir, reason=f"user {self.__asf_uid} is deleting release {project_name} {version}"
+                    )
+                    log.info(f"Successfully deleted directory: {release_dir}")
+                except Exception as e:
+                    log.exception(f"Error deleting filesystem directory {release_dir}:")
+                    delete_errors.append(f"{release_dir}: {e!s}")
             else:
                 log.warning(f"Filesystem directory not found, skipping deletion: {release_dir}")
-        except Exception as e:
-            log.exception(f"Error deleting filesystem directory {release_dir}:")
+        if delete_errors:
             return (
                 f"Database records for '{project_name} {version}' deleted,"
-                f" but failed to delete filesystem directory: {e!s}"
+                f" but failed to delete filesystem directories: {', '.join(delete_errors)}"
             )
         return None
 

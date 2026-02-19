@@ -204,7 +204,11 @@ class CommitteeMember(CommitteeParticipant):
             )
             if unfinished_revisions_path:
                 # This removes all of the prior revisions
-                await aioshutil.rmtree(str(unfinished_revisions_path))
+                # Each prior revision directory is immutable
+                await util.delete_immutable_directory(
+                    unfinished_revisions_path,
+                    reason="user {self.__asf_uid} is releasing {project_name} {version_name} {preview_revision_number}",
+                )
         except Exception as e:
             raise storage.AccessError(f"Error moving files: {e!s}")
 

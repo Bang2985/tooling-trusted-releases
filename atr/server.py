@@ -177,9 +177,15 @@ def _app_dirs_setup(state_dir_str: str, hot_reload: bool) -> None:
         util.get_tmp_dir(),
         util.get_unfinished_dir(),
     ]
+    unfinished_dir = util.get_unfinished_dir()
     for directory in directories_to_ensure:
         directory.mkdir(parents=True, exist_ok=True)
-        util.chmod_directories(directory, permissions=0o755)
+        if directory != unfinished_dir:
+            util.chmod_directories(directory, permissions=0o755)
+        else:
+            # Revision directories and descendants must be 555
+            # Therefore we handle those separately
+            _enforce_unfinished_permissions(unfinished_dir)
 
 
 def _app_setup_api_docs(app: base.QuartApp) -> None:
@@ -594,6 +600,22 @@ def _create_app(app_config: type[config.AppConfig]) -> base.QuartApp:
             log.info("Blockbuster deactivated")
 
     return app
+
+
+def _enforce_unfinished_permissions(unfinished_dir: pathlib.Path) -> None:
+    # Set ancestor directories of revisions to 755
+    for dirpath, _dirnames, _filenames in os.walk(unfinished_dir, topdown=True):
+        path = pathlib.Path(dirpath)
+        depth = len(path.relative_to(unfinished_dir).parts)
+        if depth < 3:
+            os.chmod(path, 0o755)
+
+    # Set revision directories and their descendants to 555
+    for dirpath, _dirnames, _filenames in os.walk(unfinished_dir, topdown=False):
+        path = pathlib.Path(dirpath)
+        depth = len(path.relative_to(unfinished_dir).parts)
+        if depth >= 3:
+            os.chmod(path, 0o555)
 
 
 async def _initialise_pubsub(conf: type[config.AppConfig], app: base.QuartApp):

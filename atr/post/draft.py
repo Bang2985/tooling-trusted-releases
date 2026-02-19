@@ -20,7 +20,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import aiofiles.os
-import aioshutil
 import asfquart.base as base
 import quart
 
@@ -49,19 +48,13 @@ async def delete(session: web.Committer, project_name: str, version_name: str) -
     # Delete the metadata from the database
     async with storage.write(session) as write:
         wacp = await write.as_project_committee_participant(project_name)
-        await wacp.release.delete(
+        error = await wacp.release.delete(
             project_name, version_name, phase=sql.ReleasePhase.RELEASE_CANDIDATE_DRAFT, include_downloads=False
         )
-
-    # Delete the files on disk, including all revisions
-    # We can't use util.release_directory_base here because we don't have the release object
-    draft_dir = util.get_unfinished_dir() / project_name / version_name
-    if await aiofiles.os.path.exists(draft_dir):
-        # Believe this to be another bug in mypy Protocol handling
-        # TODO: Confirm that this is a bug, and report upstream
-        # Changing it to str(...) doesn't work either
-        # Yet it works in preview.py
-        await aioshutil.rmtree(draft_dir)
+        # Ensure that deletion errors are reported to the user
+        if error is not None:
+            await quart.flash(f"Error deleting candidate draft: {error}", "error")
+            return await session.redirect(get.compose.selected, project_name=project_name, version_name=version_name)
 
     return await session.redirect(get.root.index, success="Candidate draft deleted successfully")
 
