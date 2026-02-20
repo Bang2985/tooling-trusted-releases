@@ -219,6 +219,8 @@ import markupsafe
 safe_html = markupsafe.Markup("<strong>Bold</strong>")
 ```
 
+For Markdown rendering, ATR uses `markupsafe.Markup(cmarkgfm.github_flavored_markdown_to_html(markdown_text))`, which safely filters dangerous input before rendering.
+
 Never mark user-controlled data as safe without proper sanitization.
 
 ## File upload security
