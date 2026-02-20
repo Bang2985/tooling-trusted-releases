@@ -3,7 +3,7 @@ revision = 3
 requires-python = "==3.13.*"
 
 [options]
-exclude-newer = "2026-02-20T16:45:38Z"
+exclude-newer = "2026-02-20T19:59:50Z"
 
 [[package]]
 name = "aiofiles"
@@ -178,7 +178,7 @@ wheels = [
 [[package]]
 name = "asfquart"
 version = "0.1.13"
-source = { git = "https://github.com/apache/infrastructure-asfquart.git?rev=sbp#2149346f4463247b86e21cbf71f7f80a954ce6bf" }
+source = { git = "https://github.com/apache/infrastructure-asfquart.git?rev=main#64f2074c8467dc797cd2fd99d2eb3f2bfe04297c" }
 dependencies = [
     { name = "aiohttp" },
     { name = "asfpy" },
@@ -1962,7 +1962,7 @@ requires-dist = [
     { name = "aiosqlite", specifier = ">=0.21.0,<0.22.0" },
     { name = "aiozipstream", specifier = ">=0.4,<0.5" },
     { name = "alembic", specifier = "~=1.14" },
-    { name = "asfquart", git = "https://github.com/apache/infrastructure-asfquart.git?rev=sbp" },
+    { name = "asfquart", git = "https://github.com/apache/infrastructure-asfquart.git?rev=main" },
     { name = "asyncssh", specifier = ">=2.20.0,<3.0.0" },
     { name = "blake3", specifier = ">=1.0.8" },
     { name = "blockbuster", specifier = ">=1.5.23,<2.0.0" },
