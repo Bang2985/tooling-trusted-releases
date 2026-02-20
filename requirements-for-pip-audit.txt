@@ -324,7 +324,9 @@ sqlalchemy==2.0.46
     # via
     #   alembic
     #   sqlmodel
-sqlmodel==0.0.34
+sqlmodel==0.0.35
+    # via tooling-trusted-releases
+ssh-audit==3.3.0
     # via tooling-trusted-releases
 standard-imghdr==3.13.0
     # via tooling-trusted-releases
