@@ -112,9 +112,9 @@ ezt==1.1
     # via
     #   asfpy
     #   asfquart
-filelock==3.24.2
+filelock==3.24.3
     # via virtualenv
-flask==3.1.2
+flask==3.1.3
     # via quart
 forbiddenfruit==0.1.4 ; implementation_name == 'cpython'
     # via blockbuster
@@ -229,7 +229,7 @@ propcache==0.4.1
     #   yarl
 psutil==7.2.2
     # via tooling-trusted-releases
-puremagic==1.30
+puremagic==2.0.0
     # via tooling-trusted-releases
 py-serializable==2.1.0
     # via cyclonedx-python-lib
@@ -293,7 +293,7 @@ referencing==0.37.0
     #   cyclonedx-python-lib
     #   jsonschema
     #   jsonschema-specifications
-regex==2026.1.15
+regex==2026.2.19
     # via djlint
 requests==2.32.5
     # via asfpy
@@ -309,7 +309,7 @@ rpds-py==0.30.0
     # via
     #   jsonschema
     #   referencing
-ruff==0.15.1
+ruff==0.15.2
 semver==3.0.4
     # via tooling-trusted-releases
 six==1.17.0
@@ -358,7 +358,7 @@ urllib3==2.6.3
     #   requests
 uvloop==0.22.1
     # via hypercorn
-virtualenv==20.37.0
+virtualenv==20.38.0
     # via pre-commit
 watchfiles==1.1.1
     # via
@@ -366,7 +366,7 @@ watchfiles==1.1.1
     #   asfquart
 webcolors==25.10.0
     # via jsonschema
-werkzeug==3.1.5
+werkzeug==3.1.6
     # via
     #   flask
     #   quart
