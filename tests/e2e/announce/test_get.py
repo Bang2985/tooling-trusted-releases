@@ -82,3 +82,16 @@ def test_submit_button_disabled_until_confirm_typed(page_announce: Page) -> None
 
     confirm_input.fill("CONFIRM")
     expect(submit_button).to_be_enabled()
+
+
+def test_finish_move_form_populates_from_json(page_finish: Page) -> None:
+    """The finish move form should populate rows from script JSON data."""
+    file_option = page_finish.locator("#file-list-table-body input[type='checkbox'][data-item-path]").first
+    dir_option = page_finish.locator("#dir-list-table-body input[type='radio'][name='target-directory-radio']").first
+    expect(file_option).to_be_visible()
+    expect(dir_option).to_be_visible()
+
+    toggle_button = page_finish.locator("#select-files-toggle-button")
+    expect(toggle_button).to_have_text("Select these files")
+    toggle_button.click()
+    expect(toggle_button).to_have_text("Unselect all")

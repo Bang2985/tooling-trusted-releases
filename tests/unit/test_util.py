@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import json
 import os
 import pathlib
 import stat
@@ -93,3 +94,15 @@ def test_chmod_files_sets_default_permissions(tmp_path: pathlib.Path):
 
     file_mode = stat.S_IMODE(test_file.stat().st_mode)
     assert file_mode == 0o444
+
+
+def test_json_for_script_element_escapes_correctly():
+    payload = ["example.txt", "</script><script>alert(1)</script>", "apple&banana"]
+
+    serialized = util.json_for_script_element(payload)
+
+    assert "</script>" not in serialized
+    assert "<script>" not in serialized
+    assert "apple&banana" not in serialized
+    assert "apple\\u0026banana" in serialized
+    assert json.loads(serialized) == payload

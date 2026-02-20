@@ -44,6 +44,7 @@ import asfquart.base as base
 import asfquart.session as session
 import gitignore_parser
 import jinja2
+import markupsafe
 import quart
 
 # NOTE: The atr.db module imports this module
@@ -137,6 +138,11 @@ def as_url(func: Callable, **kwargs: Any) -> str:
         log.error(f"Cannot get annotations for {func} (type: {type(func)})")
         raise RuntimeError(f"Cannot get annotations for {func} (type: {type(func)})") from e
     return quart.url_for(annotations["endpoint"], **kwargs)
+
+
+def json_for_script_element(value: Any) -> markupsafe.Markup:
+    """Serialise JSON safely for use inside a script element."""
+    return jinja2.utils.htmlsafe_json_dumps(value, dumps=json.dumps, ensure_ascii=False)
 
 
 def asf_uid_from_email(email: str) -> str | None:

@@ -35,6 +35,7 @@ VERSION_NAME: Final[str] = "0.1+e2e-announce"
 FILE_NAME: Final[str] = "apache-test-0.2.tar.gz"
 CURRENT_DIR: Final[pathlib.Path] = pathlib.Path(__file__).parent.resolve()
 ANNOUNCE_URL: Final[str] = f"/announce/{PROJECT_NAME}/{VERSION_NAME}"
+FINISH_URL: Final[str] = f"/finish/{PROJECT_NAME}/{VERSION_NAME}"
 
 
 @pytest.fixture(scope="module")
@@ -100,6 +101,15 @@ def page_announce(announce_context: BrowserContext) -> Generator[Page]:
     """Navigate to the announce page with a fresh page for each test."""
     page = announce_context.new_page()
     helpers.visit(page, ANNOUNCE_URL)
+    yield page
+    page.close()
+
+
+@pytest.fixture
+def page_finish(announce_context: BrowserContext) -> Generator[Page]:
+    """Navigate to the finish page with a fresh page for each test."""
+    page = announce_context.new_page()
+    helpers.visit(page, FINISH_URL)
     yield page
     page.close()
 
