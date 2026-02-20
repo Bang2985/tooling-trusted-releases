@@ -28,6 +28,7 @@ import jwt
 import quart
 
 import atr.config as config
+import atr.ldap as ldap
 import atr.log as log
 import atr.util as util
 
@@ -68,7 +69,7 @@ def require[**P, R](func: Callable[P, Coroutine[Any, Any, R]]) -> Callable[P, Aw
     async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         token = _extract_bearer_token(quart.request)
         try:
-            claims = verify(token)
+            claims = await verify(token)
         except jwt.ExpiredSignatureError as exc:
             raise base.ASFQuartException("Token has expired", errorcode=401) from exc
         except jwt.InvalidTokenError as exc:
@@ -82,8 +83,8 @@ def require[**P, R](func: Callable[P, Coroutine[Any, Any, R]]) -> Callable[P, Aw
     return wrapper
 
 
-def verify(token: str) -> dict[str, Any]:
-    return jwt.decode(
+async def verify(token: str) -> dict[str, Any]:
+    claims = jwt.decode(
         token,
         _JWT_SECRET_KEY,
         algorithms=[_ALGORITHM],
@@ -91,6 +92,12 @@ def verify(token: str) -> dict[str, Any]:
         audience=_ATR_JWT_AUDIENCE,
         options={"require": ["sub", "iss", "aud", "iat", "exp", "jti"]},
     )
+    asf_uid = claims.get("sub")
+    if not isinstance(asf_uid, str):
+        raise jwt.InvalidTokenError("Invalid Bearer JWT subject")
+    if not await ldap.is_active(asf_uid):
+        raise base.ASFQuartException("Account is disabled", errorcode=401)
+    return claims
 
 
 async def verify_github_oidc(token: str) -> dict[str, Any]:

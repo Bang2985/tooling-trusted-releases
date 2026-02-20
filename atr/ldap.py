@@ -183,6 +183,19 @@ async def github_to_apache(github_numeric_uid: int) -> str:
     return ldap_uid_val[0] if isinstance(ldap_uid_val, list) else ldap_uid_val
 
 
+async def is_active(asf_uid: str) -> bool:
+    import atr.config as config
+
+    if get_bind_credentials() is None:
+        return True
+    if config.get().ALLOW_TESTS and (asf_uid == "test"):
+        return True
+    account = await account_lookup(asf_uid)
+    if account is None:
+        return False
+    return not is_banned(account)
+
+
 def is_banned(account: dict[str, str | list[str]]) -> bool:
     banned_attr = account.get("asf-banned", "no")
     # This is mostly for the type checker, but since asf-banned is missing from non-banned accounts,

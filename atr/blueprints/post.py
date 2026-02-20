@@ -28,6 +28,7 @@ import pydantic
 import quart
 
 import atr.form
+import atr.ldap as ldap
 import atr.log as log
 import atr.web as web
 
@@ -42,6 +43,9 @@ def committer(path: str) -> Callable[[web.CommitterRouteFunction[Any]], web.Rout
             web_session = await asfquart.session.read()
             if web_session is None:
                 raise base.ASFQuartException("Not authenticated", errorcode=401)
+            if (web_session.uid is None) or (not await ldap.is_active(web_session.uid)):
+                asfquart.session.clear()
+                raise base.ASFQuartException("Account is disabled", errorcode=401)
 
             enhanced_session = web.Committer(web_session)
             start_time_ns = time.perf_counter_ns()
