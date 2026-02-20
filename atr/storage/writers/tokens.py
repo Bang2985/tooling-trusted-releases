@@ -183,6 +183,10 @@ class FoundationAdmin(CommitteeMember):
         self.__write = write
         self.__write_as = write_as
         self.__data = data
+        asf_uid = write.authorisation.asf_uid
+        if asf_uid is None:
+            raise storage.AccessError("Not authorized")
+        self.__asf_uid = asf_uid
 
     async def revoke_all_user_tokens(self, target_asf_uid: str) -> int:
         """Revoke all PATs for a specified user. Returns count of revoked tokens."""

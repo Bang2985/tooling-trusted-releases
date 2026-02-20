@@ -739,14 +739,14 @@ async def revoke_user_tokens_post(
     session: web.Committer, revoke_form: RevokeUserTokensForm
 ) -> str | web.WerkzeugResponse:
     """Revoke all Personal Access Tokens for a specified user."""
-    target_uid = revoke_form.asf_uid.strip()
+    target_uid = revoke_form.asf_uid
 
     async with storage.write(session) as write:
-        wafa = write.as_foundation_admin("infrastructure")
+        wafa = write.as_foundation_admin(session.asf_uid)
         count = await wafa.tokens.revoke_all_user_tokens(target_uid)
 
     if count > 0:
-        await quart.flash(f"Revoked {count} token(s) for {target_uid}.", "success")
+        await quart.flash(f"Revoked {util.plural(count, 'token')} for {target_uid}.", "success")
     else:
         await quart.flash(f"No tokens found for {target_uid}.", "info")
 
